@@ -53,6 +53,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         try {
           await prognosisLogin(username, password);
         } catch (err) {
+          console.error(`[auth] Prognosis login failed for username "${username}":`, err);
           if (err instanceof PrognosisAuthError) return null;
           throw err;
         }

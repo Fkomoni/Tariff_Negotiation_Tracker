@@ -47,20 +47,31 @@ export class PrognosisAuthError extends Error {}
  * Used both for validating staff sign-in and for the notification service account.
  */
 export async function prognosisLogin(username: string, password: string): Promise<string> {
-  const res = await fetch(`${PROGNOSIS_BASE}/ApiUsers/Login`, {
-    method: "POST",
-    headers: POSTMAN_HEADERS,
-    body: JSON.stringify({ Username: username, Password: password }),
-    cache: "no-store",
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${PROGNOSIS_BASE}/ApiUsers/Login`, {
+      method: "POST",
+      headers: POSTMAN_HEADERS,
+      body: JSON.stringify({ Username: username, Password: password }),
+      cache: "no-store",
+    });
+  } catch (err) {
+    console.error("[prognosis] network error reaching", PROGNOSIS_BASE, err);
+    throw new PrognosisAuthError(
+      `Could not reach Prognosis at ${PROGNOSIS_BASE}: ${err instanceof Error ? err.message : String(err)}`
+    );
+  }
 
   if (!res.ok) {
-    throw new PrognosisAuthError(`Prognosis login failed with status ${res.status}`);
+    const bodyText = await res.text().catch(() => "");
+    console.error("[prognosis] login rejected", res.status, bodyText.slice(0, 500));
+    throw new PrognosisAuthError(`Prognosis login failed with status ${res.status}: ${bodyText.slice(0, 200)}`);
   }
 
   const payload = await res.json().catch(() => null);
   const token = extractToken(payload);
   if (!token) {
+    console.error("[prognosis] no token found in response", JSON.stringify(payload).slice(0, 500));
     throw new PrognosisAuthError("Prognosis login succeeded but no token was found in the response");
   }
   return token;
