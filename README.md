@@ -52,7 +52,7 @@ signs in.
 | `DATABASE_URL` | The Neon connection string from step 1 |
 | `NEXTAUTH_SECRET` | A random secret — generate with `openssl rand -base64 32` |
 | `NEXTAUTH_URL` | Your Render service URL, e.g. `https://tariff-negotiation-tracker.onrender.com` |
-| `PROGNOSIS_BASE` | `https://prognosis-api.leadwayhealth.com/api` (default, only override if it changes) |
+| `PROGNOSIS_BASE` | `https://prognosis-api.leadwayhealth.com` (default, only override if it changes) |
 | `PROGNOSIS_SERVICE_USERNAME` | A Prognosis username dedicated to sending member notifications |
 | `PROGNOSIS_SERVICE_PASSWORD` | That account's password |
 | `ADMIN_USERNAMES` | Your own Prognosis username (comma-separate more than one) |

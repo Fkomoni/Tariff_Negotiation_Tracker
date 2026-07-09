@@ -1,4 +1,4 @@
-const PROGNOSIS_BASE = process.env.PROGNOSIS_BASE ?? "https://prognosis-api.leadwayhealth.com/api";
+const PROGNOSIS_BASE = process.env.PROGNOSIS_BASE ?? "https://prognosis-api.leadwayhealth.com";
 
 const POSTMAN_HEADERS = {
   "Content-Type": "application/json",
@@ -49,7 +49,7 @@ export class PrognosisAuthError extends Error {}
 export async function prognosisLogin(username: string, password: string): Promise<string> {
   let res: Response;
   try {
-    res = await fetch(`${PROGNOSIS_BASE}/ApiUsers/Login`, {
+    res = await fetch(`${PROGNOSIS_BASE}/api/ApiUsers/Login`, {
       method: "POST",
       headers: POSTMAN_HEADERS,
       body: JSON.stringify({ Username: username, Password: password }),
@@ -147,7 +147,7 @@ export interface SendEmailAlertParams {
  * endpoint, so no separate SMTP/SendGrid account is needed.
  */
 export async function sendEmailAlert(params: SendEmailAlertParams): Promise<void> {
-  await servicePost("/EnrolleeProfile/SendEmailAlert", {
+  await servicePost("/api/EnrolleeProfile/SendEmailAlert", {
     EmailAddress: params.emailAddress,
     CC: params.cc ?? "",
     BCC: params.bcc ?? "",
@@ -173,7 +173,7 @@ export interface SendSmsParams {
  * Sends a member-facing SMS through Prognosis's own Sms/SendSms endpoint.
  */
 export async function sendSms(params: SendSmsParams): Promise<void> {
-  await servicePost("/Sms/SendSms", {
+  await servicePost("/api/Sms/SendSms", {
     To: params.to,
     Message: params.message,
     Source: "Tariff Negotiation Tracker",
