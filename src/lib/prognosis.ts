@@ -304,12 +304,19 @@ export interface SendSmsParams {
  * Sends a member-facing SMS through Prognosis's own Sms/SendSms endpoint.
  */
 export async function sendSms(params: SendSmsParams): Promise<void> {
+  // Prognosis's SMS gateway rejects unregistered Source/SourceId/TemplateId
+  // combinations with a generic 500 ("Tariff Negotiation Tracker"/0/0 isn't
+  // registered there). Falling back to the one confirmed-working combination we
+  // have (the Drug Delivery OTP flow) until Provider Team registers a dedicated
+  // Source for this app — check production logs after deploy to confirm this
+  // actually delivers, and whether TemplateId 5 forces OTP wording over our
+  // custom Message body.
   await servicePost("/api/Sms/SendSms", {
     To: params.to,
     Message: params.message,
-    Source: "Tariff Negotiation Tracker",
-    SourceId: 0,
-    TemplateId: 0,
+    Source: "Drug Delivery",
+    SourceId: 1,
+    TemplateId: 5,
     PolicyNumber: "",
     ReferenceNo: params.referenceNo ?? "",
     UserId: 0,
