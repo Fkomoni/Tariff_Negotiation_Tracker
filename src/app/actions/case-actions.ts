@@ -32,14 +32,12 @@ const createCaseSchema = z.object({
     z.coerce.number().int().min(0).optional()
   ),
   serviceType: z.enum([
-    "MEDICATION",
-    "DELIVERY",
-    "SURGERY",
-    "LAB",
-    "SCAN",
-    "ADMISSION",
-    "PROCEDURE",
-    "OTHERS",
+    "CONSULTATION",
+    "MEDICATIONS",
+    "INVESTIGATIONS",
+    "ADMISSION_RELATED_SERVICES",
+    "PROCEDURES_AND_SERVICES",
+    "SURGERIES",
   ]),
   requestedItem: z.string().min(2, "Requested service/item is required"),
   serviceCode: z.string().optional(),
@@ -192,20 +190,22 @@ export async function claimCase(formData: FormData) {
   const existing = await prisma.negotiationCase.findUnique({ where: { id: caseId } });
   if (!existing) throw new Error("Case not found");
 
-  await prisma.negotiationCase.update({
-    where: { id: caseId },
-    data: {
-      ownerUserId: session.user.id,
-      firstActionAt: existing.firstActionAt ?? new Date(),
-      updates: {
-        create: {
-          userId: session.user.id,
-          type: "OWNER_CHANGE",
-          note: "Claimed by Provider Team",
+  if (!existing.ownerUserId) {
+    await prisma.negotiationCase.update({
+      where: { id: caseId },
+      data: {
+        ownerUserId: session.user.id,
+        firstActionAt: existing.firstActionAt ?? new Date(),
+        updates: {
+          create: {
+            userId: session.user.id,
+            type: "OWNER_CHANGE",
+            note: "Claimed by Provider Team",
+          },
         },
       },
-    },
-  });
+    });
+  }
 
   revalidatePath(`/negotiations/${caseId}`);
   revalidatePath("/negotiations/queue");

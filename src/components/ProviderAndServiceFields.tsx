@@ -14,7 +14,7 @@ export function ProviderAndServiceFields({ initialProvider }: { initialProvider?
       <ProviderFields initial={initialProvider} onProviderCodeChange={setProviderCode} />
 
       <Field label="Service Type" required>
-        <select name="serviceType" required className={inputClass} defaultValue="MEDICATION">
+        <select name="serviceType" required className={inputClass} defaultValue="CONSULTATION">
           {Object.entries(SERVICE_TYPE_LABELS).map(([value, label]) => (
             <option key={value} value={value}>
               {label}

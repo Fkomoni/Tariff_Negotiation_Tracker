@@ -1,14 +1,12 @@
 import type { CaseStatus, ServiceType, Urgency, Role } from "@prisma/client";
 
 export const SERVICE_TYPE_LABELS: Record<ServiceType, string> = {
-  MEDICATION: "Medication",
-  DELIVERY: "Delivery",
-  SURGERY: "Surgery",
-  LAB: "Lab",
-  SCAN: "Scan",
-  ADMISSION: "Admission",
-  PROCEDURE: "Procedure",
-  OTHERS: "Others",
+  CONSULTATION: "Consultation",
+  MEDICATIONS: "Medications",
+  INVESTIGATIONS: "Investigations",
+  ADMISSION_RELATED_SERVICES: "Admission Related Services",
+  PROCEDURES_AND_SERVICES: "Procedures and Services",
+  SURGERIES: "Surgeries",
 };
 
 export const URGENCY_LABELS: Record<Urgency, string> = {

@@ -1,7 +1,8 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Header } from "@/components/Header";
-import { Card, CardHeader, Button, inputClass } from "@/components/ui";
+import { Card, CardHeader, inputClass } from "@/components/ui";
+import { SubmitButton } from "@/components/SubmitButton";
 import { ConfigIcon } from "@/components/icons";
 import { ROLE_LABELS, formatDateTime } from "@/lib/domain";
 import { assignRole } from "@/app/actions/admin-actions";
@@ -55,9 +56,9 @@ export default async function ConfigurationPage() {
                             </option>
                           ))}
                         </select>
-                        <Button type="submit" variant="secondary" className="px-3 py-1.5">
+                        <SubmitButton variant="secondary" className="px-3 py-1.5" pendingLabel="Saving…">
                           Save
-                        </Button>
+                        </SubmitButton>
                       </form>
                     </td>
                     <td />

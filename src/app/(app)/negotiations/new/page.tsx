@@ -1,7 +1,8 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Header } from "@/components/Header";
-import { Card, Field, Button, inputClass } from "@/components/ui";
+import { Card, Field, inputClass } from "@/components/ui";
+import { SubmitButton } from "@/components/SubmitButton";
 import { LogIcon } from "@/components/icons";
 import { createCase } from "@/app/actions/case-actions";
 import { URGENCY_LABELS } from "@/lib/domain";
@@ -104,7 +105,7 @@ export default async function LogNegotiationPage({
             </Field>
 
             <div className="flex justify-end gap-3 sm:col-span-2">
-              <Button type="submit">Log Request</Button>
+              <SubmitButton pendingLabel="Logging…">Log Request</SubmitButton>
             </div>
           </form>
         </Card>
