@@ -1,0 +1,163 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  CONTACT_CENTER
+  PROVIDER_TEAM
+  PENDING
+}
+
+enum ServiceType {
+  MEDICATION
+  DELIVERY
+  SURGERY
+  LAB
+  SCAN
+  ADMISSION
+  PROCEDURE
+  OTHERS
+}
+
+enum Urgency {
+  ROUTINE
+  URGENT
+  EMERGENCY
+}
+
+enum CaseStatus {
+  NEW_REQUEST
+  UNDER_REVIEW
+  NEGOTIATING
+  AWAITING_PROVIDER_FEEDBACK
+  AWAITING_INTERNAL_APPROVAL
+  COMPLETED
+  DECLINED
+  ESCALATED
+}
+
+enum UpdateType {
+  STATUS_CHANGE
+  NOTE
+  NOTIFICATION
+  OWNER_CHANGE
+}
+
+enum NotificationUrgencyTemplate {
+  ROUTINE
+  URGENT
+}
+
+enum NotificationStatus {
+  SENT
+  FAILED
+}
+
+enum NotificationChannel {
+  EMAIL
+  SMS
+}
+
+model User {
+  id                String   @id @default(cuid())
+  prognosisUsername String   @unique
+  displayName        String?
+  email               String?
+  role                Role     @default(PENDING)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  loggedCases   NegotiationCase[] @relation("LoggedBy")
+  ownedCases    NegotiationCase[] @relation("OwnedBy")
+  caseUpdates   CaseUpdate[]
+  notifications MemberNotification[]
+}
+
+model NegotiationCase {
+  id                     String      @id @default(cuid())
+  caseNumber             String      @unique
+
+  providerName           String
+  enrolleeName           String
+  enrolleeId             String?
+  enrolleeEmail          String?
+  enrolleePhone          String?
+
+  serviceType            ServiceType
+  requestedItem          String
+  currentTariff          Decimal     @db.Decimal(14, 2)
+  providerRequestedAmount Decimal    @db.Decimal(14, 2)
+  reason                 String
+  urgency                Urgency     @default(ROUTINE)
+  notes                  String?
+
+  status                 CaseStatus  @default(NEW_REQUEST)
+  finalAgreedAmount      Decimal?    @db.Decimal(14, 2)
+  approvalReason         String?
+
+  loggedByUserId         String
+  loggedBy               User        @relation("LoggedBy", fields: [loggedByUserId], references: [id])
+  loggedAt               DateTime    @default(now())
+
+  ownerUserId            String?
+  owner                  User?       @relation("OwnedBy", fields: [ownerUserId], references: [id])
+
+  firstActionAt          DateTime?
+  completedAt            DateTime?
+
+  createdAt              DateTime    @default(now())
+  updatedAt              DateTime    @updatedAt
+
+  updates       CaseUpdate[]
+  notifications MemberNotification[]
+
+  @@index([status])
+  @@index([urgency])
+  @@index([providerName])
+  @@index([loggedAt])
+}
+
+model CaseUpdate {
+  id             String     @id @default(cuid())
+  caseId         String
+  case           NegotiationCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  userId         String
+  user           User       @relation(fields: [userId], references: [id])
+
+  type           UpdateType
+  previousStatus CaseStatus?
+  newStatus      CaseStatus?
+  note           String?
+
+  createdAt      DateTime   @default(now())
+
+  @@index([caseId])
+}
+
+model MemberNotification {
+  id            String   @id @default(cuid())
+  caseId        String
+  case          NegotiationCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  sentByUserId  String
+  sentBy        User     @relation(fields: [sentByUserId], references: [id])
+
+  template      NotificationUrgencyTemplate
+  channel       NotificationChannel
+  message       String
+  recipientEmail String?
+  recipientPhone String?
+  status        NotificationStatus
+  errorMessage  String?
+
+  createdAt     DateTime @default(now())
+
+  @@index([caseId])
+}
