@@ -420,6 +420,19 @@ function firstString(raw: Record<string, unknown>, keys: string[]): string | nul
   return null;
 }
 
+/** Some enrollee records have junk placeholder text (e.g. "Normal") in the
+ * email slot rather than a real address, so only accept values that are
+ * actually shaped like an email. */
+function firstValidEmail(raw: Record<string, unknown>, keys: string[]): string | null {
+  for (const key of keys) {
+    const value = raw[key];
+    if (typeof value === "string" && /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value.trim())) {
+      return value.trim();
+    }
+  }
+  return null;
+}
+
 function ageFromDob(dob: string | null): number | null {
   if (!dob) return null;
   const parsed = new Date(dob);
@@ -452,8 +465,17 @@ function mapEnrolleeRecord(raw: Record<string, unknown>): EnrolleeRecord | null 
   return {
     enrolleeId: firstString(raw, ["Member_EnrolleeID", "EnrolleeID", "EnrolleeId", "EnrolleeCode", "MemberID", "MemberId"]),
     fullName,
-    email: firstString(raw, ["Member_Email", "Email", "EmailAddress"]),
+    email: firstValidEmail(raw, [
+      "Member_EmailAddress_One",
+      "Member_EmailAddress_Two",
+      "Member_Email",
+      "Email",
+      "EmailAddress",
+    ]),
     phone: firstString(raw, [
+      "Member_Phone_One",
+      "Member_Phone_Two",
+      "Member_Phone_Three",
       "Member_MobileNo",
       "Member_PhoneNo",
       "Member_Phone",
@@ -464,6 +486,7 @@ function mapEnrolleeRecord(raw: Record<string, unknown>): EnrolleeRecord | null 
       "Phone",
     ]),
     company: firstString(raw, [
+      "Client_ClientName",
       "Member_CompanyName",
       "Member_GroupName",
       "Member_ClientName",
@@ -473,6 +496,8 @@ function mapEnrolleeRecord(raw: Record<string, unknown>): EnrolleeRecord | null 
       "ClientName",
     ]),
     scheme: firstString(raw, [
+      "Member_Plan",
+      "Product_schemeType",
       "Member_SchemeName",
       "Member_PlanName",
       "SchemeName",
