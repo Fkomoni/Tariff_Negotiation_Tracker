@@ -41,10 +41,122 @@ function extractToken(payload: unknown): string | null {
 }
 
 export class PrognosisAuthError extends Error {}
+export class PrognosisUnavailableError extends Error {}
+
+function getServiceCredentials(): { username: string; password: string } | null {
+  const username =
+    process.env.PROGNOSIS_SERVICE_USERNAME ||
+    process.env.PROGNOSIS_USERNAME ||
+    process.env.PROGNOSIS_SERVICE_USER;
+  const password =
+    process.env.PROGNOSIS_SERVICE_PASSWORD ||
+    process.env.PROGNOSIS_PASSWORD ||
+    process.env.PROGNOSIS_SERVICE_PW;
+  if (!username || !password) return null;
+  return { username, password };
+}
+
+interface StaffLoginResult {
+  email: string;
+  displayName: string | null;
+  role: string | null;
+}
+
+function isFailureStatus(value: unknown): boolean {
+  if (value === false) return true;
+  if (typeof value === "string") return ["error", "fail", "failed"].includes(value.toLowerCase());
+  return false;
+}
+
+/**
+ * Authenticates a staff member against Prognosis's portal login endpoint.
+ * This identifies our app to Prognosis via HTTP Basic auth (a shared service
+ * account), while the staff member's own credentials travel in the JSON body.
+ */
+export async function prognosisStaffLogin(username: string, password: string): Promise<StaffLoginResult> {
+  const service = getServiceCredentials();
+  if (!service) {
+    throw new PrognosisUnavailableError(
+      "PROGNOSIS_SERVICE_USERNAME / PROGNOSIS_SERVICE_PASSWORD are not configured"
+    );
+  }
+
+  const basicAuth = Buffer.from(`${service.username}:${service.password}`).toString("base64");
+
+  let res: Response;
+  try {
+    res = await fetch(`${PROGNOSIS_BASE}/api/Account/ExternalPortalLogin`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "User-Agent": "PostmanRuntime/7.51.1",
+        Authorization: `Basic ${basicAuth}`,
+      },
+      body: JSON.stringify({
+        UserName: username,
+        Email: username,
+        Password: password,
+        LogInSource: "Core",
+      }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(12_000),
+    });
+  } catch (err) {
+    console.error("[prognosis] network error reaching", PROGNOSIS_BASE, err);
+    throw new PrognosisUnavailableError(
+      `Could not reach Prognosis at ${PROGNOSIS_BASE}: ${err instanceof Error ? err.message : String(err)}`
+    );
+  }
+
+  if (res.status === 401 || res.status === 403) {
+    console.error("[prognosis] staff login rejected", res.status);
+    throw new PrognosisAuthError("Invalid email or password");
+  }
+
+  if (res.status >= 500) {
+    const bodyText = await res.text().catch(() => "");
+    console.error("[prognosis] staff directory unavailable", res.status, bodyText.slice(0, 500));
+    throw new PrognosisUnavailableError(`Staff directory unavailable: ${res.status}`);
+  }
+
+  if (!res.ok) {
+    const bodyText = await res.text().catch(() => "");
+    console.error("[prognosis] staff login failed", res.status, bodyText.slice(0, 500));
+    throw new PrognosisAuthError(`Prognosis login failed with status ${res.status}: ${bodyText.slice(0, 200)}`);
+  }
+
+  const payload = (await res.json().catch(() => null)) as Record<string, unknown> | null;
+
+  if (payload && isFailureStatus(payload.status ?? payload.Status)) {
+    console.error("[prognosis] staff login returned failure status", JSON.stringify(payload).slice(0, 500));
+    throw new PrognosisAuthError("Invalid email or password");
+  }
+
+  const result = (payload?.result ?? payload?.Result) as unknown;
+  const staffUser = Array.isArray(result) ? (result[0] as Record<string, unknown> | undefined) : undefined;
+
+  if (!staffUser) {
+    console.error("[prognosis] no result in staff login response", JSON.stringify(payload).slice(0, 500));
+    throw new PrognosisAuthError("Invalid email or password");
+  }
+
+  const email =
+    (staffUser.Email as string) || (staffUser.email as string) || (staffUser.UserName as string) || username;
+  const displayName =
+    (staffUser.FullName as string) ||
+    (staffUser.Name as string) ||
+    (staffUser.DisplayName as string) ||
+    null;
+  const role = (staffUser.Role as string) || (staffUser.RoleName as string) || null;
+
+  return { email, displayName, role };
+}
 
 /**
  * Authenticates a single username/password pair against Prognosis.
- * Used both for validating staff sign-in and for the notification service account.
+ * Used for the notification service account (via ApiUsers/Login), which is
+ * a separate flow from staff portal sign-in (ExternalPortalLogin above).
  */
 export async function prognosisLogin(username: string, password: string): Promise<string> {
   let res: Response;
@@ -90,15 +202,14 @@ async function getServiceToken(forceRefresh = false): Promise<string> {
     return cachedServiceToken.token;
   }
 
-  const username = process.env.PROGNOSIS_SERVICE_USERNAME;
-  const password = process.env.PROGNOSIS_SERVICE_PASSWORD;
-  if (!username || !password) {
+  const service = getServiceCredentials();
+  if (!service) {
     throw new PrognosisAuthError(
       "PROGNOSIS_SERVICE_USERNAME / PROGNOSIS_SERVICE_PASSWORD are not configured"
     );
   }
 
-  const token = await prognosisLogin(username, password);
+  const token = await prognosisLogin(service.username, service.password);
   cachedServiceToken = { token, expiresAt: Date.now() + TOKEN_TTL_MS };
   return token;
 }

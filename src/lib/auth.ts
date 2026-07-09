@@ -1,7 +1,7 @@
 import NextAuth, { type DefaultSession } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
-import { prognosisLogin, PrognosisAuthError } from "@/lib/prognosis";
+import { prognosisStaffLogin, PrognosisAuthError, PrognosisUnavailableError } from "@/lib/prognosis";
 import type { Role } from "@prisma/client";
 
 declare module "next-auth" {
@@ -50,15 +50,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const password = String(credentials?.password ?? "");
         if (!username || !password) return null;
 
-        console.error(
-          `[auth] login attempt: username=${JSON.stringify(username)} (len=${username.length}), password length=${password.length}, first/last char codes=${password.charCodeAt(0)}/${password.charCodeAt(password.length - 1)}`
-        );
-
+        let staff;
         try {
-          await prognosisLogin(username, password);
+          staff = await prognosisStaffLogin(username, password);
         } catch (err) {
-          console.error(`[auth] Prognosis login failed for username "${username}":`, err);
-          if (err instanceof PrognosisAuthError) return null;
+          console.error(`[auth] Prognosis staff login failed for username "${username}":`, err);
+          if (err instanceof PrognosisAuthError || err instanceof PrognosisUnavailableError) return null;
           throw err;
         }
 
@@ -73,6 +70,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           : await prisma.user.create({
               data: {
                 prognosisUsername: username,
+                displayName: staff.displayName,
+                email: staff.email,
                 role: isSeededAdmin ? "ADMIN" : "PENDING",
               },
             });
