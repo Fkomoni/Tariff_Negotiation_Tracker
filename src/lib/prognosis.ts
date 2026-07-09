@@ -244,13 +244,22 @@ async function serviceRequest(
     res = await call(token);
   }
 
+  const text = await res.text().catch(() => "");
+
   if (!res.ok) {
-    const text = await res.text().catch(() => "");
     console.error("[prognosis] service request failed", method, path, res.status, text.slice(0, 500));
     throw new Error(`${path} failed with status ${res.status}: ${text}`);
   }
 
-  return res.json().catch(() => null);
+  if (path.includes("/EnrolleeProfile/")) {
+    console.error("[prognosis] enrollee response", method, path, res.status, text.slice(0, 800));
+  }
+
+  try {
+    return text ? JSON.parse(text) : null;
+  } catch {
+    return null;
+  }
 }
 
 async function servicePost(path: string, body: unknown): Promise<void> {
@@ -540,6 +549,7 @@ async function searchByMembershipRoot(root: string): Promise<EnrolleeRecord[]> {
  */
 export async function searchEnrollees(query: string): Promise<EnrolleeRecord[]> {
   const classified = classifyEnrolleeQuery(query);
+  console.error("[prognosis] enrollee search classified", JSON.stringify(query), "as", classified);
   if (!classified) return [];
 
   switch (classified.type) {
