@@ -389,3 +389,127 @@ export async function searchProviders(query: string, limit = 20): Promise<Provid
   const providers = await getProviders();
   return providers.filter((p) => p.name.toLowerCase().includes(q)).slice(0, limit);
 }
+
+export interface EnrolleeRecord {
+  enrolleeId: string | null;
+  fullName: string;
+  email: string | null;
+  phone: string | null;
+  company: string | null;
+  scheme: string | null;
+  age: number | null;
+}
+
+function firstString(raw: Record<string, unknown>, keys: string[]): string | null {
+  for (const key of keys) {
+    const value = raw[key];
+    if (typeof value === "string" && value.trim().length > 0) return value.trim();
+  }
+  return null;
+}
+
+function ageFromDob(dob: string | null): number | null {
+  if (!dob) return null;
+  const parsed = new Date(dob);
+  if (Number.isNaN(parsed.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - parsed.getFullYear();
+  const monthDiff = now.getMonth() - parsed.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < parsed.getDate())) age--;
+  return age >= 0 && age < 130 ? age : null;
+}
+
+function mapEnrolleeRecord(raw: Record<string, unknown>): EnrolleeRecord | null {
+  const fullName =
+    firstString(raw, ["FullName", "Fullname", "EnrolleeName", "Name", "MemberName"]) ??
+    [firstString(raw, ["FirstName", "Firstname"]), firstString(raw, ["LastName", "Lastname", "Surname"])]
+      .filter(Boolean)
+      .join(" ");
+  if (!fullName) return null;
+
+  const ageRaw = firstString(raw, ["Age"]);
+  const age = ageRaw && !Number.isNaN(Number(ageRaw)) ? Number(ageRaw) : ageFromDob(firstString(raw, ["DateOfBirth", "DOB", "Dob"]));
+
+  return {
+    enrolleeId: firstString(raw, ["EnrolleeID", "EnrolleeId", "EnrolleeCode", "MemberID", "MemberId"]),
+    fullName,
+    email: firstString(raw, ["Email", "EmailAddress"]),
+    phone: firstString(raw, ["MobileNo", "MobileNumber", "PhoneNo", "Contact1", "Phone"]),
+    company: firstString(raw, ["CompanyName", "Company", "GroupName", "ClientName"]),
+    scheme: firstString(raw, ["SchemeName", "Scheme", "PlanName", "Plan"]),
+    age,
+  };
+}
+
+function extractEnrolleeRecords(payload: unknown): EnrolleeRecord[] {
+  if (!payload || typeof payload !== "object") return [];
+  const p = payload as Record<string, unknown>;
+
+  let raw: unknown = p.result ?? p.Result ?? p.data ?? p.Data ?? payload;
+  if (!Array.isArray(raw)) raw = raw && typeof raw === "object" ? [raw] : [];
+
+  const records: EnrolleeRecord[] = [];
+  for (const item of raw as unknown[]) {
+    if (!item || typeof item !== "object") continue;
+    const mapped = mapEnrolleeRecord(item as Record<string, unknown>);
+    if (mapped) records.push(mapped);
+  }
+  return records;
+}
+
+async function fetchEnrolleeEndpoint(path: string): Promise<EnrolleeRecord[]> {
+  try {
+    const payload = await serviceRequest("GET", path);
+    return extractEnrolleeRecords(payload);
+  } catch (err) {
+    console.error(`[prognosis] enrollee lookup failed for ${path}:`, err);
+    return [];
+  }
+}
+
+type EnrolleeQueryType = "email" | "phone" | "enrolleeId" | "name";
+
+function classifyEnrolleeQuery(raw: string): { type: EnrolleeQueryType; value: string } | null {
+  const q = raw.trim();
+  if (q.length < 3) return null;
+
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(q)) return { type: "email", value: q };
+
+  if (/^\d+\/\d+$/.test(q)) return { type: "enrolleeId", value: q };
+
+  const digitsOnly = q.replace(/[\s+()-]/g, "");
+  if (/^\d{7,15}$/.test(digitsOnly)) return { type: "phone", value: digitsOnly };
+
+  return { type: "name", value: q };
+}
+
+/**
+ * Searches Prognosis for an enrollee by whichever identifier the query looks
+ * like — email, phone, enrollee ID, or name — dispatching to the matching
+ * GetEnrolleeBioDataBy* endpoint. Field names in the response are unconfirmed
+ * against a real payload, so mapping is deliberately permissive; check
+ * [prognosis] logs if a known-good search comes back empty.
+ */
+export async function searchEnrollees(query: string): Promise<EnrolleeRecord[]> {
+  const classified = classifyEnrolleeQuery(query);
+  if (!classified) return [];
+
+  switch (classified.type) {
+    case "email":
+      return fetchEnrolleeEndpoint(
+        `/api/EnrolleeProfile/GetEnrolleeBioDataByEmail?email=${encodeURIComponent(classified.value)}`
+      );
+    case "phone":
+      return fetchEnrolleeEndpoint(
+        `/api/EnrolleeProfile/GetEnrolleeBioDataByMobileNo?mobileno=${encodeURIComponent(classified.value)}`
+      );
+    case "enrolleeId":
+      return fetchEnrolleeEndpoint(
+        `/api/EnrolleeProfile/GetEnrolleeBioDataByEnrolleeID?enrolleeid=${encodeURIComponent(classified.value)}`
+      );
+    case "name":
+      return fetchEnrolleeEndpoint(
+        `/api/EnrolleeProfile/GetEnrolleeBioDataByName?fullname=${encodeURIComponent(classified.value)}`
+      );
+  }
+}

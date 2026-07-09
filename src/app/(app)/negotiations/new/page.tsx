@@ -5,6 +5,7 @@ import { LogIcon } from "@/components/icons";
 import { createCase } from "@/app/actions/case-actions";
 import { SERVICE_TYPE_LABELS, URGENCY_LABELS } from "@/lib/domain";
 import { ProviderFields } from "@/components/ProviderFields";
+import { EnrolleeFields } from "@/components/EnrolleeFields";
 
 export default async function LogNegotiationPage({
   searchParams,
@@ -40,13 +41,7 @@ export default async function LogNegotiationPage({
           <form action={createCase} className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2">
             <ProviderFields />
 
-            <Field label="Enrollee Name" required>
-              <input name="enrolleeName" required className={inputClass} placeholder="e.g. Favour Adekunle" />
-            </Field>
-
-            <Field label="Enrollee ID" hint="Optional, e.g. 21000645/0">
-              <input name="enrolleeId" className={inputClass} />
-            </Field>
+            <EnrolleeFields />
 
             <Field label="Service Type" required>
               <select name="serviceType" required className={inputClass} defaultValue="MEDICATION">
@@ -78,14 +73,6 @@ export default async function LogNegotiationPage({
                   </option>
                 ))}
               </select>
-            </Field>
-
-            <Field label="Enrollee Email" hint="Needed to send an email notification later">
-              <input name="enrolleeEmail" type="email" className={inputClass} placeholder="member@email.com" />
-            </Field>
-
-            <Field label="Enrollee Phone" hint="Needed to send an SMS notification later">
-              <input name="enrolleePhone" className={inputClass} placeholder="e.g. +234..." />
             </Field>
 
             <Field label="Reason Provider Is Negotiating" required className="sm:col-span-2">

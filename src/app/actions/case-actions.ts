@@ -25,6 +25,12 @@ const createCaseSchema = z.object({
   enrolleeId: z.string().optional(),
   enrolleeEmail: z.string().email("Enter a valid email").optional().or(z.literal("")),
   enrolleePhone: z.string().optional(),
+  enrolleeCompany: z.string().optional(),
+  enrolleeScheme: z.string().optional(),
+  enrolleeAge: z.preprocess(
+    (v) => (v === "" || v === undefined ? undefined : v),
+    z.coerce.number().int().min(0).optional()
+  ),
   serviceType: z.enum([
     "MEDICATION",
     "DELIVERY",
@@ -67,6 +73,9 @@ export async function createCase(formData: FormData) {
       enrolleeId: data.enrolleeId || null,
       enrolleeEmail: data.enrolleeEmail || null,
       enrolleePhone: data.enrolleePhone || null,
+      enrolleeCompany: data.enrolleeCompany || null,
+      enrolleeScheme: data.enrolleeScheme || null,
+      enrolleeAge: data.enrolleeAge ?? null,
       serviceType: data.serviceType,
       requestedItem: data.requestedItem,
       currentTariff: data.currentTariff,

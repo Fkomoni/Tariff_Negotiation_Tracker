@@ -91,6 +91,9 @@ model NegotiationCase {
   enrolleeId             String?
   enrolleeEmail          String?
   enrolleePhone          String?
+  enrolleeCompany        String?
+  enrolleeScheme         String?
+  enrolleeAge            Int?
 
   serviceType            ServiceType
   requestedItem          String
