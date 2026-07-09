@@ -221,13 +221,15 @@ async function getServiceToken(forceRefresh = false): Promise<string> {
 async function serviceRequest(
   method: "GET" | "POST",
   path: string,
-  body?: unknown
+  body?: unknown,
+  extraHeaders?: Record<string, string>
 ): Promise<Record<string, unknown> | null> {
   const call = async (token: string) =>
     fetch(`${PROGNOSIS_BASE}${path}`, {
       method,
       headers: {
         ...POSTMAN_HEADERS,
+        ...extraHeaders,
         Authorization: `Bearer ${token}`,
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -398,6 +400,7 @@ export interface EnrolleeRecord {
   company: string | null;
   scheme: string | null;
   age: number | null;
+  relationship: string | null;
 }
 
 function firstString(raw: Record<string, unknown>, keys: string[]): string | null {
@@ -438,6 +441,13 @@ function mapEnrolleeRecord(raw: Record<string, unknown>): EnrolleeRecord | null 
     company: firstString(raw, ["CompanyName", "Company", "GroupName", "ClientName"]),
     scheme: firstString(raw, ["SchemeName", "Scheme", "PlanName", "Plan"]),
     age,
+    relationship: firstString(raw, [
+      "Member_RelationshipToPrincipal",
+      "RelationshipToPrincipal",
+      "Relationship",
+      "MemberType",
+      "Type",
+    ]),
   };
 }
 
@@ -457,9 +467,11 @@ function extractEnrolleeRecords(payload: unknown): EnrolleeRecord[] {
   return records;
 }
 
+const ENROLLEE_HEADERS = { Accept: "application/json" };
+
 async function fetchEnrolleeEndpoint(path: string): Promise<EnrolleeRecord[]> {
   try {
-    const payload = await serviceRequest("GET", path);
+    const payload = await serviceRequest("GET", path, undefined, ENROLLEE_HEADERS);
     return extractEnrolleeRecords(payload);
   } catch (err) {
     console.error(`[prognosis] enrollee lookup failed for ${path}:`, err);
@@ -467,28 +479,64 @@ async function fetchEnrolleeEndpoint(path: string): Promise<EnrolleeRecord[]> {
   }
 }
 
-type EnrolleeQueryType = "email" | "phone" | "enrolleeId" | "name";
+/** Raw string concatenation on purpose — enrollee IDs contain a literal "/"
+ * (e.g. 21000645/0) that must NOT be percent-encoded, or Prognosis returns
+ * nothing for an otherwise-valid ID. */
+function fetchByEnrolleeId(id: string): Promise<EnrolleeRecord[]> {
+  return fetchEnrolleeEndpoint(`/api/EnrolleeProfile/GetEnrolleeBioDataByEnrolleeID?enrolleeid=${id}`);
+}
+
+type EnrolleeQueryType = "email" | "enrolleeId" | "phone" | "membershipRoot" | "name";
 
 function classifyEnrolleeQuery(raw: string): { type: EnrolleeQueryType; value: string } | null {
   const q = raw.trim();
   if (q.length < 3) return null;
 
-  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(q)) return { type: "email", value: q };
+  if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(q)) return { type: "email", value: q };
 
-  if (/^\d+\/\d+$/.test(q)) return { type: "enrolleeId", value: q };
+  if (/^\d{3,}\s*\/\s*\d+$/.test(q)) return { type: "enrolleeId", value: q.replace(/\s+/g, "") };
 
-  const digitsOnly = q.replace(/[\s+()-]/g, "");
-  if (/^\d{7,15}$/.test(digitsOnly)) return { type: "phone", value: digitsOnly };
+  const compact = q.replace(/[\s-]/g, "");
+  if (/^\+?(?:0\d{10}|234\d{10})$/.test(compact)) return { type: "phone", value: compact };
+
+  if (/^\d{6,10}$/.test(compact)) return { type: "membershipRoot", value: compact };
 
   return { type: "name", value: q };
 }
 
+/** Prognosis is inconsistent about which mobile-number format it stored a
+ * member under, so try 0-prefixed, 234-prefixed, and the bare local number
+ * in turn, returning on the first variant that gets a hit. */
+function phoneVariants(compact: string): string[] {
+  const stripped = compact.replace(/^\+/, "");
+  const local10 = stripped.startsWith("234") ? stripped.slice(3) : stripped.slice(1);
+  return [`0${local10}`, `234${local10}`, local10];
+}
+
+async function searchByPhone(compact: string): Promise<EnrolleeRecord[]> {
+  for (const variant of phoneVariants(compact)) {
+    const records = await fetchEnrolleeEndpoint(
+      `/api/EnrolleeProfile/GetEnrolleeBioDataByMobileNo?mobileno=${encodeURIComponent(variant)}`
+    );
+    if (records.length > 0) return records;
+  }
+  return [];
+}
+
+/** A bare 6-10 digit number with no "/" is a membership root, not a full
+ * enrollee ID — the principal is {root}/0 and dependents are {root}/1..20,
+ * so fan out across all of them concurrently and return every match. */
+async function searchByMembershipRoot(root: string): Promise<EnrolleeRecord[]> {
+  const suffixes = Array.from({ length: 21 }, (_, i) => i);
+  const results = await Promise.all(suffixes.map((n) => fetchByEnrolleeId(`${root}/${n}`)));
+  return results.flat();
+}
+
 /**
  * Searches Prognosis for an enrollee by whichever identifier the query looks
- * like — email, phone, enrollee ID, or name — dispatching to the matching
- * GetEnrolleeBioDataBy* endpoint. Field names in the response are unconfirmed
- * against a real payload, so mapping is deliberately permissive; check
- * [prognosis] logs if a known-good search comes back empty.
+ * like — email, enrollee ID, phone, a bare membership number (fans out to
+ * principal + dependents), or name — dispatching to the matching
+ * GetEnrolleeBioDataBy* endpoint(s).
  */
 export async function searchEnrollees(query: string): Promise<EnrolleeRecord[]> {
   const classified = classifyEnrolleeQuery(query);
@@ -499,14 +547,12 @@ export async function searchEnrollees(query: string): Promise<EnrolleeRecord[]> 
       return fetchEnrolleeEndpoint(
         `/api/EnrolleeProfile/GetEnrolleeBioDataByEmail?email=${encodeURIComponent(classified.value)}`
       );
-    case "phone":
-      return fetchEnrolleeEndpoint(
-        `/api/EnrolleeProfile/GetEnrolleeBioDataByMobileNo?mobileno=${encodeURIComponent(classified.value)}`
-      );
     case "enrolleeId":
-      return fetchEnrolleeEndpoint(
-        `/api/EnrolleeProfile/GetEnrolleeBioDataByEnrolleeID?enrolleeid=${encodeURIComponent(classified.value)}`
-      );
+      return fetchByEnrolleeId(classified.value);
+    case "phone":
+      return searchByPhone(classified.value);
+    case "membershipRoot":
+      return searchByMembershipRoot(classified.value);
     case "name":
       return fetchEnrolleeEndpoint(
         `/api/EnrolleeProfile/GetEnrolleeBioDataByName?fullname=${encodeURIComponent(classified.value)}`

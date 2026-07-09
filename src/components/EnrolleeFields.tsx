@@ -11,6 +11,7 @@ interface EnrolleeResult {
   company: string | null;
   scheme: string | null;
   age: number | null;
+  relationship: string | null;
 }
 
 export function EnrolleeFields() {
@@ -124,7 +125,12 @@ export function EnrolleeFields() {
                   onClick={() => selectEnrollee(r)}
                   className="block w-full border-b border-ink-100 px-3.5 py-2.5 text-left last:border-b-0 hover:bg-ink-100"
                 >
-                  <p className="text-[13px] font-semibold text-ink-900">{r.fullName}</p>
+                  <p className="text-[13px] font-semibold text-ink-900">
+                    {r.fullName}
+                    {r.relationship && (
+                      <span className="ml-1.5 font-normal text-ink-400">({r.relationship})</span>
+                    )}
+                  </p>
                   <p className="text-[11px] text-ink-400">
                     {[r.enrolleeId, r.company, r.scheme].filter(Boolean).join(" · ") || " "}
                   </p>
