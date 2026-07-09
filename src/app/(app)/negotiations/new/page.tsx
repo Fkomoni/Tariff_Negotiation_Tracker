@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { Header } from "@/components/Header";
 import { Card, Field, Button, inputClass } from "@/components/ui";
 import { LogIcon } from "@/components/icons";
@@ -6,14 +7,42 @@ import { createCase } from "@/app/actions/case-actions";
 import { URGENCY_LABELS } from "@/lib/domain";
 import { ProviderAndServiceFields } from "@/components/ProviderAndServiceFields";
 import { EnrolleeFields } from "@/components/EnrolleeFields";
+import type { ProviderInitial } from "@/components/ProviderFields";
+import type { EnrolleeInitial } from "@/components/EnrolleeFields";
 
 export default async function LogNegotiationPage({
   searchParams,
 }: {
-  searchParams: { error?: string };
+  searchParams: { error?: string; repeatFrom?: string };
 }) {
   const session = await auth();
   if (!session?.user) return null;
+
+  let initialProvider: ProviderInitial | undefined;
+  let initialEnrollee: EnrolleeInitial | undefined;
+  let sessionGroupId: string | undefined;
+
+  if (searchParams.repeatFrom) {
+    const source = await prisma.negotiationCase.findUnique({ where: { id: searchParams.repeatFrom } });
+    if (source) {
+      initialProvider = {
+        code: source.providerCode ?? "",
+        name: source.providerName,
+        email: source.providerEmail ?? "",
+        phone: source.providerPhone ?? "",
+      };
+      initialEnrollee = {
+        enrolleeId: source.enrolleeId ?? "",
+        fullName: source.enrolleeName,
+        email: source.enrolleeEmail ?? "",
+        phone: source.enrolleePhone ?? "",
+        company: source.enrolleeCompany ?? "",
+        scheme: source.enrolleeScheme ?? "",
+        age: source.enrolleeAge?.toString() ?? "",
+      };
+      sessionGroupId = source.sessionGroupId ?? source.id;
+    }
+  }
 
   return (
     <>
@@ -32,6 +61,13 @@ export default async function LogNegotiationPage({
             recorded automatically.
           </p>
 
+          {initialProvider && (
+            <p className="mt-4 rounded-lg bg-emerald-50 px-3.5 py-2.5 text-[12.5px] font-medium text-emerald-700">
+              Logging another service for {initialProvider.name} — {initialEnrollee?.fullName}. Provider and
+              enrollee details are carried over; just fill in the new service.
+            </p>
+          )}
+
           {searchParams.error && (
             <p className="mt-4 rounded-lg bg-brand-50 px-3.5 py-2.5 text-[12.5px] font-medium text-brand-700">
               {searchParams.error}
@@ -39,9 +75,11 @@ export default async function LogNegotiationPage({
           )}
 
           <form action={createCase} className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2">
-            <ProviderAndServiceFields />
+            <input type="hidden" name="sessionGroupId" value={sessionGroupId ?? ""} />
 
-            <EnrolleeFields />
+            <ProviderAndServiceFields initialProvider={initialProvider} />
+
+            <EnrolleeFields initial={initialEnrollee} />
 
             <Field label="Provider Requested Amount (₦)" required>
               <input name="providerRequestedAmount" type="number" min="0" step="0.01" required className={inputClass} />

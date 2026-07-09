@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -42,6 +43,15 @@ export default async function CaseDetailsPage({
 
   if (!negotiationCase) notFound();
 
+  const sessionGroupId = negotiationCase.sessionGroupId ?? negotiationCase.id;
+  const relatedCases = await prisma.negotiationCase.findMany({
+    where: {
+      AND: [{ OR: [{ id: sessionGroupId }, { sessionGroupId }] }, { id: { not: negotiationCase.id } }],
+    },
+    orderBy: { loggedAt: "asc" },
+  });
+
+  const canLogNegotiation = ["CONTACT_CENTER", "ADMIN"].includes(session.user.role);
   const isProviderTeam = ["PROVIDER_TEAM", "ADMIN"].includes(session.user.role);
   const diff = amountDifference(negotiationCase.currentTariff.toString(), negotiationCase.providerRequestedAmount.toString());
   const firstActionMs = negotiationCase.firstActionAt
@@ -68,6 +78,19 @@ export default async function CaseDetailsPage({
             <p className="rounded-lg bg-brand-50 px-3.5 py-2.5 text-[12.5px] font-medium text-brand-700">
               {searchParams.error}
             </p>
+          )}
+
+          {canLogNegotiation && (
+            <Card className="flex items-center justify-between gap-4 border-emerald-100 bg-emerald-50/50 px-5 py-4">
+              <p className="text-[12.5px] text-emerald-800">
+                Same visit, another service? Provider and enrollee details carry over automatically.
+              </p>
+              <Link href={`/negotiations/new?repeatFrom=${negotiationCase.id}`}>
+                <Button variant="secondary" className="whitespace-nowrap bg-white">
+                  + Log Another Service
+                </Button>
+              </Link>
+            </Card>
           )}
 
           <Card>
@@ -148,6 +171,23 @@ export default async function CaseDetailsPage({
               <TimingRow label="Log → Now / Completion" value={formatDuration(totalMs)} />
             </div>
           </Card>
+
+          {relatedCases.length > 0 && (
+            <Card>
+              <CardHeader title="Related Services" subtitle="Same visit, logged separately" />
+              <ul className="divide-y divide-ink-100">
+                {relatedCases.map((c) => (
+                  <li key={c.id} className="px-5 py-3">
+                    <Link href={`/negotiations/${c.id}`} className="text-[12.5px] font-semibold text-ink-900 hover:underline">
+                      {c.caseNumber}
+                    </Link>
+                    <p className="text-[11.5px] text-ink-500">{c.requestedItem}</p>
+                    <Badge className={`mt-1 ${CASE_STATUS_BADGE[c.status]}`}>{CASE_STATUS_LABELS[c.status]}</Badge>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          )}
 
           {isProviderTeam && (
             <Card>

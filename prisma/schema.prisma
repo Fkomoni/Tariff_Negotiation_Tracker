@@ -109,6 +109,10 @@ model NegotiationCase {
   finalAgreedAmount      Decimal?    @db.Decimal(14, 2)
   approvalReason         String?
 
+  /// Groups multiple service negotiations logged for the same provider
+  /// visit ("quick repeat") without merging their independent statuses/timers.
+  sessionGroupId         String?
+
   loggedByUserId         String
   loggedBy               User        @relation("LoggedBy", fields: [loggedByUserId], references: [id])
   loggedAt               DateTime    @default(now())
@@ -129,6 +133,7 @@ model NegotiationCase {
   @@index([urgency])
   @@index([providerName])
   @@index([loggedAt])
+  @@index([sessionGroupId])
 }
 
 model CaseUpdate {

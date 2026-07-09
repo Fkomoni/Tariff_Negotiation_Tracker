@@ -28,7 +28,10 @@ export function ServiceTariffFields({ providerCode }: { providerCode: string }) 
   const [loading, setLoading] = useState(false);
   const [searchedNoMatch, setSearchedNoMatch] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const skipSearchRef = useRef(false);
+  // Compares values rather than consuming a one-shot flag, so this stays
+  // correct even if React re-runs the effect more than once (e.g. Strict
+  // Mode double-invocation in dev).
+  const confirmedDescriptionRef = useRef("");
 
   useEffect(() => {
     setSelected(null);
@@ -36,6 +39,7 @@ export function ServiceTariffFields({ providerCode }: { providerCode: string }) 
     setCurrentTariff("");
     setResults([]);
     setSearchedNoMatch(false);
+    confirmedDescriptionRef.current = "";
   }, [providerCode]);
 
   useEffect(() => {
@@ -43,8 +47,7 @@ export function ServiceTariffFields({ providerCode }: { providerCode: string }) 
       setResults([]);
       return;
     }
-    if (skipSearchRef.current) {
-      skipSearchRef.current = false;
+    if (query === confirmedDescriptionRef.current) {
       return;
     }
     if (query.trim().length < 2) {
@@ -81,7 +84,7 @@ export function ServiceTariffFields({ providerCode }: { providerCode: string }) 
   }, []);
 
   function selectTariff(t: TariffResult) {
-    skipSearchRef.current = true;
+    confirmedDescriptionRef.current = t.description;
     setSelected(t);
     setQuery(t.description);
     setCurrentTariff(t.unitPrice !== null ? String(t.unitPrice) : "");

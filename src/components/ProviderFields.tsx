@@ -16,20 +16,37 @@ interface ProviderResult {
   status: string | null;
 }
 
-export function ProviderFields({ onProviderCodeChange }: { onProviderCodeChange?: (code: string) => void }) {
-  const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<ProviderResult | null>(null);
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
+export interface ProviderInitial {
+  code: string;
+  name: string;
+  email: string;
+  phone: string;
+}
+
+export function ProviderFields({
+  initial,
+  onProviderCodeChange,
+}: {
+  initial?: ProviderInitial;
+  onProviderCodeChange?: (code: string) => void;
+}) {
+  const [query, setQuery] = useState(initial?.name ?? "");
+  const [providerCode, setProviderCode] = useState(initial?.code ?? "");
+  const [hasSelection, setHasSelection] = useState(!!initial?.code);
+  const [email, setEmail] = useState(initial?.email ?? "");
+  const [phone, setPhone] = useState(initial?.phone ?? "");
   const [results, setResults] = useState<ProviderResult[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const skipSearchRef = useRef(false);
+  // Tracks the query value that's already "confirmed" (from a selection or
+  // initial prefill) so the search effect can skip it — comparing values is
+  // robust to React re-running this effect more than once (e.g. Strict Mode
+  // double-invocation in dev), unlike a one-shot "skip once" flag.
+  const confirmedNameRef = useRef(initial?.name ?? "");
 
   useEffect(() => {
-    if (skipSearchRef.current) {
-      skipSearchRef.current = false;
+    if (query === confirmedNameRef.current) {
       return;
     }
     if (query.trim().length < 2) {
@@ -63,8 +80,9 @@ export function ProviderFields({ onProviderCodeChange }: { onProviderCodeChange?
   }, []);
 
   function selectProvider(p: ProviderResult) {
-    skipSearchRef.current = true;
-    setSelected(p);
+    confirmedNameRef.current = p.name;
+    setHasSelection(true);
+    setProviderCode(p.code);
     setQuery(p.name);
     setEmail(p.email ?? "");
     setPhone(p.phone ?? "");
@@ -76,8 +94,9 @@ export function ProviderFields({ onProviderCodeChange }: { onProviderCodeChange?
   function handleNameChange(value: string) {
     setQuery(value);
     setOpen(true);
-    if (selected && value !== selected.name) {
-      setSelected(null);
+    if (hasSelection) {
+      setHasSelection(false);
+      setProviderCode("");
       setEmail("");
       setPhone("");
       onProviderCodeChange?.("");
@@ -98,7 +117,7 @@ export function ProviderFields({ onProviderCodeChange }: { onProviderCodeChange?
             onFocus={() => results.length > 0 && setOpen(true)}
             placeholder="Start typing to search providers…"
           />
-          <input type="hidden" name="providerCode" value={selected?.code ?? ""} />
+          <input type="hidden" name="providerCode" value={providerCode} />
           {loading && (
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-ink-400">
               Searching…
@@ -115,10 +134,10 @@ export function ProviderFields({ onProviderCodeChange }: { onProviderCodeChange?
                 >
                   <p className="text-[13px] font-semibold text-ink-900">{p.name}</p>
                   <p className="text-[11px] text-ink-400">
-                    {[p.scheme, p.address].filter(Boolean).join(" · ") || " "}
+                    {[p.scheme, p.address].filter(Boolean).join(" · ") || " "}
                   </p>
                   <p className="text-[11px] text-ink-400">
-                    {[p.phone, p.email].filter(Boolean).join(" · ") || " "}
+                    {[p.phone, p.email].filter(Boolean).join(" · ") || " "}
                   </p>
                 </button>
               ))}
@@ -127,7 +146,7 @@ export function ProviderFields({ onProviderCodeChange }: { onProviderCodeChange?
         </div>
       </Field>
 
-      {selected && (
+      {hasSelection && (
         <>
           <Field label="Provider Email" hint="From Prognosis — editable">
             <input

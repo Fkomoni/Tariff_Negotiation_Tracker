@@ -14,25 +14,37 @@ interface EnrolleeResult {
   relationship: string | null;
 }
 
-export function EnrolleeFields() {
-  const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<EnrolleeResult | null>(null);
-  const [enrolleeId, setEnrolleeId] = useState("");
-  const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState("");
-  const [company, setCompany] = useState("");
-  const [scheme, setScheme] = useState("");
-  const [age, setAge] = useState("");
+export interface EnrolleeInitial {
+  enrolleeId: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  company: string;
+  scheme: string;
+  age: string;
+}
+
+export function EnrolleeFields({ initial }: { initial?: EnrolleeInitial }) {
+  const [query, setQuery] = useState(initial?.fullName ?? "");
+  const [hasSelection, setHasSelection] = useState(!!initial?.fullName);
+  const [enrolleeId, setEnrolleeId] = useState(initial?.enrolleeId ?? "");
+  const [email, setEmail] = useState(initial?.email ?? "");
+  const [phone, setPhone] = useState(initial?.phone ?? "");
+  const [company, setCompany] = useState(initial?.company ?? "");
+  const [scheme, setScheme] = useState(initial?.scheme ?? "");
+  const [age, setAge] = useState(initial?.age ?? "");
   const [results, setResults] = useState<EnrolleeResult[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [searchedNoMatch, setSearchedNoMatch] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const skipSearchRef = useRef(false);
+  // Compares values rather than consuming a one-shot flag, so this stays
+  // correct even if React re-runs the effect more than once (e.g. Strict
+  // Mode double-invocation in dev).
+  const confirmedNameRef = useRef(initial?.fullName ?? "");
 
   useEffect(() => {
-    if (skipSearchRef.current) {
-      skipSearchRef.current = false;
+    if (query === confirmedNameRef.current) {
       return;
     }
     if (query.trim().length < 3) {
@@ -69,8 +81,8 @@ export function EnrolleeFields() {
   }, []);
 
   function selectEnrollee(r: EnrolleeResult) {
-    skipSearchRef.current = true;
-    setSelected(r);
+    confirmedNameRef.current = r.fullName;
+    setHasSelection(true);
     setQuery(r.fullName);
     setEnrolleeId(r.enrolleeId ?? "");
     setEmail(r.email ?? "");
@@ -86,8 +98,8 @@ export function EnrolleeFields() {
     setQuery(value);
     setOpen(true);
     setSearchedNoMatch(false);
-    if (selected && value !== selected.fullName) {
-      setSelected(null);
+    if (hasSelection) {
+      setHasSelection(false);
       setEnrolleeId("");
       setEmail("");
       setPhone("");
@@ -139,7 +151,7 @@ export function EnrolleeFields() {
               ))}
             </div>
           )}
-          {!loading && searchedNoMatch && !selected && (
+          {!loading && searchedNoMatch && !hasSelection && (
             <p className="mt-1.5 text-[11px] text-ink-400">
               No match found in Prognosis — you can still log this case with the name typed above.
             </p>
@@ -149,7 +161,7 @@ export function EnrolleeFields() {
 
       <input type="hidden" name="enrolleeId" value={enrolleeId} />
 
-      {selected && (
+      {hasSelection && (
         <>
           <Field label="Enrollee Email" hint="From Prognosis — editable">
             <input

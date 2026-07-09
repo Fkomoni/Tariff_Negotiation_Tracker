@@ -2,16 +2,16 @@
 
 import { useState } from "react";
 import { Field, inputClass } from "@/components/ui";
-import { ProviderFields } from "@/components/ProviderFields";
+import { ProviderFields, type ProviderInitial } from "@/components/ProviderFields";
 import { ServiceTariffFields } from "@/components/ServiceTariffFields";
 import { SERVICE_TYPE_LABELS } from "@/lib/domain";
 
-export function ProviderAndServiceFields() {
-  const [providerCode, setProviderCode] = useState("");
+export function ProviderAndServiceFields({ initialProvider }: { initialProvider?: ProviderInitial }) {
+  const [providerCode, setProviderCode] = useState(initialProvider?.code ?? "");
 
   return (
     <>
-      <ProviderFields onProviderCodeChange={setProviderCode} />
+      <ProviderFields initial={initialProvider} onProviderCodeChange={setProviderCode} />
 
       <Field label="Service Type" required>
         <select name="serviceType" required className={inputClass} defaultValue="MEDICATION">

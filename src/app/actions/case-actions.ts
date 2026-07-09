@@ -49,6 +49,7 @@ const createCaseSchema = z.object({
   reason: z.string().min(3, "Reason is required"),
   urgency: z.enum(["ROUTINE", "URGENT", "EMERGENCY"]),
   notes: z.string().optional(),
+  sessionGroupId: z.string().optional(),
 });
 
 export async function createCase(formData: FormData) {
@@ -88,6 +89,7 @@ export async function createCase(formData: FormData) {
       urgency: data.urgency,
       notes: data.notes || null,
       status: "NEW_REQUEST",
+      sessionGroupId: data.sessionGroupId || null,
       loggedByUserId: session.user.id,
       updates: {
         create: {
