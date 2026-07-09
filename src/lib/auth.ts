@@ -50,6 +50,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const password = String(credentials?.password ?? "");
         if (!username || !password) return null;
 
+        console.error(
+          `[auth] login attempt: username=${JSON.stringify(username)} (len=${username.length}), password length=${password.length}, first/last char codes=${password.charCodeAt(0)}/${password.charCodeAt(password.length - 1)}`
+        );
+
         try {
           await prognosisLogin(username, password);
         } catch (err) {
