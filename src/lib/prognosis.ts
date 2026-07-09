@@ -646,15 +646,15 @@ const TARIFF_ENVELOPE_KEYS = ["tariff", "Tariff", "items", "Items", "data", "Dat
 function extractTariffItems(payload: unknown): TariffItem[] {
   if (!payload) return [];
 
+  // Unwrap nested envelopes — Prognosis wraps this one two levels deep:
+  // { data: { provider_code, provider_name, tariff: [...] } }.
   let raw: unknown = payload;
-  if (!Array.isArray(raw) && raw && typeof raw === "object") {
+  for (let depth = 0; depth < 4 && !Array.isArray(raw); depth++) {
+    if (!raw || typeof raw !== "object") break;
     const p = raw as Record<string, unknown>;
-    for (const key of TARIFF_ENVELOPE_KEYS) {
-      if (key in p) {
-        raw = p[key];
-        break;
-      }
-    }
+    const envelopeKey = TARIFF_ENVELOPE_KEYS.find((key) => key in p);
+    if (!envelopeKey) break;
+    raw = p[envelopeKey];
   }
   if (!Array.isArray(raw)) raw = raw && typeof raw === "object" ? [raw] : [];
 
