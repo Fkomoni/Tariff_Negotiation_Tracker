@@ -91,7 +91,14 @@ export default async function CaseDetailsPage({
               <Detail label="Company / Scheme" value={[negotiationCase.enrolleeCompany, negotiationCase.enrolleeScheme].filter(Boolean).join(" · ") || "—"} />
               <Detail label="Age" value={negotiationCase.enrolleeAge ?? "—"} />
               <Detail label="Service Type" value={SERVICE_TYPE_LABELS[negotiationCase.serviceType]} />
-              <Detail label="Requested Item" value={negotiationCase.requestedItem} />
+              <Detail
+                label="Requested Item"
+                value={
+                  negotiationCase.serviceCode
+                    ? `${negotiationCase.requestedItem} (${negotiationCase.serviceCode})`
+                    : negotiationCase.requestedItem
+                }
+              />
               <Detail label="Current Tariff" value={formatCurrency(negotiationCase.currentTariff.toString())} />
               <Detail
                 label="Provider Requested Amount"

@@ -97,6 +97,8 @@ model NegotiationCase {
 
   serviceType            ServiceType
   requestedItem          String
+  serviceCode            String?
+  providerTariffCode     String?
   currentTariff          Decimal     @db.Decimal(14, 2)
   providerRequestedAmount Decimal    @db.Decimal(14, 2)
   reason                 String

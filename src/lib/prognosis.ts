@@ -625,3 +625,112 @@ export async function searchEnrollees(query: string): Promise<EnrolleeRecord[]> 
       );
   }
 }
+
+export interface TariffItem {
+  serviceCode: string;
+  description: string;
+  providerTariffCode: string | null;
+  nomenclature: string | null;
+  tariffName: string | null;
+  minCost: number | null;
+  maxCost: number | null;
+  unitPrice: number | null;
+}
+
+function toNumberOrNull(v: unknown): number | null {
+  if (v === null || v === undefined || v === "") return null;
+  const n = Number(v);
+  return Number.isNaN(n) ? null : n;
+}
+
+const TARIFF_ENVELOPE_KEYS = ["tariff", "Tariff", "items", "Items", "data", "Data", "result", "Result"];
+
+function extractTariffItems(payload: unknown): TariffItem[] {
+  if (!payload) return [];
+
+  let raw: unknown = payload;
+  if (!Array.isArray(raw) && raw && typeof raw === "object") {
+    const p = raw as Record<string, unknown>;
+    for (const key of TARIFF_ENVELOPE_KEYS) {
+      if (key in p) {
+        raw = p[key];
+        break;
+      }
+    }
+  }
+  if (!Array.isArray(raw)) raw = raw && typeof raw === "object" ? [raw] : [];
+
+  const items: TariffItem[] = [];
+  for (const entry of raw as unknown[]) {
+    if (!entry || typeof entry !== "object") continue;
+    const r = entry as Record<string, unknown>;
+
+    const serviceCode = firstString(r, ["ProcedureCode"]);
+    const description = firstString(r, ["ProcedureDescr"]);
+    if (!serviceCode && !description) continue;
+
+    const minCost = toNumberOrNull(r.MinCost);
+    const maxCost = toNumberOrNull(r.MaxCost);
+
+    items.push({
+      serviceCode: serviceCode ?? "",
+      description: description ?? serviceCode ?? "",
+      providerTariffCode: firstString(r, ["ProviderTarrifCode", "ProviderTariffCode"]),
+      nomenclature: firstString(r, ["ProviderNameClature"]),
+      tariffName: firstString(r, ["TariffName"]),
+      minCost,
+      maxCost,
+      unitPrice: maxCost ?? minCost,
+    });
+  }
+  return items;
+}
+
+const TARIFF_TTL_MS = 60 * 60 * 1000;
+const cachedTariffsByProvider = new Map<string, { data: TariffItem[]; expiresAt: number }>();
+const inFlightTariffFetches = new Map<string, Promise<TariffItem[]>>();
+
+async function fetchProviderTariffFromPrognosis(providerCode: string): Promise<TariffItem[]> {
+  try {
+    const payload = await serviceRequest(
+      "GET",
+      `/api/WellnessBenefit/GetProviderTariff?code=${encodeURIComponent(providerCode)}`
+    );
+    return extractTariffItems(payload);
+  } catch (err) {
+    console.error(`[prognosis] tariff lookup failed for provider ${providerCode}:`, err);
+    return [];
+  }
+}
+
+/** Returns the full tariff list for a provider, cached in memory per
+ * provider code for TARIFF_TTL_MS. Prognosis has no per-service filter on
+ * this endpoint, so it always returns everything and we filter client-side. */
+async function getProviderTariff(providerCode: string): Promise<TariffItem[]> {
+  const cached = cachedTariffsByProvider.get(providerCode);
+  if (cached && cached.expiresAt > Date.now()) return cached.data;
+
+  let inflight = inFlightTariffFetches.get(providerCode);
+  if (!inflight) {
+    inflight = fetchProviderTariffFromPrognosis(providerCode)
+      .then((data) => {
+        cachedTariffsByProvider.set(providerCode, { data, expiresAt: Date.now() + TARIFF_TTL_MS });
+        return data;
+      })
+      .finally(() => {
+        inFlightTariffFetches.delete(providerCode);
+      });
+    inFlightTariffFetches.set(providerCode, inflight);
+  }
+  return inflight;
+}
+
+export async function searchProviderTariff(providerCode: string, query: string, limit = 25): Promise<TariffItem[]> {
+  if (!providerCode) return [];
+  const items = await getProviderTariff(providerCode);
+  const q = query.trim().toLowerCase();
+  if (q.length < 2) return items.slice(0, limit);
+  return items
+    .filter((i) => i.description.toLowerCase().includes(q) || i.serviceCode.toLowerCase().includes(q))
+    .slice(0, limit);
+}

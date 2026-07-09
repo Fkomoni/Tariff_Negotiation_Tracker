@@ -16,7 +16,7 @@ interface ProviderResult {
   status: string | null;
 }
 
-export function ProviderFields() {
+export function ProviderFields({ onProviderCodeChange }: { onProviderCodeChange?: (code: string) => void }) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<ProviderResult | null>(null);
   const [email, setEmail] = useState("");
@@ -70,6 +70,7 @@ export function ProviderFields() {
     setPhone(p.phone ?? "");
     setResults([]);
     setOpen(false);
+    onProviderCodeChange?.(p.code);
   }
 
   function handleNameChange(value: string) {
@@ -79,6 +80,7 @@ export function ProviderFields() {
       setSelected(null);
       setEmail("");
       setPhone("");
+      onProviderCodeChange?.("");
     }
   }
 

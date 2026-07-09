@@ -3,8 +3,8 @@ import { Header } from "@/components/Header";
 import { Card, Field, Button, inputClass } from "@/components/ui";
 import { LogIcon } from "@/components/icons";
 import { createCase } from "@/app/actions/case-actions";
-import { SERVICE_TYPE_LABELS, URGENCY_LABELS } from "@/lib/domain";
-import { ProviderFields } from "@/components/ProviderFields";
+import { URGENCY_LABELS } from "@/lib/domain";
+import { ProviderAndServiceFields } from "@/components/ProviderAndServiceFields";
 import { EnrolleeFields } from "@/components/EnrolleeFields";
 
 export default async function LogNegotiationPage({
@@ -39,27 +39,9 @@ export default async function LogNegotiationPage({
           )}
 
           <form action={createCase} className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2">
-            <ProviderFields />
+            <ProviderAndServiceFields />
 
             <EnrolleeFields />
-
-            <Field label="Service Type" required>
-              <select name="serviceType" required className={inputClass} defaultValue="MEDICATION">
-                {Object.entries(SERVICE_TYPE_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-
-            <Field label="Requested Service / Item" required className="sm:col-span-2">
-              <input name="requestedItem" required className={inputClass} placeholder="e.g. Elective caesarean section" />
-            </Field>
-
-            <Field label="Current Tariff Amount (₦)" required>
-              <input name="currentTariff" type="number" min="0" step="0.01" required className={inputClass} />
-            </Field>
 
             <Field label="Provider Requested Amount (₦)" required>
               <input name="providerRequestedAmount" type="number" min="0" step="0.01" required className={inputClass} />
