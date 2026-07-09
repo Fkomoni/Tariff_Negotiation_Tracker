@@ -252,7 +252,7 @@ async function serviceRequest(
   }
 
   if (path.includes("/EnrolleeProfile/")) {
-    console.error("[prognosis] enrollee response", method, path, res.status, text.slice(0, 800));
+    console.error("[prognosis] enrollee response", method, path, res.status, text.slice(0, 3000));
   }
 
   try {
@@ -434,21 +434,52 @@ function ageFromDob(dob: string | null): number | null {
 function mapEnrolleeRecord(raw: Record<string, unknown>): EnrolleeRecord | null {
   const fullName =
     firstString(raw, ["FullName", "Fullname", "EnrolleeName", "Name", "MemberName"]) ??
-    [firstString(raw, ["FirstName", "Firstname"]), firstString(raw, ["LastName", "Lastname", "Surname"])]
+    [
+      firstString(raw, ["Member_FirstName", "FirstName", "Firstname"]),
+      firstString(raw, ["Member_othernames", "Othernames", "MiddleName"]),
+      firstString(raw, ["Member_Surname", "LastName", "Lastname", "Surname"]),
+    ]
       .filter(Boolean)
       .join(" ");
   if (!fullName) return null;
 
-  const ageRaw = firstString(raw, ["Age"]);
-  const age = ageRaw && !Number.isNaN(Number(ageRaw)) ? Number(ageRaw) : ageFromDob(firstString(raw, ["DateOfBirth", "DOB", "Dob"]));
+  const ageRaw = firstString(raw, ["Member_Age", "Age"]);
+  const age =
+    ageRaw && !Number.isNaN(Number(ageRaw))
+      ? Number(ageRaw)
+      : ageFromDob(firstString(raw, ["Member_DateOfBirth", "DateOfBirth", "DOB", "Dob"]));
 
   return {
-    enrolleeId: firstString(raw, ["EnrolleeID", "EnrolleeId", "EnrolleeCode", "MemberID", "MemberId"]),
+    enrolleeId: firstString(raw, ["Member_EnrolleeID", "EnrolleeID", "EnrolleeId", "EnrolleeCode", "MemberID", "MemberId"]),
     fullName,
-    email: firstString(raw, ["Email", "EmailAddress"]),
-    phone: firstString(raw, ["MobileNo", "MobileNumber", "PhoneNo", "Contact1", "Phone"]),
-    company: firstString(raw, ["CompanyName", "Company", "GroupName", "ClientName"]),
-    scheme: firstString(raw, ["SchemeName", "Scheme", "PlanName", "Plan"]),
+    email: firstString(raw, ["Member_Email", "Email", "EmailAddress"]),
+    phone: firstString(raw, [
+      "Member_MobileNo",
+      "Member_PhoneNo",
+      "Member_Phone",
+      "MobileNo",
+      "MobileNumber",
+      "PhoneNo",
+      "Contact1",
+      "Phone",
+    ]),
+    company: firstString(raw, [
+      "Member_CompanyName",
+      "Member_GroupName",
+      "Member_ClientName",
+      "CompanyName",
+      "Company",
+      "GroupName",
+      "ClientName",
+    ]),
+    scheme: firstString(raw, [
+      "Member_SchemeName",
+      "Member_PlanName",
+      "SchemeName",
+      "Scheme",
+      "PlanName",
+      "Plan",
+    ]),
     age,
     relationship: firstString(raw, [
       "Member_RelationshipToPrincipal",
@@ -508,7 +539,7 @@ function classifyEnrolleeQuery(raw: string): { type: EnrolleeQueryType; value: s
   const compact = q.replace(/[\s-]/g, "");
   if (/^\+?(?:0\d{10}|234\d{10})$/.test(compact)) return { type: "phone", value: compact };
 
-  if (/^\d{6,10}$/.test(compact)) return { type: "membershipRoot", value: compact };
+  if (/^\d{8,10}$/.test(compact)) return { type: "membershipRoot", value: compact };
 
   return { type: "name", value: q };
 }
