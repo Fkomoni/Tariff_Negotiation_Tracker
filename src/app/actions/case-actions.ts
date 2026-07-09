@@ -18,6 +18,9 @@ async function requireSession() {
 
 const createCaseSchema = z.object({
   providerName: z.string().min(2, "Provider/Hospital name is required"),
+  providerCode: z.string().optional(),
+  providerEmail: z.string().email("Enter a valid provider email").optional().or(z.literal("")),
+  providerPhone: z.string().optional(),
   enrolleeName: z.string().min(2, "Enrollee name is required"),
   enrolleeId: z.string().optional(),
   enrolleeEmail: z.string().email("Enter a valid email").optional().or(z.literal("")),
@@ -57,6 +60,9 @@ export async function createCase(formData: FormData) {
     data: {
       caseNumber: generateCaseNumber(),
       providerName: data.providerName,
+      providerCode: data.providerCode || null,
+      providerEmail: data.providerEmail || null,
+      providerPhone: data.providerPhone || null,
       enrolleeName: data.enrolleeName,
       enrolleeId: data.enrolleeId || null,
       enrolleeEmail: data.enrolleeEmail || null,

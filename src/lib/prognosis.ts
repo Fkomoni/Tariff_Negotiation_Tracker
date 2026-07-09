@@ -215,18 +215,22 @@ async function getServiceToken(forceRefresh = false): Promise<string> {
 }
 
 /**
- * POSTs to a Prognosis endpoint using the cached service-account token,
+ * Calls a Prognosis endpoint using the cached service-account token,
  * retrying once with a freshly-issued token if the first attempt gets a 401.
  */
-async function servicePost(path: string, body: unknown): Promise<void> {
+async function serviceRequest(
+  method: "GET" | "POST",
+  path: string,
+  body?: unknown
+): Promise<Record<string, unknown> | null> {
   const call = async (token: string) =>
     fetch(`${PROGNOSIS_BASE}${path}`, {
-      method: "POST",
+      method,
       headers: {
         ...POSTMAN_HEADERS,
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify(body),
+      body: body !== undefined ? JSON.stringify(body) : undefined,
       cache: "no-store",
     });
 
@@ -240,8 +244,15 @@ async function servicePost(path: string, body: unknown): Promise<void> {
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
+    console.error("[prognosis] service request failed", method, path, res.status, text.slice(0, 500));
     throw new Error(`${path} failed with status ${res.status}: ${text}`);
   }
+
+  return res.json().catch(() => null);
+}
+
+async function servicePost(path: string, body: unknown): Promise<void> {
+  await serviceRequest("POST", path, body);
 }
 
 export interface SendEmailAlertParams {
@@ -294,4 +305,87 @@ export async function sendSms(params: SendSmsParams): Promise<void> {
     ReferenceNo: params.referenceNo ?? "",
     UserId: 0,
   });
+}
+
+export interface ProviderRecord {
+  code: string;
+  id: number;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  phone2: string | null;
+  address: string | null;
+  scheme: string | null;
+  specialty: string | null;
+  status: string | null;
+}
+
+const PROVIDERS_TTL_MS = 6 * 60 * 60 * 1000;
+
+let cachedProviders: { data: ProviderRecord[]; expiresAt: number } | null = null;
+let inFlightProvidersFetch: Promise<ProviderRecord[]> | null = null;
+
+async function fetchProvidersFromPrognosis(): Promise<ProviderRecord[]> {
+  const payload = await serviceRequest(
+    "GET",
+    "/api/ListValues/GetProviders?MinimumID=1&NoOfRecords=20000&pageSize=20000"
+  );
+  const list = ((payload?.result ?? payload?.Result ?? []) as Record<string, unknown>[]) ?? [];
+
+  const seen = new Set<string>();
+  const providers: ProviderRecord[] = [];
+  for (const p of list) {
+    const code = String(p.ProviderCode ?? "").trim();
+    const id = Number(p.ProviderID ?? 0);
+    const key = code || String(id);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+
+    const name = String(p.FullName ?? "").trim();
+    if (!name) continue;
+
+    providers.push({
+      code,
+      id,
+      name,
+      email: (p.Email as string)?.trim() || null,
+      phone: (p.Contact1 as string)?.trim() || null,
+      phone2: (p.Contact2 as string)?.trim() || null,
+      address: (p.add1 as string)?.trim() || null,
+      scheme: (p.Schemes as string)?.trim() || null,
+      specialty: (p.Specialty as string)?.trim() || null,
+      status: (p.Status as string) || null,
+    });
+  }
+
+  console.error(`[prognosis] loaded ${providers.length} providers (deduped from ${list.length} records)`);
+  return providers;
+}
+
+/**
+ * Returns the full provider list, cached in memory for PROVIDERS_TTL_MS.
+ * Concurrent calls during a cold cache share the same in-flight fetch.
+ */
+async function getProviders(): Promise<ProviderRecord[]> {
+  if (cachedProviders && cachedProviders.expiresAt > Date.now()) {
+    return cachedProviders.data;
+  }
+  if (!inFlightProvidersFetch) {
+    inFlightProvidersFetch = fetchProvidersFromPrognosis()
+      .then((data) => {
+        cachedProviders = { data, expiresAt: Date.now() + PROVIDERS_TTL_MS };
+        return data;
+      })
+      .finally(() => {
+        inFlightProvidersFetch = null;
+      });
+  }
+  return inFlightProvidersFetch;
+}
+
+export async function searchProviders(query: string, limit = 20): Promise<ProviderRecord[]> {
+  const q = query.trim().toLowerCase();
+  if (q.length < 2) return [];
+  const providers = await getProviders();
+  return providers.filter((p) => p.name.toLowerCase().includes(q)).slice(0, limit);
 }

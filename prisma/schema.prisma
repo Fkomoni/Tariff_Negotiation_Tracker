@@ -84,6 +84,9 @@ model NegotiationCase {
   caseNumber             String      @unique
 
   providerName           String
+  providerCode           String?
+  providerEmail          String?
+  providerPhone          String?
   enrolleeName           String
   enrolleeId             String?
   enrolleeEmail          String?

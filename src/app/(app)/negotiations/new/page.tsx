@@ -4,6 +4,7 @@ import { Card, Field, Button, inputClass } from "@/components/ui";
 import { LogIcon } from "@/components/icons";
 import { createCase } from "@/app/actions/case-actions";
 import { SERVICE_TYPE_LABELS, URGENCY_LABELS } from "@/lib/domain";
+import { ProviderFields } from "@/components/ProviderFields";
 
 export default async function LogNegotiationPage({
   searchParams,
@@ -37,9 +38,7 @@ export default async function LogNegotiationPage({
           )}
 
           <form action={createCase} className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2">
-            <Field label="Provider / Hospital Name" required>
-              <input name="providerName" required className={inputClass} placeholder="e.g. Reddington Hospital" />
-            </Field>
+            <ProviderFields />
 
             <Field label="Enrollee Name" required>
               <input name="enrolleeName" required className={inputClass} placeholder="e.g. Favour Adekunle" />

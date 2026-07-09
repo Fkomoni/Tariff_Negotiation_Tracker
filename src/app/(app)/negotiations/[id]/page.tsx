@@ -86,6 +86,8 @@ export default async function CaseDetailsPage({
             <dl className="grid grid-cols-1 gap-5 px-5 py-5 sm:grid-cols-2">
               <Detail label="Provider / Hospital" value={negotiationCase.providerName} />
               <Detail label="Enrollee" value={`${negotiationCase.enrolleeName}${negotiationCase.enrolleeId ? ` (${negotiationCase.enrolleeId})` : ""}`} />
+              <Detail label="Provider Email" value={negotiationCase.providerEmail ?? "—"} />
+              <Detail label="Provider Phone" value={negotiationCase.providerPhone ?? "—"} />
               <Detail label="Service Type" value={SERVICE_TYPE_LABELS[negotiationCase.serviceType]} />
               <Detail label="Requested Item" value={negotiationCase.requestedItem} />
               <Detail label="Current Tariff" value={formatCurrency(negotiationCase.currentTariff.toString())} />
