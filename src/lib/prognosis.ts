@@ -251,9 +251,7 @@ async function serviceRequest(
     throw new Error(`${path} failed with status ${res.status}: ${text}`);
   }
 
-  if (path.includes("/EnrolleeProfile/")) {
-    console.error("[prognosis] enrollee response", method, path, res.status, text.slice(0, 3000));
-  }
+  console.error("[prognosis] response", method, path, res.status, text.slice(0, 3000));
 
   try {
     return text ? JSON.parse(text) : null;
