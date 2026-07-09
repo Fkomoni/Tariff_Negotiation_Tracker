@@ -12,6 +12,7 @@ export function LoginForm() {
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -65,13 +66,22 @@ export function LoginForm() {
 
       <label className="block">
         <span className="mb-1.5 block text-[12.5px] font-semibold text-ink-200">Password</span>
-        <input
-          type="password"
-          className={inputClass}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          autoComplete="current-password"
-        />
+        <div className="relative">
+          <input
+            type={showPassword ? "text" : "password"}
+            className={`${inputClass} pr-16`}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            className="absolute inset-y-0 right-0 px-3 text-[12px] font-semibold text-ink-500 hover:text-ink-800"
+          >
+            {showPassword ? "Hide" : "Show"}
+          </button>
+        </div>
       </label>
 
       {error && (
