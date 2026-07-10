@@ -33,7 +33,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/audit-log", label: "Audit Log", icon: ShieldIcon, roles: ["ADMIN"] },
 ];
 
-export function Sidebar({ role }: { role: Role }) {
+export function Sidebar({ role, openNegotiationsCount = 0 }: { role: Role; openNegotiationsCount?: number }) {
   const pathname = usePathname();
 
   return (
@@ -67,7 +67,16 @@ export function Sidebar({ role }: { role: Role }) {
               }`}
             >
               <Icon className="h-4.5 w-4.5" />
-              {item.label}
+              <span className="flex-1">{item.label}</span>
+              {item.href === "/negotiations/queue" && openNegotiationsCount > 0 && (
+                <span
+                  className={`flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[10.5px] font-bold ${
+                    active ? "bg-white/25 text-white" : "bg-brand text-white"
+                  }`}
+                >
+                  {openNegotiationsCount}
+                </span>
+              )}
             </Link>
           );
         })}
