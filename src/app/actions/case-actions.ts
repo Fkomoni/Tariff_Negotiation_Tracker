@@ -224,13 +224,22 @@ export async function updateCaseStatus(formData: FormData) {
   });
 
   if (data.status === "COMPLETED" && data.finalAgreedAmount) {
-    if (!existing.providerCode || !existing.serviceCode) {
+    if (!existing.providerCode) {
       await prisma.caseUpdate.create({
         data: {
           caseId: data.caseId,
           userId: session.user.id,
           type: "NOTE",
-          note: "Tariff not pushed to Prognosis: this case is missing a provider code or service code (likely logged before those were captured).",
+          note: "Tariff not pushed to Prognosis: this case has no provider code on record (likely logged before provider search was in place).",
+        },
+      });
+    } else if (!existing.serviceCode) {
+      await prisma.caseUpdate.create({
+        data: {
+          caseId: data.caseId,
+          userId: session.user.id,
+          type: "NOTE",
+          note: "Tariff not pushed to Prognosis: this was logged as a new service with no existing Prognosis tariff line to update. It needs to be added to Prognosis directly (or resubmitted once new-service support is added).",
         },
       });
     } else {
