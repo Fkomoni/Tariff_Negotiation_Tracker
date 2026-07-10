@@ -102,7 +102,7 @@ export function CaseTable({
                       href={isProviderTeamViewer ? `/negotiations/${c.id}?tab=provider-team` : `/negotiations/${c.id}`}
                       className="rounded-md border border-ink-200 px-2.5 py-1.5 text-[11.5px] font-semibold text-ink-700 hover:bg-ink-100"
                     >
-                      {isProviderTeamViewer ? "Attend To" : "View"}
+                      {isProviderTeamViewer ? "Treat" : "View"}
                     </Link>
                   </div>
                 </td>
