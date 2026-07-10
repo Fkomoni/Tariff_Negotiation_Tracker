@@ -219,7 +219,7 @@ async function getServiceToken(forceRefresh = false): Promise<string> {
  * retrying once with a freshly-issued token if the first attempt gets a 401.
  */
 async function serviceRequest(
-  method: "GET" | "POST",
+  method: "GET" | "POST" | "PUT",
   path: string,
   body?: unknown,
   extraHeaders?: Record<string, string>
@@ -262,6 +262,10 @@ async function serviceRequest(
 
 async function servicePost(path: string, body: unknown): Promise<void> {
   await serviceRequest("POST", path, body);
+}
+
+async function servicePut(path: string, body: unknown): Promise<void> {
+  await serviceRequest("PUT", path, body);
 }
 
 export interface SendEmailAlertParams {
@@ -321,6 +325,32 @@ export async function sendSms(params: SendSmsParams): Promise<void> {
     ReferenceNo: params.referenceNo ?? "",
     UserId: 0,
   });
+}
+
+export interface UpdateProviderTariffParams {
+  providerCode: string;
+  serviceCode: string;
+  oldPrice: number;
+  newPrice: number;
+  effectiveDate: Date;
+}
+
+/**
+ * Pushes a negotiated tariff price straight to Prognosis's own tariff record
+ * once Provider Team agrees a final amount, so the new rate takes effect
+ * there without a separate manual update.
+ */
+export async function updateProviderTariff(params: UpdateProviderTariffParams): Promise<void> {
+  await servicePut(
+    `/api/Tariff/Provider/${encodeURIComponent(params.providerCode)}/Service/${encodeURIComponent(params.serviceCode)}`,
+    {
+      provider_code: params.providerCode,
+      service_code: params.serviceCode,
+      old_price: params.oldPrice,
+      new_price: params.newPrice,
+      effective_date: params.effectiveDate.toISOString(),
+    }
+  );
 }
 
 export interface ProviderRecord {

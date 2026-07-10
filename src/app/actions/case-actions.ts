@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { sendEmailAlert, sendSms } from "@/lib/prognosis";
+import { sendEmailAlert, sendSms, updateProviderTariff } from "@/lib/prognosis";
 import { generateCaseNumber, CASE_STATUS_LABELS, SERVICE_TYPE_LABELS } from "@/lib/domain";
 import type { CaseStatus, ServiceType } from "@prisma/client";
 import { STATUS_TRANSITIONS } from "@/lib/domain";
@@ -126,6 +126,7 @@ const updateStatusSchema = z.object({
   note: z.string().optional(),
   finalAgreedAmount: z.coerce.number().optional(),
   approvalReason: z.string().optional(),
+  effectiveDate: z.string().optional(),
 });
 
 export async function updateCaseStatus(formData: FormData) {
@@ -153,8 +154,11 @@ export async function updateCaseStatus(formData: FormData) {
     );
   }
 
-  if ((data.status === "COMPLETED" || data.status === "DECLINED") && !data.finalAgreedAmount && data.status === "COMPLETED") {
+  if (data.status === "COMPLETED" && !data.finalAgreedAmount) {
     redirect(`/negotiations/${data.caseId}?error=${encodeURIComponent("Final agreed amount is required to mark as Completed")}`);
+  }
+  if (data.status === "COMPLETED" && !data.effectiveDate) {
+    redirect(`/negotiations/${data.caseId}?error=${encodeURIComponent("Tariff effective date is required to mark as Completed")}`);
   }
 
   const now = new Date();
@@ -178,6 +182,29 @@ export async function updateCaseStatus(formData: FormData) {
       },
     },
   });
+
+  if (data.status === "COMPLETED" && data.finalAgreedAmount) {
+    let tariffPushNote: string;
+    if (!existing.providerCode || !existing.serviceCode) {
+      tariffPushNote = "Tariff not pushed to Prognosis: this case is missing a provider code or service code (likely logged before those were captured).";
+    } else {
+      try {
+        await updateProviderTariff({
+          providerCode: existing.providerCode,
+          serviceCode: existing.serviceCode,
+          oldPrice: Number(existing.currentTariff),
+          newPrice: data.finalAgreedAmount,
+          effectiveDate: new Date(data.effectiveDate!),
+        });
+        tariffPushNote = `Tariff updated in Prognosis: ${existing.providerCode} / ${existing.serviceCode} → ${data.finalAgreedAmount}, effective ${data.effectiveDate}.`;
+      } catch (err) {
+        tariffPushNote = `Failed to push tariff update to Prognosis: ${err instanceof Error ? err.message : "Unknown error"}`;
+      }
+    }
+    await prisma.caseUpdate.create({
+      data: { caseId: data.caseId, userId: session.user.id, type: "NOTE", note: tariffPushNote },
+    });
+  }
 
   revalidatePath(`/negotiations/${data.caseId}`);
   revalidatePath("/negotiations/queue");
