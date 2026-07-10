@@ -73,6 +73,7 @@ model User {
   displayName        String?
   email               String?
   role                Role     @default(PENDING)
+  lastLoginAt         DateTime?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 

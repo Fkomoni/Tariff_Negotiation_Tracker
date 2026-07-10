@@ -5,7 +5,7 @@ import { Card, CardHeader, inputClass } from "@/components/ui";
 import { SubmitButton } from "@/components/SubmitButton";
 import { ConfigIcon } from "@/components/icons";
 import { ROLE_LABELS, formatDateTime } from "@/lib/domain";
-import { assignRole } from "@/app/actions/admin-actions";
+import { assignRole, provisionUser } from "@/app/actions/admin-actions";
 
 export default async function ConfigurationPage() {
   const session = await auth();
@@ -29,14 +29,44 @@ export default async function ConfigurationPage() {
             in after you update their role.
           </p>
         </Card>
+
         <Card>
-          <CardHeader title="Staff & Roles" subtitle={`${users.length} account${users.length === 1 ? "" : "s"} signed in so far`} />
+          <CardHeader title="Add Staff Member" subtitle="Set a role before someone signs in for the first time" />
+          <form action={provisionUser} className="flex items-end gap-3 px-5 py-4">
+            <label className="block flex-1">
+              <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-ink-400">
+                Prognosis Username / Email
+              </span>
+              <input
+                name="prognosisUsername"
+                required
+                placeholder="e.g. f-komoni-mbaekwe"
+                className={inputClass}
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-ink-400">Role</span>
+              <select name="role" defaultValue="PENDING" className={`${inputClass} w-48`}>
+                {Object.entries(ROLE_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <SubmitButton pendingLabel="Adding…">Add</SubmitButton>
+          </form>
+        </Card>
+
+        <Card>
+          <CardHeader title="Staff & Roles" subtitle={`${users.length} account${users.length === 1 ? "" : "s"}`} />
           <div className="overflow-x-auto">
             <table className="w-full text-left text-[12.5px]">
               <thead className="border-b border-ink-100 text-[11px] font-semibold uppercase tracking-wide text-ink-400">
                 <tr>
                   <th className="px-5 py-2.5">Prognosis Username</th>
                   <th className="px-5 py-2.5">First Signed In</th>
+                  <th className="px-5 py-2.5">Last Signed In</th>
                   <th className="px-5 py-2.5">Role</th>
                   <th className="px-5 py-2.5" />
                 </tr>
@@ -45,7 +75,8 @@ export default async function ConfigurationPage() {
                 {users.map((u) => (
                   <tr key={u.id}>
                     <td className="px-5 py-3 font-semibold text-ink-900">{u.prognosisUsername}</td>
-                    <td className="px-5 py-3 text-ink-500">{formatDateTime(u.createdAt)}</td>
+                    <td className="px-5 py-3 text-ink-500">{u.lastLoginAt ? formatDateTime(u.createdAt) : "Not yet — pre-provisioned"}</td>
+                    <td className="px-5 py-3 text-ink-500">{u.lastLoginAt ? formatDateTime(u.lastLoginAt) : "Never signed in"}</td>
                     <td className="px-5 py-3">
                       <form action={assignRole} className="flex items-center gap-2">
                         <input type="hidden" name="userId" value={u.id} />

@@ -356,37 +356,39 @@ export default async function CaseDetailsPage({
               </Card>
             )}
 
-            <Card>
-              <CardHeader title="Notify Member" icon={<BellIcon className="h-4 w-4" />} />
-              <form action={notifyMember} className="space-y-4 px-5 py-4">
-                <input type="hidden" name="caseId" value={negotiationCase.id} />
-                <Field label="Message Template">
-                  <select name="template" className={inputClass} defaultValue={negotiationCase.urgency === "ROUTINE" ? "ROUTINE" : "URGENT"}>
-                    <option value="ROUTINE">Routine delay notice</option>
-                    <option value="URGENT">Urgent delay notice</option>
-                  </select>
-                </Field>
-                <div className="flex gap-4">
-                  <label className="flex items-center gap-2 text-[12.5px] text-ink-700">
-                    <input type="checkbox" name="channel" value="EMAIL" defaultChecked={!!negotiationCase.enrolleeEmail} />
-                    Email
-                  </label>
-                  <label className="flex items-center gap-2 text-[12.5px] text-ink-700">
-                    <input type="checkbox" name="channel" value="SMS" defaultChecked={!!negotiationCase.enrolleePhone} />
-                    SMS
-                  </label>
-                </div>
-                <Field label="Email" hint="Override or fill in if missing">
-                  <input name="email" type="email" defaultValue={negotiationCase.enrolleeEmail ?? ""} className={inputClass} />
-                </Field>
-                <Field label="Phone" hint="Override or fill in if missing">
-                  <input name="phone" defaultValue={negotiationCase.enrolleePhone ?? ""} className={inputClass} />
-                </Field>
-                <SubmitButton className="w-full" pendingLabel="Sending…">
-                  Notify Member
-                </SubmitButton>
-              </form>
-            </Card>
+            {canLogNegotiation && (
+              <Card>
+                <CardHeader title="Notify Member" icon={<BellIcon className="h-4 w-4" />} />
+                <form action={notifyMember} className="space-y-4 px-5 py-4">
+                  <input type="hidden" name="caseId" value={negotiationCase.id} />
+                  <Field label="Message Template">
+                    <select name="template" className={inputClass} defaultValue={negotiationCase.urgency === "ROUTINE" ? "ROUTINE" : "URGENT"}>
+                      <option value="ROUTINE">Routine delay notice</option>
+                      <option value="URGENT">Urgent delay notice</option>
+                    </select>
+                  </Field>
+                  <div className="flex gap-4">
+                    <label className="flex items-center gap-2 text-[12.5px] text-ink-700">
+                      <input type="checkbox" name="channel" value="EMAIL" defaultChecked={!!negotiationCase.enrolleeEmail} />
+                      Email
+                    </label>
+                    <label className="flex items-center gap-2 text-[12.5px] text-ink-700">
+                      <input type="checkbox" name="channel" value="SMS" defaultChecked={!!negotiationCase.enrolleePhone} />
+                      SMS
+                    </label>
+                  </div>
+                  <Field label="Email" hint="Override or fill in if missing">
+                    <input name="email" type="email" defaultValue={negotiationCase.enrolleeEmail ?? ""} className={inputClass} />
+                  </Field>
+                  <Field label="Phone" hint="Override or fill in if missing">
+                    <input name="phone" defaultValue={negotiationCase.enrolleePhone ?? ""} className={inputClass} />
+                  </Field>
+                  <SubmitButton className="w-full" pendingLabel="Sending…">
+                    Notify Member
+                  </SubmitButton>
+                </form>
+              </Card>
+            )}
 
             <Card>
               <CardHeader title="Notification History" />

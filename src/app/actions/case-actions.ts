@@ -106,6 +106,46 @@ export async function createCase(formData: FormData) {
     },
   });
 
+  const wantsEmail = !!created.enrolleeEmail;
+  const wantsSms = !!created.enrolleePhone;
+  const autoTemplate: "ROUTINE" | "URGENT" = created.urgency === "ROUTINE" ? "ROUTINE" : "URGENT";
+
+  if (wantsEmail || wantsSms) {
+    const results = await dispatchMemberNotifications({
+      caseId: created.id,
+      caseNumber: created.caseNumber,
+      providerName: created.providerName,
+      enrolleeName: created.enrolleeName,
+      enrolleeId: created.enrolleeId,
+      requestedItem: created.requestedItem,
+      serviceType: created.serviceType,
+      loggedAt: created.loggedAt,
+      template: autoTemplate,
+      wantsEmail,
+      wantsSms,
+      email: created.enrolleeEmail,
+      phone: created.enrolleePhone,
+      sentByUserId: session.user.id,
+    });
+    await prisma.caseUpdate.create({
+      data: {
+        caseId: created.id,
+        userId: session.user.id,
+        type: "NOTIFICATION",
+        note: `Member auto-notified at logging (${autoTemplate.toLowerCase()} template): ${results.join(", ")}`,
+      },
+    });
+  } else {
+    await prisma.caseUpdate.create({
+      data: {
+        caseId: created.id,
+        userId: session.user.id,
+        type: "NOTE",
+        note: "Member not auto-notified: no email or phone number on file.",
+      },
+    });
+  }
+
   revalidatePath("/negotiations/queue");
   revalidatePath("/dashboard");
   redirect(`/negotiations/${created.id}`);
@@ -286,6 +326,110 @@ export async function addNote(formData: FormData) {
   redirect(`/negotiations/${caseId}`);
 }
 
+interface DispatchNotificationsParams {
+  caseId: string;
+  caseNumber: string;
+  providerName: string;
+  enrolleeName: string;
+  enrolleeId: string | null;
+  requestedItem: string;
+  serviceType: ServiceType;
+  loggedAt: Date;
+  template: "ROUTINE" | "URGENT";
+  wantsEmail: boolean;
+  wantsSms: boolean;
+  email: string | null;
+  phone: string | null;
+  sentByUserId: string;
+}
+
+/**
+ * Sends the member email/SMS for a case and records a MemberNotification
+ * per channel. Shared by the auto-notify-on-log flow and the manual
+ * "Notify Member" form so both produce identical, auditable results.
+ */
+async function dispatchMemberNotifications(params: DispatchNotificationsParams): Promise<string[]> {
+  const emailMessage = buildEmailMessage(params.template, params.enrolleeName, params.providerName);
+  const smsMessage = buildSmsMessage(params.template, params.providerName);
+  const subject = `Update on your care at ${params.providerName}`;
+  const emailHtml = buildMemberNotificationEmailHtml({
+    baseUrl: process.env.NEXTAUTH_URL ?? "https://tariff-negotiation-tracker.onrender.com",
+    urgency: params.template,
+    eyebrow: params.template === "URGENT" ? "Urgent Update" : "Routine Update",
+    title: params.template === "URGENT" ? "We're urgently resolving a delay in your care" : "Your requested service may be delayed",
+    intro:
+      params.template === "URGENT"
+        ? "Our Provider Team is actively engaging the hospital to resolve this as quickly as possible. We're treating this as a priority."
+        : "This request is currently being reviewed by our Provider Team — no action is needed from you right now.",
+    calloutMessage: emailMessage,
+    caseNumber: params.caseNumber,
+    enrolleeId: params.enrolleeId,
+    memberName: params.enrolleeName,
+    serviceTypeLabel: SERVICE_TYPE_LABELS[params.serviceType],
+    requestedItem: params.requestedItem,
+    providerName: params.providerName,
+    submittedAt: params.loggedAt,
+  });
+
+  const tasks: Promise<string>[] = [];
+
+  if (params.wantsEmail && params.email) {
+    const email = params.email;
+    tasks.push(
+      sendEmailAlert({ emailAddress: email, subject, messageBody: emailHtml, reference: params.caseNumber })
+        .then(() => ({ status: "SENT" as const, errorMessage: null }))
+        .catch((err) => ({
+          status: "FAILED" as const,
+          errorMessage: err instanceof Error ? err.message : "Unknown error sending email",
+        }))
+        .then(async ({ status, errorMessage }) => {
+          await prisma.memberNotification.create({
+            data: {
+              caseId: params.caseId,
+              sentByUserId: params.sentByUserId,
+              template: params.template,
+              channel: "EMAIL",
+              message: emailMessage,
+              recipientEmail: email,
+              status,
+              errorMessage,
+            },
+          });
+          return status === "SENT" ? "email sent" : `email failed: ${errorMessage}`;
+        })
+    );
+  }
+
+  if (params.wantsSms && params.phone) {
+    const phone = params.phone;
+    tasks.push(
+      sendSms({ to: phone, message: smsMessage, referenceNo: params.caseNumber })
+        .then(() => ({ status: "SENT" as const, errorMessage: null }))
+        .catch((err) => ({
+          status: "FAILED" as const,
+          errorMessage: err instanceof Error ? err.message : "Unknown error sending SMS",
+        }))
+        .then(async ({ status, errorMessage }) => {
+          await prisma.memberNotification.create({
+            data: {
+              caseId: params.caseId,
+              sentByUserId: params.sentByUserId,
+              template: params.template,
+              channel: "SMS",
+              message: smsMessage,
+              recipientPhone: phone,
+              status,
+              errorMessage,
+            },
+          });
+          return status === "SENT" ? "SMS sent" : `SMS failed: ${errorMessage}`;
+        })
+    );
+  }
+
+  return Promise.all(tasks);
+}
+
 function buildEmailMessage(template: "ROUTINE" | "URGENT", memberName: string, hospitalName: string): string {
   if (template === "URGENT") {
     return `Dear ${memberName}, we know how important it is for your care to move forward without delay, and we want you to know that Leadway Health is ready to approve it right away. The holdup is on ${hospitalName}'s side — they are currently renegotiating tariff rates that were already pre-agreed with us for this service, and that is what's causing this delay, not any decision on our part. We are treating this as a priority, engaging the hospital directly, and following up continuously until it is resolved. Thank you for your patience and trust — we are doing everything possible to close this out quickly.`;
@@ -302,6 +446,9 @@ function buildSmsMessage(template: "ROUTINE" | "URGENT", hospitalName: string): 
 
 export async function notifyMember(formData: FormData) {
   const session = await requireSession();
+  if (!["CONTACT_CENTER", "ADMIN"].includes(session.user.role)) {
+    throw new Error("Only Contact Centre can notify the member");
+  }
   const caseId = String(formData.get("caseId"));
   const template = String(formData.get("template") ?? "ROUTINE") as "ROUTINE" | "URGENT";
   const channels = formData.getAll("channel").map(String) as Array<"EMAIL" | "SMS">;
@@ -327,65 +474,22 @@ export async function notifyMember(formData: FormData) {
     redirect(`/negotiations/${caseId}?error=${encodeURIComponent("No member phone number on file. Add one to send an SMS notification.")}`);
   }
 
-  const emailMessage = buildEmailMessage(template, negotiationCase.enrolleeName, negotiationCase.providerName);
-  const smsMessage = buildSmsMessage(template, negotiationCase.providerName);
-  const subject = `Update on your care at ${negotiationCase.providerName}`;
-  const emailHtml = buildMemberNotificationEmailHtml({
-    baseUrl: process.env.NEXTAUTH_URL ?? "https://tariff-negotiation-tracker.onrender.com",
-    urgency: template,
-    eyebrow: template === "URGENT" ? "Urgent Update" : "Routine Update",
-    title: template === "URGENT" ? "We're urgently resolving a delay in your care" : "Your requested service may be delayed",
-    intro:
-      template === "URGENT"
-        ? "Our Provider Team is actively engaging the hospital to resolve this as quickly as possible. We're treating this as a priority."
-        : "This request is currently being reviewed by our Provider Team — no action is needed from you right now.",
-    calloutMessage: emailMessage,
+  const results = await dispatchMemberNotifications({
+    caseId,
     caseNumber: negotiationCase.caseNumber,
-    enrolleeId: negotiationCase.enrolleeId,
-    memberName: negotiationCase.enrolleeName,
-    serviceTypeLabel: SERVICE_TYPE_LABELS[negotiationCase.serviceType as ServiceType],
-    requestedItem: negotiationCase.requestedItem,
     providerName: negotiationCase.providerName,
-    submittedAt: negotiationCase.loggedAt,
+    enrolleeName: negotiationCase.enrolleeName,
+    enrolleeId: negotiationCase.enrolleeId,
+    requestedItem: negotiationCase.requestedItem,
+    serviceType: negotiationCase.serviceType as ServiceType,
+    loggedAt: negotiationCase.loggedAt,
+    template,
+    wantsEmail,
+    wantsSms,
+    email,
+    phone,
+    sentByUserId: session.user.id,
   });
-
-  const tasks: Promise<string>[] = [];
-
-  if (wantsEmail && email) {
-    tasks.push(
-      sendEmailAlert({ emailAddress: email, subject, messageBody: emailHtml, reference: negotiationCase.caseNumber })
-        .then(() => ({ status: "SENT" as const, errorMessage: null }))
-        .catch((err) => ({
-          status: "FAILED" as const,
-          errorMessage: err instanceof Error ? err.message : "Unknown error sending email",
-        }))
-        .then(async ({ status, errorMessage }) => {
-          await prisma.memberNotification.create({
-            data: { caseId, sentByUserId: session.user.id, template, channel: "EMAIL", message: emailMessage, recipientEmail: email, status, errorMessage },
-          });
-          return status === "SENT" ? "email sent" : `email failed: ${errorMessage}`;
-        })
-    );
-  }
-
-  if (wantsSms && phone) {
-    tasks.push(
-      sendSms({ to: phone, message: smsMessage, referenceNo: negotiationCase.caseNumber })
-        .then(() => ({ status: "SENT" as const, errorMessage: null }))
-        .catch((err) => ({
-          status: "FAILED" as const,
-          errorMessage: err instanceof Error ? err.message : "Unknown error sending SMS",
-        }))
-        .then(async ({ status, errorMessage }) => {
-          await prisma.memberNotification.create({
-            data: { caseId, sentByUserId: session.user.id, template, channel: "SMS", message: smsMessage, recipientPhone: phone, status, errorMessage },
-          });
-          return status === "SENT" ? "SMS sent" : `SMS failed: ${errorMessage}`;
-        })
-    );
-  }
-
-  const results = await Promise.all(tasks);
 
   await prisma.caseUpdate.create({
     data: {

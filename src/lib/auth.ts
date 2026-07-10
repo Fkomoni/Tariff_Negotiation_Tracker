@@ -62,18 +62,31 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const isSeededAdmin = getAdminUsernames().includes(username.toLowerCase());
 
-        const existing = await prisma.user.findUnique({ where: { prognosisUsername: username } });
+        // Match case-insensitively so "K-ezeudu@leadway.com" and
+        // "k-ezeudu@leadway.com" resolve to the same account — including one
+        // an Admin pre-provisioned with a role before this person ever signed
+        // in. New accounts are always stored lowercased going forward.
+        const existing = await prisma.user.findFirst({
+          where: { prognosisUsername: { equals: username, mode: "insensitive" } },
+        });
 
         const user = existing
-          ? isSeededAdmin && existing.role !== "ADMIN"
-            ? await prisma.user.update({ where: { id: existing.id }, data: { role: "ADMIN" } })
-            : existing
+          ? await prisma.user.update({
+              where: { id: existing.id },
+              data: {
+                lastLoginAt: new Date(),
+                role: isSeededAdmin && existing.role !== "ADMIN" ? "ADMIN" : existing.role,
+                displayName: existing.displayName ?? staff.displayName,
+                email: existing.email ?? staff.email,
+              },
+            })
           : await prisma.user.create({
               data: {
-                prognosisUsername: username,
+                prognosisUsername: username.toLowerCase(),
                 displayName: staff.displayName,
                 email: staff.email,
                 role: isSeededAdmin ? "ADMIN" : "PENDING",
+                lastLoginAt: new Date(),
               },
             });
 
