@@ -227,15 +227,18 @@ export async function addNote(formData: FormData) {
   redirect(`/negotiations/${caseId}`);
 }
 
-function buildNotificationMessage(
-  template: "ROUTINE" | "URGENT",
-  memberName: string,
-  hospitalName: string
-): string {
+function buildEmailMessage(template: "ROUTINE" | "URGENT", memberName: string, hospitalName: string): string {
   if (template === "URGENT") {
-    return `Dear ${memberName}, we are currently engaging ${hospitalName} regarding the tariff for your requested service. This may cause a short delay, but our team is treating this as urgent and will keep following up until resolved.`;
+    return `Dear ${memberName}, we know how important it is for your care to move forward without delay, and we want you to know that Leadway Health is ready to approve it right away. The holdup is on ${hospitalName}'s side — they are currently renegotiating tariff rates that were already pre-agreed with us for this service, and that is what's causing this delay, not any decision on our part. We are treating this as a priority, engaging the hospital directly, and following up continuously until it is resolved. Thank you for your patience and trust — we are doing everything possible to close this out quickly.`;
   }
-  return `Dear ${memberName}, please note that your requested service at ${hospitalName} may experience a slight delay as the provider is currently discussing the applicable tariff with Leadway Health. Our team is actively following up to resolve this as quickly as possible. Thank you for your patience.`;
+  return `Dear ${memberName}, please be assured that Leadway Health would like nothing more than to approve your requested care immediately. The short delay you may experience is because ${hospitalName} is currently renegotiating tariff rates that were already pre-agreed with us for this service — this is not a delay on our end. Our team is actively engaging the hospital and following up to close this out as quickly as possible so your care isn't held up any longer than necessary. Thank you for your patience and understanding.`;
+}
+
+function buildSmsMessage(template: "ROUTINE" | "URGENT", hospitalName: string): string {
+  if (template === "URGENT") {
+    return `Leadway Health: Your care is approved on our end. ${hospitalName} is renegotiating an already-agreed tariff, causing this urgent delay. We're pushing hard for an immediate resolution.`;
+  }
+  return `Leadway Health: We're ready to approve your care now. ${hospitalName} is renegotiating an already-agreed tariff, causing the delay. We're following up to resolve this quickly.`;
 }
 
 export async function notifyMember(formData: FormData) {
@@ -265,7 +268,8 @@ export async function notifyMember(formData: FormData) {
     redirect(`/negotiations/${caseId}?error=${encodeURIComponent("No member phone number on file. Add one to send an SMS notification.")}`);
   }
 
-  const message = buildNotificationMessage(template, negotiationCase.enrolleeName, negotiationCase.providerName);
+  const emailMessage = buildEmailMessage(template, negotiationCase.enrolleeName, negotiationCase.providerName);
+  const smsMessage = buildSmsMessage(template, negotiationCase.providerName);
   const subject = `Update on your care at ${negotiationCase.providerName}`;
   const emailHtml = buildMemberNotificationEmailHtml({
     baseUrl: process.env.NEXTAUTH_URL ?? "https://tariff-negotiation-tracker.onrender.com",
@@ -276,7 +280,7 @@ export async function notifyMember(formData: FormData) {
       template === "URGENT"
         ? "Our Provider Team is actively engaging the hospital to resolve this as quickly as possible. We're treating this as a priority."
         : "This request is currently being reviewed by our Provider Team — no action is needed from you right now.",
-    calloutMessage: message,
+    calloutMessage: emailMessage,
     caseNumber: negotiationCase.caseNumber,
     enrolleeId: negotiationCase.enrolleeId,
     memberName: negotiationCase.enrolleeName,
@@ -298,7 +302,7 @@ export async function notifyMember(formData: FormData) {
         }))
         .then(async ({ status, errorMessage }) => {
           await prisma.memberNotification.create({
-            data: { caseId, sentByUserId: session.user.id, template, channel: "EMAIL", message, recipientEmail: email, status, errorMessage },
+            data: { caseId, sentByUserId: session.user.id, template, channel: "EMAIL", message: emailMessage, recipientEmail: email, status, errorMessage },
           });
           return status === "SENT" ? "email sent" : `email failed: ${errorMessage}`;
         })
@@ -307,7 +311,7 @@ export async function notifyMember(formData: FormData) {
 
   if (wantsSms && phone) {
     tasks.push(
-      sendSms({ to: phone, message, referenceNo: negotiationCase.caseNumber })
+      sendSms({ to: phone, message: smsMessage, referenceNo: negotiationCase.caseNumber })
         .then(() => ({ status: "SENT" as const, errorMessage: null }))
         .catch((err) => ({
           status: "FAILED" as const,
@@ -315,7 +319,7 @@ export async function notifyMember(formData: FormData) {
         }))
         .then(async ({ status, errorMessage }) => {
           await prisma.memberNotification.create({
-            data: { caseId, sentByUserId: session.user.id, template, channel: "SMS", message, recipientPhone: phone, status, errorMessage },
+            data: { caseId, sentByUserId: session.user.id, template, channel: "SMS", message: smsMessage, recipientPhone: phone, status, errorMessage },
           });
           return status === "SENT" ? "SMS sent" : `SMS failed: ${errorMessage}`;
         })
