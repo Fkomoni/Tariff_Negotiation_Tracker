@@ -18,6 +18,7 @@ interface ProviderResult {
 
 export interface ProviderInitial {
   code: string;
+  id?: number;
   name: string;
   email: string;
   phone: string;
@@ -32,6 +33,7 @@ export function ProviderFields({
 }) {
   const [query, setQuery] = useState(initial?.name ?? "");
   const [providerCode, setProviderCode] = useState(initial?.code ?? "");
+  const [providerId, setProviderId] = useState(initial?.id ? String(initial.id) : "");
   const [hasSelection, setHasSelection] = useState(!!initial?.code);
   const [email, setEmail] = useState(initial?.email ?? "");
   const [phone, setPhone] = useState(initial?.phone ?? "");
@@ -83,6 +85,7 @@ export function ProviderFields({
     confirmedNameRef.current = p.name;
     setHasSelection(true);
     setProviderCode(p.code);
+    setProviderId(String(p.id));
     setQuery(p.name);
     setEmail(p.email ?? "");
     setPhone(p.phone ?? "");
@@ -97,6 +100,7 @@ export function ProviderFields({
     if (hasSelection) {
       setHasSelection(false);
       setProviderCode("");
+      setProviderId("");
       setEmail("");
       setPhone("");
       onProviderCodeChange?.("");
@@ -118,6 +122,7 @@ export function ProviderFields({
             placeholder="Start typing to search providers…"
           />
           <input type="hidden" name="providerCode" value={providerCode} />
+          <input type="hidden" name="providerId" value={providerId} />
           {loading && (
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-ink-400">
               Searching…

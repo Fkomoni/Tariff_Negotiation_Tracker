@@ -14,14 +14,30 @@ import {
   urgentCasesTable,
 } from "@/lib/reports";
 
-export default async function ReportsPage() {
+export default async function ReportsPage({
+  searchParams,
+}: {
+  searchParams: { from?: string; to?: string };
+}) {
   const session = await auth();
   if (!session?.user) return null;
 
+  const from = searchParams.from;
+  const to = searchParams.to;
+  const loggedAt: { gte?: Date; lte?: Date } = {};
+  if (from) loggedAt.gte = new Date(`${from}T00:00:00.000Z`);
+  if (to) loggedAt.lte = new Date(`${to}T23:59:59.999Z`);
+
   const cases = await prisma.negotiationCase.findMany({
+    where: Object.keys(loggedAt).length > 0 ? { loggedAt } : undefined,
     include: { loggedBy: true, owner: true },
     orderBy: { loggedAt: "desc" },
   });
+
+  const exportParams = new URLSearchParams();
+  if (from) exportParams.set("from", from);
+  if (to) exportParams.set("to", to);
+  const exportHref = `/api/reports/export${exportParams.toString() ? `?${exportParams.toString()}` : ""}`;
 
   const byProvider = groupByProvider(cases);
   const byItem = groupByItem(cases).slice(0, 10);
@@ -42,6 +58,33 @@ export default async function ReportsPage() {
       />
 
       <div className="flex-1 space-y-6 px-8 py-8">
+        <Card className="flex flex-wrap items-end justify-between gap-4 px-5 py-4">
+          <form className="flex flex-wrap items-end gap-3" action="/reports">
+            <label className="block">
+              <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-ink-400">From</span>
+              <input type="date" name="from" defaultValue={from ?? ""} className="rounded-lg border border-ink-200 px-3 py-1.5 text-[12.5px]" />
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-ink-400">To</span>
+              <input type="date" name="to" defaultValue={to ?? ""} className="rounded-lg border border-ink-200 px-3 py-1.5 text-[12.5px]" />
+            </label>
+            <button type="submit" className="rounded-lg bg-ink-900 px-3.5 py-1.5 text-[12.5px] font-semibold text-white hover:bg-ink-800">
+              Apply
+            </button>
+            {(from || to) && (
+              <a href="/reports" className="text-[12.5px] font-semibold text-ink-500 hover:text-ink-800">
+                Clear
+              </a>
+            )}
+          </form>
+          <a
+            href={exportHref}
+            className="whitespace-nowrap rounded-lg bg-brand px-4 py-2 text-[12.5px] font-semibold text-white shadow-glow hover:bg-brand-600"
+          >
+            Download CSV
+          </a>
+        </Card>
+
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <StatTile label="Total Extra Cost Requested" value={formatCurrency(totalExtraRequested)} tone="brand" />
           <StatTile label="Avg. Log → First Action" value={delay.avgFirstActionMs !== null ? formatDuration(delay.avgFirstActionMs) : "—"} hint="Internal response time" />

@@ -83,6 +83,7 @@ model NegotiationCase {
 
   providerName           String
   providerCode           String?
+  providerId             Int?
   providerEmail          String?
   providerPhone          String?
   enrolleeName           String

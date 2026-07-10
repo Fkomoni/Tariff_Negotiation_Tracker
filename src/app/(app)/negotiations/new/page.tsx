@@ -28,6 +28,7 @@ export default async function LogNegotiationPage({
     if (source) {
       initialProvider = {
         code: source.providerCode ?? "",
+        id: source.providerId ?? undefined,
         name: source.providerName,
         email: source.providerEmail ?? "",
         phone: source.providerPhone ?? "",

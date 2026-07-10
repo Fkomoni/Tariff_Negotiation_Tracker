@@ -145,3 +145,44 @@ export function tariffReviewCandidates(cases: ReportCase[]): TariffReviewCandida
 }
 
 export const CLOSED: CaseStatus[] = ["COMPLETED", "DECLINED"];
+
+export const CASE_EXPORT_HEADER = [
+  "Case Number",
+  "Provider ID",
+  "Provider Code",
+  "Provider Name",
+  "Date of Request",
+  "Service Type",
+  "Service Requested",
+  "Existing Price",
+  "Requested Price",
+  "New Price",
+  "Status",
+  "Agent That Logged",
+  "Agent That Handled",
+  "TAT Minutes (Log to Completion)",
+  "Feedback from Provider Management",
+];
+
+export function buildCaseExportRows(cases: ReportCase[]): (string | number)[][] {
+  return cases.map((c) => {
+    const tatMs = c.completedAt ? c.completedAt.getTime() - c.loggedAt.getTime() : null;
+    return [
+      c.caseNumber,
+      c.providerId ?? "",
+      c.providerCode ?? "",
+      c.providerName,
+      c.loggedAt.toISOString(),
+      c.serviceType,
+      c.requestedItem,
+      toNum(c.currentTariff),
+      toNum(c.providerRequestedAmount),
+      c.finalAgreedAmount ? toNum(c.finalAgreedAmount) : "",
+      c.status,
+      c.loggedBy.displayName ?? c.loggedBy.prognosisUsername,
+      c.owner?.displayName ?? c.owner?.prognosisUsername ?? "",
+      tatMs !== null ? Math.round(tatMs / 60000) : "",
+      c.approvalReason ?? "",
+    ];
+  });
+}
