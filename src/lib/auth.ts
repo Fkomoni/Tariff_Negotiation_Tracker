@@ -2,6 +2,7 @@ import NextAuth, { type DefaultSession } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
 import { prognosisStaffLogin, PrognosisAuthError, PrognosisUnavailableError } from "@/lib/prognosis";
+import { logAudit } from "@/lib/audit";
 import type { Role } from "@prisma/client";
 
 declare module "next-auth" {
@@ -75,6 +76,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                 role: isSeededAdmin ? "ADMIN" : "PENDING",
               },
             });
+
+        await logAudit("LOGIN", `${user.displayName ?? user.prognosisUsername} signed in`, user.id);
 
         return {
           id: user.id,

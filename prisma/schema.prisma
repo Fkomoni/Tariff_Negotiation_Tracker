@@ -62,6 +62,11 @@ enum NotificationChannel {
   SMS
 }
 
+enum AuditAction {
+  LOGIN
+  ROLE_CHANGE
+}
+
 model User {
   id                String   @id @default(cuid())
   prognosisUsername String   @unique
@@ -75,6 +80,22 @@ model User {
   ownedCases    NegotiationCase[] @relation("OwnedBy")
   caseUpdates   CaseUpdate[]
   notifications MemberNotification[]
+  auditLogs     AuditLog[]
+}
+
+/// System-wide audit trail for events that aren't tied to a single
+/// NegotiationCase (logins, role changes). Case-level activity already has
+/// its own detailed trail via CaseUpdate; the Audit Log page merges both.
+model AuditLog {
+  id          String      @id @default(cuid())
+  actorUserId String?
+  actor       User?       @relation(fields: [actorUserId], references: [id])
+  action      AuditAction
+  summary     String
+  createdAt   DateTime    @default(now())
+
+  @@index([action])
+  @@index([createdAt])
 }
 
 model NegotiationCase {

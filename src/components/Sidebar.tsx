@@ -12,6 +12,7 @@ import {
   ReportIcon,
   InsightIcon,
   ConfigIcon,
+  ShieldIcon,
 } from "@/components/icons";
 
 interface NavItem {
@@ -29,6 +30,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/reports", label: "Reports", icon: ReportIcon },
   { href: "/tariff-review", label: "Tariff Review Insights", icon: InsightIcon },
   { href: "/configuration", label: "Configuration", icon: ConfigIcon, roles: ["ADMIN"] },
+  { href: "/audit-log", label: "Audit Log", icon: ShieldIcon, roles: ["ADMIN"] },
 ];
 
 export function Sidebar({ role }: { role: Role }) {
