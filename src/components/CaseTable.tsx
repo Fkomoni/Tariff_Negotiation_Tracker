@@ -1,7 +1,6 @@
 import Link from "next/link";
 import type { CaseStatus, NegotiationCase, Role, ServiceType, Urgency, User } from "@prisma/client";
 import { Badge } from "@/components/ui";
-import { SubmitButton } from "@/components/SubmitButton";
 import {
   CASE_STATUS_BADGE,
   CASE_STATUS_LABELS,
@@ -13,7 +12,6 @@ import {
   formatDuration,
   amountDifference,
 } from "@/lib/domain";
-import { claimCase } from "@/app/actions/case-actions";
 
 export type CaseRow = NegotiationCase & {
   loggedBy: User;
@@ -22,11 +20,9 @@ export type CaseRow = NegotiationCase & {
 
 export function CaseTable({
   cases,
-  showClaim = false,
   viewerRole,
 }: {
   cases: CaseRow[];
-  showClaim?: boolean;
   viewerRole?: Role;
 }) {
   const isProviderTeamViewer = viewerRole === "PROVIDER_TEAM" || viewerRole === "ADMIN";
@@ -86,18 +82,6 @@ export function CaseTable({
                 <td className="px-4 py-3 text-ink-600">{c.owner?.displayName ?? c.owner?.prognosisUsername ?? "—"}</td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex items-center justify-end gap-2">
-                    {showClaim && !c.owner && (
-                      <form action={claimCase}>
-                        <input type="hidden" name="caseId" value={c.id} />
-                        <SubmitButton
-                          variant="danger"
-                          className="px-2.5 py-1.5 text-[11.5px]"
-                          pendingLabel="Claiming…"
-                        >
-                          Claim
-                        </SubmitButton>
-                      </form>
-                    )}
                     <Link
                       href={isProviderTeamViewer ? `/negotiations/${c.id}?tab=provider-team` : `/negotiations/${c.id}`}
                       className="rounded-md border border-ink-200 px-2.5 py-1.5 text-[11.5px] font-semibold text-ink-700 hover:bg-ink-100"

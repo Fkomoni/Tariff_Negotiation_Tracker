@@ -186,38 +186,6 @@ export async function updateCaseStatus(formData: FormData) {
   redirect(`/negotiations/${data.caseId}`);
 }
 
-export async function claimCase(formData: FormData) {
-  const session = await requireSession();
-  const caseId = String(formData.get("caseId"));
-  if (!["PROVIDER_TEAM", "ADMIN"].includes(session.user.role)) {
-    throw new Error("Only the Provider Team can claim cases");
-  }
-
-  const existing = await prisma.negotiationCase.findUnique({ where: { id: caseId } });
-  if (!existing) throw new Error("Case not found");
-
-  if (!existing.ownerUserId) {
-    await prisma.negotiationCase.update({
-      where: { id: caseId },
-      data: {
-        ownerUserId: session.user.id,
-        firstActionAt: existing.firstActionAt ?? new Date(),
-        updates: {
-          create: {
-            userId: session.user.id,
-            type: "OWNER_CHANGE",
-            note: "Claimed by Provider Team",
-          },
-        },
-      },
-    });
-  }
-
-  revalidatePath(`/negotiations/${caseId}`);
-  revalidatePath("/negotiations/queue");
-  redirect(`/negotiations/${caseId}`);
-}
-
 export async function addNote(formData: FormData) {
   const session = await requireSession();
   const caseId = String(formData.get("caseId"));

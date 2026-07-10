@@ -126,7 +126,7 @@ export default async function OpenNegotiationsPage({
         </div>
 
         <Card>
-          <CaseTable cases={cases} showClaim viewerRole={session.user.role} />
+          <CaseTable cases={cases} viewerRole={session.user.role} />
         </Card>
       </div>
     </>

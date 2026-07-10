@@ -19,7 +19,7 @@ import {
   formatDuration,
   amountDifference,
 } from "@/lib/domain";
-import { claimCase, updateCaseStatus, addNote, notifyMember } from "@/app/actions/case-actions";
+import { updateCaseStatus, addNote, notifyMember } from "@/app/actions/case-actions";
 import type { CaseStatus } from "@prisma/client";
 
 export default async function CaseDetailsPage({
@@ -32,7 +32,7 @@ export default async function CaseDetailsPage({
   const session = await auth();
   if (!session?.user) return null;
 
-  const negotiationCase = await prisma.negotiationCase.findUnique({
+  let negotiationCase = await prisma.negotiationCase.findUnique({
     where: { id: params.id },
     include: {
       loggedBy: true,
@@ -55,6 +55,30 @@ export default async function CaseDetailsPage({
   const canLogNegotiation = ["CONTACT_CENTER", "ADMIN"].includes(session.user.role);
   const isProviderTeam = ["PROVIDER_TEAM", "ADMIN"].includes(session.user.role);
   const activeTab = searchParams.tab === "provider-team" && isProviderTeam ? "provider-team" : "overview";
+
+  if (activeTab === "provider-team" && !negotiationCase.ownerUserId) {
+    // Atomic claim guarded on ownerUserId: null in the WHERE clause — if two
+    // requests race (e.g. a double-click on "Treat"), only one updateMany
+    // matches and only one "Claimed by Provider Team" entry gets created.
+    const claim = await prisma.negotiationCase.updateMany({
+      where: { id: negotiationCase.id, ownerUserId: null },
+      data: { ownerUserId: session.user.id, firstActionAt: negotiationCase.firstActionAt ?? new Date() },
+    });
+    if (claim.count > 0) {
+      await prisma.caseUpdate.create({
+        data: { caseId: negotiationCase.id, userId: session.user.id, type: "OWNER_CHANGE", note: "Claimed by Provider Team" },
+      });
+    }
+    negotiationCase = await prisma.negotiationCase.findUniqueOrThrow({
+      where: { id: negotiationCase.id },
+      include: {
+        loggedBy: true,
+        owner: true,
+        updates: { include: { user: true }, orderBy: { createdAt: "asc" } },
+        notifications: { include: { sentBy: true }, orderBy: { createdAt: "desc" } },
+      },
+    });
+  }
 
   const diff = amountDifference(negotiationCase.currentTariff.toString(), negotiationCase.providerRequestedAmount.toString());
   const firstActionMs = negotiationCase.firstActionAt
@@ -158,15 +182,6 @@ export default async function CaseDetailsPage({
           <Card>
             <CardHeader title="Update Status" subtitle="Provider Team" />
             <div className="space-y-4 px-5 py-4">
-              {!negotiationCase.ownerUserId && (
-                <form action={claimCase}>
-                  <input type="hidden" name="caseId" value={negotiationCase.id} />
-                  <SubmitButton variant="secondary" className="w-full" pendingLabel="Claiming…">
-                    Claim This Case
-                  </SubmitButton>
-                </form>
-              )}
-
               <form action={updateCaseStatus} className="space-y-4">
                 <input type="hidden" name="caseId" value={negotiationCase.id} />
                 <Field label="New Status">
