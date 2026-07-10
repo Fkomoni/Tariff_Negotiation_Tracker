@@ -38,7 +38,7 @@ export function Sidebar({ role }: { role: Role }) {
     <aside className="flex h-full w-[264px] flex-shrink-0 flex-col bg-ink-950 text-ink-200">
       <div className="flex items-center gap-3 px-6 py-6">
         <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-glow">
-          <Image src="/leadway-mark.png" alt="Leadway Health" width={453} height={453} className="h-9 w-9" />
+          <Image src="/leadway-mark.png" alt="Leadway Health" width={453} height={453} unoptimized className="h-9 w-9" />
         </div>
         <div>
           <p className="text-[15px] font-bold leading-tight text-white">Leadway Health</p>

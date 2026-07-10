@@ -16,7 +16,7 @@ export default function LoginPage() {
         <div>
           <div className="flex items-center gap-3">
             <div className="flex h-11 items-center rounded-xl bg-white px-3 py-2 shadow-glow">
-              <Image src="/leadway-logo.png" alt="Leadway Health" width={1370} height={453} className="h-6 w-auto" />
+              <Image src="/leadway-logo.png" alt="Leadway Health" width={1370} height={453} unoptimized className="h-6 w-auto" />
             </div>
             <p className="text-[11px] font-medium uppercase tracking-wide text-ink-400">Staff Portal</p>
           </div>

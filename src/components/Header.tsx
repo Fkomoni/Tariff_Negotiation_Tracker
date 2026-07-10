@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { ROLE_LABELS } from "@/lib/domain";
 import { logoutAction } from "@/app/actions/auth-actions";
 import { BellIcon, LogoutIcon } from "@/components/icons";
@@ -11,17 +12,15 @@ interface HeaderProps {
   actions?: React.ReactNode;
 }
 
-export function Header({ title, subtitle, icon, user, actions }: HeaderProps) {
+export function Header({ title, subtitle, user, actions }: HeaderProps) {
   const initial = user.name.trim().charAt(0).toUpperCase() || "?";
 
   return (
     <header className="flex items-center justify-between border-b border-ink-100 bg-white px-8 py-4">
       <div className="flex items-center gap-3">
-        {icon && (
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-50 text-brand-600">
-            {icon}
-          </div>
-        )}
+        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center overflow-hidden rounded-lg border border-ink-100 bg-white">
+          <Image src="/leadway-mark.png" alt="Leadway Health" width={453} height={453} unoptimized className="h-7 w-7" />
+        </div>
         <div>
           <h1 className="text-[17px] font-bold leading-tight text-ink-900">{title}</h1>
           {subtitle && <p className="text-[12.5px] text-ink-400">{subtitle}</p>}
