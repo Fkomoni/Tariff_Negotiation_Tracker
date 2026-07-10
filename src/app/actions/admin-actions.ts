@@ -1,7 +1,9 @@
 "use server";
 
 import { z } from "zod";
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { Prisma } from "@prisma/client";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
@@ -80,6 +82,42 @@ export async function provisionUser(formData: FormData) {
       session.user.id
     );
   }
+
+  revalidatePath("/configuration");
+}
+
+export async function deleteUser(formData: FormData) {
+  const session = await auth();
+  if (!session?.user || session.user.role !== "ADMIN") {
+    throw new Error("Only an Admin can remove staff accounts");
+  }
+
+  const userId = String(formData.get("userId"));
+  if (userId === session.user.id) {
+    redirect(`/configuration?error=${encodeURIComponent("You can't delete your own account while signed in as it.")}`);
+  }
+
+  const target = await prisma.user.findUnique({ where: { id: userId } });
+  if (!target) throw new Error("User not found");
+
+  try {
+    await prisma.user.delete({ where: { id: userId } });
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2003") {
+      redirect(
+        `/configuration?error=${encodeURIComponent(
+          `Can't delete ${target.prognosisUsername}: they have existing cases, updates, or notifications on record. Set their role to Pending instead if you want to revoke access.`
+        )}`
+      );
+    }
+    throw err;
+  }
+
+  await logAudit(
+    "ROLE_CHANGE",
+    `${session.user.name ?? session.user.prognosisUsername} removed the staff account ${target.prognosisUsername}`,
+    session.user.id
+  );
 
   revalidatePath("/configuration");
 }

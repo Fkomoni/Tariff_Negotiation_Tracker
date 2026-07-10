@@ -5,9 +5,13 @@ import { Card, CardHeader, inputClass } from "@/components/ui";
 import { SubmitButton } from "@/components/SubmitButton";
 import { ConfigIcon } from "@/components/icons";
 import { ROLE_LABELS, formatDateTime } from "@/lib/domain";
-import { assignRole, provisionUser } from "@/app/actions/admin-actions";
+import { assignRole, provisionUser, deleteUser } from "@/app/actions/admin-actions";
 
-export default async function ConfigurationPage() {
+export default async function ConfigurationPage({
+  searchParams,
+}: {
+  searchParams: { error?: string };
+}) {
   const session = await auth();
   if (!session?.user) return null;
 
@@ -23,6 +27,12 @@ export default async function ConfigurationPage() {
       />
 
       <div className="flex-1 space-y-4 px-8 py-8">
+        {searchParams.error && (
+          <p className="rounded-lg bg-brand-50 px-3.5 py-2.5 text-[12.5px] font-medium text-brand-700">
+            {searchParams.error}
+          </p>
+        )}
+
         <Card className="border-brand-100 bg-brand-50/40 px-5 py-3">
           <p className="text-[12.5px] text-brand-800">
             Role changes take effect the next time that person signs in — ask them to sign out and back
@@ -92,7 +102,21 @@ export default async function ConfigurationPage() {
                         </SubmitButton>
                       </form>
                     </td>
-                    <td />
+                    <td className="px-5 py-3">
+                      {u.id !== session.user.id && (
+                        <form action={deleteUser}>
+                          <input type="hidden" name="userId" value={u.id} />
+                          <SubmitButton
+                            variant="ghost"
+                            className="px-2 py-1.5 text-brand-600 hover:bg-brand-50"
+                            pendingLabel="Removing…"
+                            confirmMessage={`Remove ${u.prognosisUsername}'s account? This can't be undone. It will fail if they have existing cases, updates, or notifications on record.`}
+                          >
+                            Delete
+                          </SubmitButton>
+                        </form>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
