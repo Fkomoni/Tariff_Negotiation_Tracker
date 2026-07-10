@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { sendEmailAlert, sendSms, updateProviderTariff } from "@/lib/prognosis";
+import { sendEmailAlert, sendSms, updateProviderTariff, bulkUpdateProviderTariff } from "@/lib/prognosis";
 import { generateCaseNumber, CASE_STATUS_LABELS, SERVICE_TYPE_LABELS } from "@/lib/domain";
 import type { CaseStatus, ServiceType } from "@prisma/client";
 import { STATUS_TRANSITIONS } from "@/lib/domain";
@@ -184,26 +184,85 @@ export async function updateCaseStatus(formData: FormData) {
   });
 
   if (data.status === "COMPLETED" && data.finalAgreedAmount) {
-    let tariffPushNote: string;
     if (!existing.providerCode || !existing.serviceCode) {
-      tariffPushNote = "Tariff not pushed to Prognosis: this case is missing a provider code or service code (likely logged before those were captured).";
+      await prisma.caseUpdate.create({
+        data: {
+          caseId: data.caseId,
+          userId: session.user.id,
+          type: "NOTE",
+          note: "Tariff not pushed to Prognosis: this case is missing a provider code or service code (likely logged before those were captured).",
+        },
+      });
     } else {
-      try {
-        await updateProviderTariff({
+      // Bundle in any other completed-but-unpushed services from the same
+      // visit (quick-repeat) and provider, so Provider Team doesn't have to
+      // push each one separately when several were negotiated together.
+      const groupRoot = existing.sessionGroupId ?? existing.id;
+      const pushable = await prisma.negotiationCase.findMany({
+        where: {
+          OR: [{ id: groupRoot }, { sessionGroupId: groupRoot }],
+          status: "COMPLETED",
+          finalAgreedAmount: { not: null },
+          tariffPushedAt: null,
           providerCode: existing.providerCode,
-          serviceCode: existing.serviceCode,
-          oldPrice: Number(existing.currentTariff),
-          newPrice: data.finalAgreedAmount,
-          effectiveDate: new Date(data.effectiveDate!),
-        });
-        tariffPushNote = `Tariff updated in Prognosis: ${existing.providerCode} / ${existing.serviceCode} → ${data.finalAgreedAmount}, effective ${data.effectiveDate}.`;
-      } catch (err) {
-        tariffPushNote = `Failed to push tariff update to Prognosis: ${err instanceof Error ? err.message : "Unknown error"}`;
+          serviceCode: { not: null },
+        },
+      });
+
+      const effectiveDate = new Date(data.effectiveDate!);
+
+      if (pushable.length <= 1) {
+        const target = pushable[0] ?? existing;
+        let note: string;
+        try {
+          await updateProviderTariff({
+            providerCode: target.providerCode!,
+            serviceCode: target.serviceCode!,
+            oldPrice: Number(target.currentTariff),
+            newPrice: Number(target.finalAgreedAmount ?? data.finalAgreedAmount),
+            effectiveDate,
+          });
+          await prisma.negotiationCase.update({ where: { id: target.id }, data: { tariffPushedAt: new Date() } });
+          note = `Tariff updated in Prognosis: ${target.providerCode} / ${target.serviceCode} → ${target.finalAgreedAmount ?? data.finalAgreedAmount}, effective ${data.effectiveDate}.`;
+        } catch (err) {
+          note = `Failed to push tariff update to Prognosis: ${err instanceof Error ? err.message : "Unknown error"}`;
+        }
+        await prisma.caseUpdate.create({ data: { caseId: target.id, userId: session.user.id, type: "NOTE", note } });
+      } else {
+        let failureNote: string | null = null;
+        try {
+          await bulkUpdateProviderTariff({
+            providerCode: existing.providerCode,
+            effectiveDate,
+            updates: pushable.map((c) => ({
+              serviceCode: c.serviceCode!,
+              oldPrice: Number(c.currentTariff),
+              newPrice: Number(c.finalAgreedAmount),
+            })),
+          });
+          await prisma.negotiationCase.updateMany({
+            where: { id: { in: pushable.map((c) => c.id) } },
+            data: { tariffPushedAt: new Date() },
+          });
+        } catch (err) {
+          failureNote = `Failed to push bulk tariff update to Prognosis: ${err instanceof Error ? err.message : "Unknown error"}`;
+        }
+        await Promise.all(
+          pushable.map((c) =>
+            prisma.caseUpdate.create({
+              data: {
+                caseId: c.id,
+                userId: session.user.id,
+                type: "NOTE",
+                note:
+                  failureNote ??
+                  `Tariff updated in Prognosis (bulk, ${pushable.length} services for ${existing.providerCode}): ${c.serviceCode} → ${c.finalAgreedAmount}, effective ${data.effectiveDate}.`,
+              },
+            })
+          )
+        );
       }
     }
-    await prisma.caseUpdate.create({
-      data: { caseId: data.caseId, userId: session.user.id, type: "NOTE", note: tariffPushNote },
-    });
   }
 
   revalidatePath(`/negotiations/${data.caseId}`);

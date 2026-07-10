@@ -219,7 +219,7 @@ async function getServiceToken(forceRefresh = false): Promise<string> {
  * retrying once with a freshly-issued token if the first attempt gets a 401.
  */
 async function serviceRequest(
-  method: "GET" | "POST" | "PUT",
+  method: "GET" | "POST" | "PUT" | "PATCH",
   path: string,
   body?: unknown,
   extraHeaders?: Record<string, string>
@@ -266,6 +266,10 @@ async function servicePost(path: string, body: unknown): Promise<void> {
 
 async function servicePut(path: string, body: unknown): Promise<void> {
   await serviceRequest("PUT", path, body);
+}
+
+async function servicePatch(path: string, body: unknown): Promise<void> {
+  await serviceRequest("PATCH", path, body);
 }
 
 export interface SendEmailAlertParams {
@@ -351,6 +355,35 @@ export async function updateProviderTariff(params: UpdateProviderTariffParams): 
       effective_date: params.effectiveDate.toISOString(),
     }
   );
+}
+
+export interface BulkUpdateProviderTariffParams {
+  providerCode: string;
+  effectiveDate: Date;
+  updates: Array<{
+    serviceCode: string;
+    oldPrice: number;
+    newPrice: number;
+  }>;
+}
+
+/**
+ * Pushes several agreed tariff prices for the same provider to Prognosis in
+ * one call, for when more than one service negotiated in the same visit
+ * ("quick repeat") is completed together.
+ */
+export async function bulkUpdateProviderTariff(params: BulkUpdateProviderTariffParams): Promise<void> {
+  await servicePatch(`/api/Tariff/Provider/${encodeURIComponent(params.providerCode)}/BulkUpdate`, {
+    provider_code: params.providerCode,
+    effective_date: params.effectiveDate.toISOString(),
+    updates: params.updates.map((u) => ({
+      provider_code: params.providerCode,
+      service_code: u.serviceCode,
+      old_price: u.oldPrice,
+      new_price: u.newPrice,
+      effective_date: params.effectiveDate.toISOString(),
+    })),
+  });
 }
 
 export interface ProviderRecord {

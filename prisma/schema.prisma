@@ -128,6 +128,7 @@ model NegotiationCase {
   status                 CaseStatus  @default(NEW_REQUEST)
   finalAgreedAmount      Decimal?    @db.Decimal(14, 2)
   approvalReason         String?
+  tariffPushedAt         DateTime?
 
   /// Groups multiple service negotiations logged for the same provider
   /// visit ("quick repeat") without merging their independent statuses/timers.
