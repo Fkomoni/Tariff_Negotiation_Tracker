@@ -120,12 +120,21 @@ export default async function CaseDetailsPage({
             <p className="text-[11.5px] font-semibold uppercase tracking-wide text-ink-400">At a Glance</p>
             <dl className="mt-3 grid grid-cols-2 gap-4">
               <Detail label="Provider" value={negotiationCase.providerName} />
+              <Detail label="Provider Code" value={negotiationCase.providerCode ?? "—"} />
+              <Detail label="Provider ID" value={negotiationCase.providerId ?? "—"} />
               <Detail label="Provider Email" value={negotiationCase.providerEmail ?? "—"} />
               <Detail label="Provider Phone" value={negotiationCase.providerPhone ?? "—"} />
               <Detail label="Member Full Name" value={negotiationCase.enrolleeName} />
               <Detail label="Company" value={negotiationCase.enrolleeCompany ?? "—"} />
               <Detail label="Scheme / Plan" value={negotiationCase.enrolleeScheme ?? "—"} />
-              <Detail label="Requested Item" value={negotiationCase.requestedItem} />
+              <Detail
+                label="Requested Item"
+                value={
+                  negotiationCase.serviceCode
+                    ? `${negotiationCase.requestedItem} (${negotiationCase.serviceCode})`
+                    : negotiationCase.requestedItem
+                }
+              />
               <Detail label="Current → Requested" value={`${formatCurrency(negotiationCase.currentTariff.toString())} → ${formatCurrency(negotiationCase.providerRequestedAmount.toString())}`} full />
               <Detail label="Reason for Tariff Increase" value={negotiationCase.reason} full />
               {negotiationCase.notes && <Detail label="Notes from Contact Centre" value={negotiationCase.notes} full />}
