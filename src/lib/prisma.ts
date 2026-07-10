@@ -8,6 +8,8 @@ export const prisma =
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
   });
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
-}
+// Cache on globalThis in every environment, not just dev: Next.js bundles each
+// route into its own chunk, and without this each chunk's copy of this module
+// would create its own PrismaClient (and its own connection pool), quickly
+// exhausting Supabase's pooler connection limit.
+globalForPrisma.prisma = prisma;

@@ -49,7 +49,7 @@ signs in.
 
 | Variable | Value |
 |---|---|
-| `DATABASE_URL` | The Neon connection string from step 1 |
+| `DATABASE_URL` | The Neon/Supabase connection string from step 1. If it's a pooled connection (e.g. Supabase's session pooler) with a small `pool_size`, add `?connection_limit=5` (or lower) to the URL so this app doesn't consume the whole pool by itself |
 | `NEXTAUTH_SECRET` | A random secret — generate with `openssl rand -base64 32` |
 | `NEXTAUTH_URL` | Your Render service URL, e.g. `https://tariff-negotiation-tracker.onrender.com` |
 | `PROGNOSIS_BASE` | `https://prognosis-api.leadwayhealth.com` (default, only override if it changes) |
