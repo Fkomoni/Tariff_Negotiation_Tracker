@@ -27,7 +27,7 @@ export default async function CaseDetailsPage({
   searchParams,
 }: {
   params: { id: string };
-  searchParams: { error?: string; tab?: string };
+  searchParams: { error?: string; tab?: string; notified?: string };
 }) {
   const session = await auth();
   if (!session?.user) return null;
@@ -82,6 +82,12 @@ export default async function CaseDetailsPage({
           </p>
         )}
 
+        {searchParams.notified && (
+          <p className="mb-4 flex items-center gap-2 rounded-lg bg-emerald-50 px-3.5 py-2.5 text-[12.5px] font-medium text-emerald-700">
+            <span aria-hidden>✓</span> Member notified — {searchParams.notified}.
+          </p>
+        )}
+
         {isProviderTeam && (
           <div className="flex gap-1 border-b border-ink-100">
             <Link
@@ -114,9 +120,15 @@ export default async function CaseDetailsPage({
             <p className="text-[11.5px] font-semibold uppercase tracking-wide text-ink-400">At a Glance</p>
             <dl className="mt-3 grid grid-cols-2 gap-4">
               <Detail label="Provider" value={negotiationCase.providerName} />
-              <Detail label="Enrollee" value={negotiationCase.enrolleeName} />
+              <Detail label="Provider Email" value={negotiationCase.providerEmail ?? "—"} />
+              <Detail label="Provider Phone" value={negotiationCase.providerPhone ?? "—"} />
+              <Detail label="Member Full Name" value={negotiationCase.enrolleeName} />
+              <Detail label="Company" value={negotiationCase.enrolleeCompany ?? "—"} />
+              <Detail label="Scheme / Plan" value={negotiationCase.enrolleeScheme ?? "—"} />
               <Detail label="Requested Item" value={negotiationCase.requestedItem} />
               <Detail label="Current → Requested" value={`${formatCurrency(negotiationCase.currentTariff.toString())} → ${formatCurrency(negotiationCase.providerRequestedAmount.toString())}`} full />
+              <Detail label="Reason for Tariff Increase" value={negotiationCase.reason} full />
+              {negotiationCase.notes && <Detail label="Notes from Contact Centre" value={negotiationCase.notes} full />}
               <Detail label="Logged By" value={negotiationCase.loggedBy.displayName ?? negotiationCase.loggedBy.prognosisUsername} />
               <Detail label="Handled By" value={negotiationCase.owner?.displayName ?? negotiationCase.owner?.prognosisUsername ?? "Unclaimed"} />
             </dl>

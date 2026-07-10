@@ -1,6 +1,6 @@
 import { Suspense } from "react";
+import Image from "next/image";
 import { LoginForm } from "./LoginForm";
-import { ShieldIcon } from "@/components/icons";
 
 const FEATURES = [
   "Log every provider tariff negotiation request",
@@ -15,13 +15,10 @@ export default function LoginPage() {
       <div className="hidden w-[46%] flex-col justify-between px-14 py-14 lg:flex">
         <div>
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-brand text-white shadow-glow">
-              <ShieldIcon className="h-5.5 w-5.5" />
+            <div className="flex h-11 items-center rounded-xl bg-white px-3 py-2 shadow-glow">
+              <Image src="/leadway-logo.png" alt="Leadway Health" width={1370} height={453} className="h-6 w-auto" />
             </div>
-            <div>
-              <p className="text-[15px] font-bold leading-tight text-white">Leadway Health</p>
-              <p className="text-[11px] font-medium uppercase tracking-wide text-ink-400">Staff Portal</p>
-            </div>
+            <p className="text-[11px] font-medium uppercase tracking-wide text-ink-400">Staff Portal</p>
           </div>
 
           <h1 className="mt-16 text-[42px] font-extrabold leading-[1.1] text-white">

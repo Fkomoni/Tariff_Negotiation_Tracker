@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import type { Role } from "@prisma/client";
 import {
@@ -11,7 +12,6 @@ import {
   ReportIcon,
   InsightIcon,
   ConfigIcon,
-  ShieldIcon,
 } from "@/components/icons";
 
 interface NavItem {
@@ -37,8 +37,8 @@ export function Sidebar({ role }: { role: Role }) {
   return (
     <aside className="flex h-full w-[264px] flex-shrink-0 flex-col bg-ink-950 text-ink-200">
       <div className="flex items-center gap-3 px-6 py-6">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand text-white shadow-glow">
-          <ShieldIcon className="h-5 w-5" />
+        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-glow">
+          <Image src="/leadway-mark.png" alt="Leadway Health" width={453} height={453} className="h-9 w-9" />
         </div>
         <div>
           <p className="text-[15px] font-bold leading-tight text-white">Leadway Health</p>

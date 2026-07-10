@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { CaseStatus, NegotiationCase, ServiceType, Urgency, User } from "@prisma/client";
+import type { CaseStatus, NegotiationCase, Role, ServiceType, Urgency, User } from "@prisma/client";
 import { Badge } from "@/components/ui";
 import { SubmitButton } from "@/components/SubmitButton";
 import {
@@ -20,7 +20,17 @@ export type CaseRow = NegotiationCase & {
   owner: User | null;
 };
 
-export function CaseTable({ cases, showClaim = false }: { cases: CaseRow[]; showClaim?: boolean }) {
+export function CaseTable({
+  cases,
+  showClaim = false,
+  viewerRole,
+}: {
+  cases: CaseRow[];
+  showClaim?: boolean;
+  viewerRole?: Role;
+}) {
+  const isProviderTeamViewer = viewerRole === "PROVIDER_TEAM" || viewerRole === "ADMIN";
+
   if (cases.length === 0) {
     return (
       <div className="px-6 py-16 text-center text-[13px] text-ink-400">
@@ -89,10 +99,10 @@ export function CaseTable({ cases, showClaim = false }: { cases: CaseRow[]; show
                       </form>
                     )}
                     <Link
-                      href={`/negotiations/${c.id}`}
+                      href={isProviderTeamViewer ? `/negotiations/${c.id}?tab=provider-team` : `/negotiations/${c.id}`}
                       className="rounded-md border border-ink-200 px-2.5 py-1.5 text-[11.5px] font-semibold text-ink-700 hover:bg-ink-100"
                     >
-                      View
+                      {isProviderTeamViewer ? "Attend To" : "View"}
                     </Link>
                   </div>
                 </td>

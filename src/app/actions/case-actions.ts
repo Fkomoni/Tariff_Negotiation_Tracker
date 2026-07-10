@@ -6,9 +6,10 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendEmailAlert, sendSms } from "@/lib/prognosis";
-import { generateCaseNumber, CASE_STATUS_LABELS } from "@/lib/domain";
-import type { CaseStatus } from "@prisma/client";
+import { generateCaseNumber, CASE_STATUS_LABELS, SERVICE_TYPE_LABELS } from "@/lib/domain";
+import type { CaseStatus, ServiceType } from "@prisma/client";
 import { STATUS_TRANSITIONS } from "@/lib/domain";
+import { buildMemberNotificationEmailHtml } from "@/lib/email-template";
 
 async function requireSession() {
   const session = await auth();
@@ -265,39 +266,63 @@ export async function notifyMember(formData: FormData) {
   }
 
   const message = buildNotificationMessage(template, negotiationCase.enrolleeName, negotiationCase.providerName);
-  const subject = `Update on your ${negotiationCase.requestedItem} request at ${negotiationCase.providerName}`;
+  const subject = `Update on your care at ${negotiationCase.providerName}`;
+  const emailHtml = buildMemberNotificationEmailHtml({
+    baseUrl: process.env.NEXTAUTH_URL ?? "https://tariff-negotiation-tracker.onrender.com",
+    urgency: template,
+    eyebrow: template === "URGENT" ? "Urgent Update" : "Routine Update",
+    title: template === "URGENT" ? "We're urgently resolving a delay in your care" : "Your requested service may be delayed",
+    intro:
+      template === "URGENT"
+        ? "Our Provider Team is actively engaging the hospital to resolve this as quickly as possible. We're treating this as a priority."
+        : "This request is currently being reviewed by our Provider Team — no action is needed from you right now.",
+    calloutMessage: message,
+    caseNumber: negotiationCase.caseNumber,
+    enrolleeId: negotiationCase.enrolleeId,
+    memberName: negotiationCase.enrolleeName,
+    serviceTypeLabel: SERVICE_TYPE_LABELS[negotiationCase.serviceType as ServiceType],
+    requestedItem: negotiationCase.requestedItem,
+    providerName: negotiationCase.providerName,
+    submittedAt: negotiationCase.loggedAt,
+  });
 
-  const results: string[] = [];
+  const tasks: Promise<string>[] = [];
 
   if (wantsEmail && email) {
-    let status: "SENT" | "FAILED" = "SENT";
-    let errorMessage: string | null = null;
-    try {
-      await sendEmailAlert({ emailAddress: email, subject, messageBody: message, reference: negotiationCase.caseNumber });
-    } catch (err) {
-      status = "FAILED";
-      errorMessage = err instanceof Error ? err.message : "Unknown error sending email";
-    }
-    await prisma.memberNotification.create({
-      data: { caseId, sentByUserId: session.user.id, template, channel: "EMAIL", message, recipientEmail: email, status, errorMessage },
-    });
-    results.push(status === "SENT" ? "email sent" : `email failed: ${errorMessage}`);
+    tasks.push(
+      sendEmailAlert({ emailAddress: email, subject, messageBody: emailHtml, reference: negotiationCase.caseNumber })
+        .then(() => ({ status: "SENT" as const, errorMessage: null }))
+        .catch((err) => ({
+          status: "FAILED" as const,
+          errorMessage: err instanceof Error ? err.message : "Unknown error sending email",
+        }))
+        .then(async ({ status, errorMessage }) => {
+          await prisma.memberNotification.create({
+            data: { caseId, sentByUserId: session.user.id, template, channel: "EMAIL", message, recipientEmail: email, status, errorMessage },
+          });
+          return status === "SENT" ? "email sent" : `email failed: ${errorMessage}`;
+        })
+    );
   }
 
   if (wantsSms && phone) {
-    let status: "SENT" | "FAILED" = "SENT";
-    let errorMessage: string | null = null;
-    try {
-      await sendSms({ to: phone, message, referenceNo: negotiationCase.caseNumber });
-    } catch (err) {
-      status = "FAILED";
-      errorMessage = err instanceof Error ? err.message : "Unknown error sending SMS";
-    }
-    await prisma.memberNotification.create({
-      data: { caseId, sentByUserId: session.user.id, template, channel: "SMS", message, recipientPhone: phone, status, errorMessage },
-    });
-    results.push(status === "SENT" ? "SMS sent" : `SMS failed: ${errorMessage}`);
+    tasks.push(
+      sendSms({ to: phone, message, referenceNo: negotiationCase.caseNumber })
+        .then(() => ({ status: "SENT" as const, errorMessage: null }))
+        .catch((err) => ({
+          status: "FAILED" as const,
+          errorMessage: err instanceof Error ? err.message : "Unknown error sending SMS",
+        }))
+        .then(async ({ status, errorMessage }) => {
+          await prisma.memberNotification.create({
+            data: { caseId, sentByUserId: session.user.id, template, channel: "SMS", message, recipientPhone: phone, status, errorMessage },
+          });
+          return status === "SENT" ? "SMS sent" : `SMS failed: ${errorMessage}`;
+        })
+    );
   }
+
+  const results = await Promise.all(tasks);
 
   await prisma.caseUpdate.create({
     data: {
@@ -309,5 +334,5 @@ export async function notifyMember(formData: FormData) {
   });
 
   revalidatePath(`/negotiations/${caseId}`);
-  redirect(`/negotiations/${caseId}`);
+  redirect(`/negotiations/${caseId}?notified=${encodeURIComponent(results.join(", "))}`);
 }

@@ -28,7 +28,7 @@ export default async function CompletedNegotiationsPage() {
       <div className="flex flex-1 flex-col gap-5 px-8 py-8">
         <p className="text-[12.5px] text-ink-500">{cases.length} completed case{cases.length === 1 ? "" : "s"}</p>
         <Card>
-          <CaseTable cases={cases} />
+          <CaseTable cases={cases} viewerRole={session.user.role} />
         </Card>
       </div>
     </>
