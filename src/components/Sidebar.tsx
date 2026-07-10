@@ -66,7 +66,7 @@ export function Sidebar({ role, openNegotiationsCount = 0 }: { role: Role; openN
                   : "text-ink-300 hover:bg-ink-800 hover:text-white"
               }`}
             >
-              <Icon className="h-4.5 w-4.5" />
+              <Icon className="h-[18px] w-[18px]" />
               <span className="flex-1">{item.label}</span>
               {item.href === "/negotiations/queue" && openNegotiationsCount > 0 && (
                 <span

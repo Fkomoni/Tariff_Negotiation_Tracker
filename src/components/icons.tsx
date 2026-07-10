@@ -1,6 +1,6 @@
 type IconProps = { className?: string };
 
-const base = "h-4.5 w-4.5";
+const base = "h-[18px] w-[18px]";
 
 export function DashboardIcon({ className = base }: IconProps) {
   return (

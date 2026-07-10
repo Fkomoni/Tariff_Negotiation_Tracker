@@ -34,7 +34,7 @@ export function Header({ title, subtitle, user, actions }: HeaderProps) {
           className="flex h-9 w-9 items-center justify-center rounded-lg border border-ink-100 text-ink-500 hover:bg-ink-100"
           aria-label="Notifications"
         >
-          <BellIcon className="h-4.5 w-4.5" />
+          <BellIcon className="h-[18px] w-[18px]" />
         </button>
 
         <details className="group relative">
