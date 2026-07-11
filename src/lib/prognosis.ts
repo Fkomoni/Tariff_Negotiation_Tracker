@@ -787,6 +787,7 @@ export async function searchProviderTariff(providerCode: string, query: string, 
 export interface TreatmentRecord {
   procedureId: string;
   name: string;
+  tariffId: number | null;
 }
 
 const TREATMENT_ENVELOPE_KEYS = ["data", "Data", "result", "Result", "items", "Items", "treatments", "Treatments"];
@@ -817,7 +818,12 @@ function extractTreatmentRecords(payload: unknown): TreatmentRecord[] {
     const name = firstString(r, ["tariff_desc", "ProcedureName", "ProcedureDescr", "TreatmentName", "TreatmentDescr", "Name", "Description"]);
     if (!procedureId && !name) continue;
 
-    records.push({ procedureId: procedureId ?? "", name: name ?? procedureId ?? "" });
+    // tariff_id arrives as a float (e.g. 166572.0) in Prognosis's JSON —
+    // Number() naturally normalizes that to a clean integer (166572) since
+    // JS doesn't preserve the trailing ".0" the way the source JSON does.
+    const tariffId = toNumberOrNull(r.tariff_id ?? r.TariffId ?? r.tariffId);
+
+    records.push({ procedureId: procedureId ?? "", name: name ?? procedureId ?? "", tariffId });
   }
   return records;
 }
