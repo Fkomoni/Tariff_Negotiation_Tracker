@@ -813,8 +813,8 @@ function extractTreatmentRecords(payload: unknown): TreatmentRecord[] {
     if (!entry || typeof entry !== "object") continue;
     const r = entry as Record<string, unknown>;
 
-    const procedureId = firstString(r, ["ProcedureId", "ProcedureID", "ProcedureCode", "TreatmentCode", "TreatmentId", "Code"]);
-    const name = firstString(r, ["ProcedureName", "ProcedureDescr", "TreatmentName", "TreatmentDescr", "Name", "Description"]);
+    const procedureId = firstString(r, ["tariff_code", "ProcedureId", "ProcedureID", "ProcedureCode", "TreatmentCode", "TreatmentId", "Code"]);
+    const name = firstString(r, ["tariff_desc", "ProcedureName", "ProcedureDescr", "TreatmentName", "TreatmentDescr", "Name", "Description"]);
     if (!procedureId && !name) continue;
 
     records.push({ procedureId: procedureId ?? "", name: name ?? procedureId ?? "" });
