@@ -380,7 +380,17 @@ export interface ProviderRecord {
   status: string | null;
 }
 
-const PROVIDERS_TTL_MS = 6 * 60 * 60 * 1000;
+/**
+ * Milliseconds until the next UTC midnight — used so cached lookup lists
+ * (providers, treatments, per-provider tariffs) refresh once a day instead
+ * of on a rolling multi-hour timer, cutting down repeat full-list fetches
+ * from Prognosis during the day.
+ */
+function msUntilNextUtcMidnight(): number {
+  const now = new Date();
+  const nextMidnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0, 0);
+  return nextMidnight - now.getTime();
+}
 
 let cachedProviders: { data: ProviderRecord[]; expiresAt: number } | null = null;
 let inFlightProvidersFetch: Promise<ProviderRecord[]> | null = null;
@@ -423,8 +433,9 @@ async function fetchProvidersFromPrognosis(): Promise<ProviderRecord[]> {
 }
 
 /**
- * Returns the full provider list, cached in memory for PROVIDERS_TTL_MS.
- * Concurrent calls during a cold cache share the same in-flight fetch.
+ * Returns the full provider list, cached in memory until the next UTC
+ * midnight. Concurrent calls during a cold cache share the same in-flight
+ * fetch.
  */
 async function getProviders(): Promise<ProviderRecord[]> {
   if (cachedProviders && cachedProviders.expiresAt > Date.now()) {
@@ -433,7 +444,7 @@ async function getProviders(): Promise<ProviderRecord[]> {
   if (!inFlightProvidersFetch) {
     inFlightProvidersFetch = fetchProvidersFromPrognosis()
       .then((data) => {
-        cachedProviders = { data, expiresAt: Date.now() + PROVIDERS_TTL_MS };
+        cachedProviders = { data, expiresAt: Date.now() + msUntilNextUtcMidnight() };
         return data;
       })
       .finally(() => {
@@ -735,7 +746,6 @@ function extractTariffItems(payload: unknown): TariffItem[] {
   return items;
 }
 
-const TARIFF_TTL_MS = 60 * 60 * 1000;
 const cachedTariffsByProvider = new Map<string, { data: TariffItem[]; expiresAt: number }>();
 const inFlightTariffFetches = new Map<string, Promise<TariffItem[]>>();
 
@@ -760,8 +770,9 @@ async function fetchProviderTariffFromPrognosis(providerCode: string): Promise<T
 }
 
 /** Returns the full tariff list for a provider, cached in memory per
- * provider code for TARIFF_TTL_MS. Prognosis has no per-service filter on
- * this endpoint, so it always returns everything and we filter client-side. */
+ * provider code until the next UTC midnight. Prognosis has no per-service
+ * filter on this endpoint, so it always returns everything and we filter
+ * client-side. */
 async function getProviderTariff(providerCode: string): Promise<TariffItem[]> {
   const cached = cachedTariffsByProvider.get(providerCode);
   if (cached && cached.expiresAt > Date.now()) return cached.data;
@@ -770,7 +781,7 @@ async function getProviderTariff(providerCode: string): Promise<TariffItem[]> {
   if (!inflight) {
     inflight = fetchProviderTariffFromPrognosis(providerCode)
       .then((data) => {
-        cachedTariffsByProvider.set(providerCode, { data, expiresAt: Date.now() + TARIFF_TTL_MS });
+        cachedTariffsByProvider.set(providerCode, { data, expiresAt: Date.now() + msUntilNextUtcMidnight() });
         return data;
       })
       .finally(() => {
@@ -835,7 +846,6 @@ function extractTreatmentRecords(payload: unknown): TreatmentRecord[] {
   return records;
 }
 
-const TREATMENTS_TTL_MS = 6 * 60 * 60 * 1000;
 let cachedTreatments: { data: TreatmentRecord[]; expiresAt: number } | null = null;
 let inFlightTreatmentsFetch: Promise<TreatmentRecord[]> | null = null;
 
@@ -848,16 +858,16 @@ async function fetchTreatmentsFromPrognosis(): Promise<TreatmentRecord[]> {
 
 /**
  * Returns Prognosis's full master treatment/procedure catalog, cached in
- * memory — the endpoint takes no search parameter and always returns
- * everything, so (like the provider list) we fetch once and filter
- * client-side for a live search experience.
+ * memory until the next UTC midnight — the endpoint takes no search
+ * parameter and always returns everything, so (like the provider list) we
+ * fetch once a day and filter client-side for a live search experience.
  */
 async function getTreatments(): Promise<TreatmentRecord[]> {
   if (cachedTreatments && cachedTreatments.expiresAt > Date.now()) return cachedTreatments.data;
   if (!inFlightTreatmentsFetch) {
     inFlightTreatmentsFetch = fetchTreatmentsFromPrognosis()
       .then((data) => {
-        cachedTreatments = { data, expiresAt: Date.now() + TREATMENTS_TTL_MS };
+        cachedTreatments = { data, expiresAt: Date.now() + msUntilNextUtcMidnight() };
         return data;
       })
       .finally(() => {
