@@ -264,14 +264,6 @@ async function servicePost(path: string, body: unknown): Promise<void> {
   await serviceRequest("POST", path, body);
 }
 
-async function servicePut(path: string, body: unknown): Promise<void> {
-  await serviceRequest("PUT", path, body);
-}
-
-async function servicePatch(path: string, body: unknown): Promise<void> {
-  await serviceRequest("PATCH", path, body);
-}
-
 export interface SendEmailAlertParams {
   emailAddress: string;
   subject: string;
@@ -331,57 +323,46 @@ export async function sendSms(params: SendSmsParams): Promise<void> {
   });
 }
 
-export interface UpdateProviderTariffParams {
-  providerCode: string;
-  serviceCode: string;
-  oldPrice: number;
+export interface TariffReviewItem {
+  procedureId: string;
+  procedureName: string;
   newPrice: number;
-  effectiveDate: Date;
+  providerId: number;
+  tariffScheduleName?: string;
+  userEmail: string;
+  requestorMobile?: string;
+  action: "Insert" | "Update" | "Delete" | "Select";
+  providerTariffCode?: string;
+  providerTariffName?: string;
+  zeroRate?: boolean;
 }
 
 /**
- * Pushes a negotiated tariff price straight to Prognosis's own tariff record
- * once Provider Team agrees a final amount, so the new rate takes effect
- * there without a separate manual update.
+ * Submits one or more tariff line changes to Prognosis in a single call.
+ * Action "Insert" upserts on Prognosis's side — updates the price if the
+ * procedure already exists on this provider's tariff, or adds it if it
+ * doesn't — so it covers both "update an existing price" and "add a new
+ * service to this provider" through the same call.
+ *
+ * TariffScheduleName's real expected value is still unconfirmed — sent as
+ * an empty string until that's nailed down. Response shape is also
+ * unconfirmed; serviceRequest logs the raw response unconditionally so the
+ * real shape shows up in production logs the first time this is called.
  */
-export async function updateProviderTariff(params: UpdateProviderTariffParams): Promise<void> {
-  await servicePut(
-    `/api/Tariff/Provider/${encodeURIComponent(params.providerCode)}/Service/${encodeURIComponent(params.serviceCode)}`,
-    {
-      provider_code: params.providerCode,
-      service_code: params.serviceCode,
-      old_price: params.oldPrice,
-      new_price: params.newPrice,
-      effective_date: params.effectiveDate.toISOString(),
-    }
-  );
-}
-
-export interface BulkUpdateProviderTariffParams {
-  providerCode: string;
-  effectiveDate: Date;
-  updates: Array<{
-    serviceCode: string;
-    oldPrice: number;
-    newPrice: number;
-  }>;
-}
-
-/**
- * Pushes several agreed tariff prices for the same provider to Prognosis in
- * one call, for when more than one service negotiated in the same visit
- * ("quick repeat") is completed together.
- */
-export async function bulkUpdateProviderTariff(params: BulkUpdateProviderTariffParams): Promise<void> {
-  await servicePatch(`/api/Tariff/Provider/${encodeURIComponent(params.providerCode)}/BulkUpdate`, {
-    provider_code: params.providerCode,
-    effective_date: params.effectiveDate.toISOString(),
-    updates: params.updates.map((u) => ({
-      provider_code: params.providerCode,
-      service_code: u.serviceCode,
-      old_price: u.oldPrice,
-      new_price: u.newPrice,
-      effective_date: params.effectiveDate.toISOString(),
+export async function addTariffReviews(items: TariffReviewItem[]): Promise<unknown> {
+  return serviceRequest("POST", "/api/ProviderNetwork/AddTarrifReviews", {
+    TarifList: items.map((i) => ({
+      ProcedureId: i.procedureId,
+      ProcedureName: i.procedureName,
+      NewPrice: i.newPrice,
+      ProviderID: i.providerId,
+      TarriffScheduleName: i.tariffScheduleName ?? "",
+      UserEmail: i.userEmail,
+      RequestorMobile: i.requestorMobile ?? "",
+      Action: i.action,
+      ProviderTarifCode: i.providerTariffCode ?? "",
+      ProviderTarifName: i.providerTariffName ?? "",
+      zerorate: i.zeroRate ?? false,
     })),
   });
 }
@@ -800,5 +781,84 @@ export async function searchProviderTariff(providerCode: string, query: string, 
   if (q.length < 2) return items.slice(0, limit);
   return items
     .filter((i) => i.description.toLowerCase().includes(q) || i.serviceCode.toLowerCase().includes(q))
+    .slice(0, limit);
+}
+
+export interface TreatmentRecord {
+  procedureId: string;
+  name: string;
+}
+
+const TREATMENT_ENVELOPE_KEYS = ["data", "Data", "result", "Result", "items", "Items", "treatments", "Treatments"];
+
+function extractTreatmentRecords(payload: unknown): TreatmentRecord[] {
+  if (!payload) return [];
+
+  let raw: unknown = payload;
+  for (let depth = 0; depth < 4 && !Array.isArray(raw); depth++) {
+    if (!raw || typeof raw !== "object") break;
+    const p = raw as Record<string, unknown>;
+    const envelopeKey = TREATMENT_ENVELOPE_KEYS.find((key) => key in p);
+    if (!envelopeKey) break;
+    raw = p[envelopeKey];
+  }
+  if (!Array.isArray(raw)) raw = raw && typeof raw === "object" ? [raw] : [];
+
+  // Field names are a best guess pending a real example response from
+  // Prognosis — serviceRequest logs the raw payload unconditionally, so the
+  // real keys will show up in production logs the first time this runs and
+  // this list can be corrected, same as the tariff/enrollee field fixes.
+  const records: TreatmentRecord[] = [];
+  for (const entry of raw as unknown[]) {
+    if (!entry || typeof entry !== "object") continue;
+    const r = entry as Record<string, unknown>;
+
+    const procedureId = firstString(r, ["ProcedureId", "ProcedureID", "ProcedureCode", "TreatmentCode", "TreatmentId", "Code"]);
+    const name = firstString(r, ["ProcedureName", "ProcedureDescr", "TreatmentName", "TreatmentDescr", "Name", "Description"]);
+    if (!procedureId && !name) continue;
+
+    records.push({ procedureId: procedureId ?? "", name: name ?? procedureId ?? "" });
+  }
+  return records;
+}
+
+const TREATMENTS_TTL_MS = 6 * 60 * 60 * 1000;
+let cachedTreatments: { data: TreatmentRecord[]; expiresAt: number } | null = null;
+let inFlightTreatmentsFetch: Promise<TreatmentRecord[]> | null = null;
+
+async function fetchTreatmentsFromPrognosis(): Promise<TreatmentRecord[]> {
+  const payload = await serviceRequest("GET", "/api/ListValues/GetAllTreatment");
+  const records = extractTreatmentRecords(payload);
+  console.error(`[prognosis] loaded ${records.length} treatments`);
+  return records;
+}
+
+/**
+ * Returns Prognosis's full master treatment/procedure catalog, cached in
+ * memory — the endpoint takes no search parameter and always returns
+ * everything, so (like the provider list) we fetch once and filter
+ * client-side for a live search experience.
+ */
+async function getTreatments(): Promise<TreatmentRecord[]> {
+  if (cachedTreatments && cachedTreatments.expiresAt > Date.now()) return cachedTreatments.data;
+  if (!inFlightTreatmentsFetch) {
+    inFlightTreatmentsFetch = fetchTreatmentsFromPrognosis()
+      .then((data) => {
+        cachedTreatments = { data, expiresAt: Date.now() + TREATMENTS_TTL_MS };
+        return data;
+      })
+      .finally(() => {
+        inFlightTreatmentsFetch = null;
+      });
+  }
+  return inFlightTreatmentsFetch;
+}
+
+export async function searchTreatments(query: string, limit = 20): Promise<TreatmentRecord[]> {
+  const q = query.trim().toLowerCase();
+  if (q.length < 2) return [];
+  const treatments = await getTreatments();
+  return treatments
+    .filter((t) => t.name.toLowerCase().includes(q) || t.procedureId.toLowerCase().includes(q))
     .slice(0, limit);
 }

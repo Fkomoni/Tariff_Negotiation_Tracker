@@ -80,7 +80,6 @@ export default async function CaseDetailsPage({
     });
   }
 
-  const todayIso = new Date().toISOString().slice(0, 10);
   const diff = amountDifference(negotiationCase.currentTariff.toString(), negotiationCase.providerRequestedAmount.toString());
   const firstActionMs = negotiationCase.firstActionAt
     ? negotiationCase.firstActionAt.getTime() - negotiationCase.loggedAt.getTime()
@@ -204,9 +203,6 @@ export default async function CaseDetailsPage({
                     defaultValue={negotiationCase.finalAgreedAmount?.toString() ?? ""}
                     className={inputClass}
                   />
-                </Field>
-                <Field label="Tariff Effective Date" hint="Required to mark Completed — sent to Prognosis with the agreed price">
-                  <input name="effectiveDate" type="date" defaultValue={todayIso} className={inputClass} />
                 </Field>
                 <Field label="Approved / Declined Reason">
                   <textarea

@@ -15,6 +15,11 @@ interface TariffResult {
   unitPrice: number | null;
 }
 
+interface TreatmentResult {
+  procedureId: string;
+  name: string;
+}
+
 type Mode = "existing" | "new";
 
 export function ServiceTariffFields({ providerCode }: { providerCode: string }) {
@@ -32,6 +37,16 @@ export function ServiceTariffFields({ providerCode }: { providerCode: string }) 
   // correct even if React re-runs the effect more than once (e.g. Strict
   // Mode double-invocation in dev).
   const confirmedDescriptionRef = useRef("");
+
+  const [treatmentQuery, setTreatmentQuery] = useState("");
+  const [selectedTreatment, setSelectedTreatment] = useState<TreatmentResult | null>(null);
+  const [newCurrentTariff, setNewCurrentTariff] = useState("");
+  const [treatmentResults, setTreatmentResults] = useState<TreatmentResult[]>([]);
+  const [treatmentOpen, setTreatmentOpen] = useState(false);
+  const [treatmentLoading, setTreatmentLoading] = useState(false);
+  const [treatmentSearchedNoMatch, setTreatmentSearchedNoMatch] = useState(false);
+  const treatmentContainerRef = useRef<HTMLDivElement>(null);
+  const confirmedTreatmentNameRef = useRef("");
 
   useEffect(() => {
     setSelected(null);
@@ -74,9 +89,43 @@ export function ServiceTariffFields({ providerCode }: { providerCode: string }) 
   }, [query, mode, providerCode]);
 
   useEffect(() => {
+    if (mode !== "new") {
+      setTreatmentResults([]);
+      return;
+    }
+    if (treatmentQuery === confirmedTreatmentNameRef.current) {
+      return;
+    }
+    if (treatmentQuery.trim().length < 2) {
+      setTreatmentResults([]);
+      setTreatmentSearchedNoMatch(false);
+      return;
+    }
+    const handle = setTimeout(async () => {
+      setTreatmentLoading(true);
+      try {
+        const res = await fetch(`/api/treatments?q=${encodeURIComponent(treatmentQuery)}`);
+        const data = await res.json();
+        const found = data.results ?? [];
+        setTreatmentResults(found);
+        setTreatmentSearchedNoMatch(found.length === 0);
+        setTreatmentOpen(true);
+      } catch {
+        setTreatmentResults([]);
+      } finally {
+        setTreatmentLoading(false);
+      }
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [treatmentQuery, mode]);
+
+  useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false);
+      }
+      if (treatmentContainerRef.current && !treatmentContainerRef.current.contains(e.target as Node)) {
+        setTreatmentOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -102,6 +151,23 @@ export function ServiceTariffFields({ providerCode }: { providerCode: string }) 
     }
   }
 
+  function selectTreatment(t: TreatmentResult) {
+    confirmedTreatmentNameRef.current = t.name;
+    setSelectedTreatment(t);
+    setTreatmentQuery(t.name);
+    setTreatmentResults([]);
+    setTreatmentOpen(false);
+  }
+
+  function handleTreatmentQueryChange(value: string) {
+    setTreatmentQuery(value);
+    setTreatmentOpen(true);
+    setTreatmentSearchedNoMatch(false);
+    if (selectedTreatment && value !== selectedTreatment.name) {
+      setSelectedTreatment(null);
+    }
+  }
+
   function switchMode(next: Mode) {
     setMode(next);
     setSelected(null);
@@ -109,6 +175,12 @@ export function ServiceTariffFields({ providerCode }: { providerCode: string }) 
     setCurrentTariff("");
     setResults([]);
     setSearchedNoMatch(false);
+    setSelectedTreatment(null);
+    setTreatmentQuery("");
+    setNewCurrentTariff("");
+    setTreatmentResults([]);
+    setTreatmentSearchedNoMatch(false);
+    confirmedTreatmentNameRef.current = "";
   }
 
   return (
@@ -209,17 +281,63 @@ export function ServiceTariffFields({ providerCode }: { providerCode: string }) 
         </>
       ) : (
         <>
-          <Field label="Requested Service / Item" required className="sm:col-span-2">
-            <input
-              name="requestedItem"
-              required
-              className={inputClass}
-              placeholder="e.g. Elective caesarean section"
-            />
+          <Field
+            label="Requested Service / Item"
+            required
+            hint="Search Prognosis's full treatment catalog — this service exists there, just not yet priced on this provider"
+            className="sm:col-span-2"
+          >
+            <div ref={treatmentContainerRef} className="relative">
+              <input
+                name="requestedItem"
+                required
+                autoComplete="off"
+                className={inputClass}
+                value={treatmentQuery}
+                onChange={(e) => handleTreatmentQueryChange(e.target.value)}
+                onFocus={() => treatmentResults.length > 0 && setTreatmentOpen(true)}
+                placeholder="e.g. Elective caesarean section"
+              />
+              <input type="hidden" name="serviceCode" value={selectedTreatment?.procedureId ?? ""} />
+              {treatmentLoading && (
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-ink-400">
+                  Searching…
+                </span>
+              )}
+              {treatmentOpen && treatmentResults.length > 0 && (
+                <div className="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-lg border border-ink-200 bg-white shadow-lg">
+                  {treatmentResults.map((t, idx) => (
+                    <button
+                      key={`${t.procedureId}-${idx}`}
+                      type="button"
+                      onClick={() => selectTreatment(t)}
+                      className="block w-full border-b border-ink-100 px-3.5 py-2.5 text-left last:border-b-0 hover:bg-ink-100"
+                    >
+                      <p className="text-[13px] font-semibold text-ink-900">{t.name}</p>
+                      <p className="text-[11px] text-ink-400">{t.procedureId}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {!treatmentLoading && treatmentSearchedNoMatch && !selectedTreatment && (
+                <p className="mt-1.5 text-[11px] text-ink-400">
+                  No matching procedure found in Prognosis's treatment catalog.
+                </p>
+              )}
+            </div>
           </Field>
 
-          <Field label="Current Tariff Amount (₦)" required hint="No existing price — enter what's being proposed">
-            <input name="currentTariff" type="number" min="0" step="0.01" required className={inputClass} />
+          <Field label="Current Tariff Amount (₦)" required hint="No existing price on this provider — enter what's being proposed">
+            <input
+              name="currentTariff"
+              type="number"
+              min="0"
+              step="0.01"
+              required
+              className={inputClass}
+              value={newCurrentTariff}
+              onChange={(e) => setNewCurrentTariff(e.target.value)}
+            />
           </Field>
         </>
       )}
