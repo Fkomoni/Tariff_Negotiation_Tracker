@@ -8,6 +8,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { ROLE_LABELS } from "@/lib/domain";
+import { resyncLookupCaches } from "@/lib/prognosis";
 
 const assignRoleSchema = z.object({
   userId: z.string(),
@@ -120,4 +121,27 @@ export async function deleteUser(formData: FormData) {
   );
 
   revalidatePath("/configuration");
+}
+
+/**
+ * Forces an immediate refresh of the cached provider/treatment lists from
+ * Prognosis, for when Prognosis's underlying data changes mid-day instead
+ * of waiting for the automatic midnight refresh.
+ */
+export async function syncPrognosisLookups() {
+  const session = await auth();
+  if (!session?.user || session.user.role !== "ADMIN") {
+    throw new Error("Only an Admin can sync Prognosis lookup data");
+  }
+
+  let message: string;
+  try {
+    const { providers, treatments } = await resyncLookupCaches();
+    message = `Synced ${providers.toLocaleString()} providers and ${treatments.toLocaleString()} treatments from Prognosis.`;
+  } catch (err) {
+    redirect(`/configuration?error=${encodeURIComponent(`Sync failed: ${err instanceof Error ? err.message : "Unknown error"}`)}`);
+  }
+
+  revalidatePath("/configuration");
+  redirect(`/configuration?synced=${encodeURIComponent(message)}`);
 }

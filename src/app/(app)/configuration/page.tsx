@@ -5,12 +5,12 @@ import { Card, CardHeader, inputClass } from "@/components/ui";
 import { SubmitButton } from "@/components/SubmitButton";
 import { ConfigIcon } from "@/components/icons";
 import { ROLE_LABELS, formatDateTime } from "@/lib/domain";
-import { assignRole, provisionUser, deleteUser } from "@/app/actions/admin-actions";
+import { assignRole, provisionUser, deleteUser, syncPrognosisLookups } from "@/app/actions/admin-actions";
 
 export default async function ConfigurationPage({
   searchParams,
 }: {
-  searchParams: { error?: string };
+  searchParams: { error?: string; synced?: string };
 }) {
   const session = await auth();
   if (!session?.user) return null;
@@ -33,11 +33,32 @@ export default async function ConfigurationPage({
           </p>
         )}
 
+        {searchParams.synced && (
+          <p className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3.5 py-2.5 text-[12.5px] font-medium text-emerald-700">
+            <span aria-hidden>✓</span> {searchParams.synced}
+          </p>
+        )}
+
         <Card className="border-brand-100 bg-brand-50/40 px-5 py-3">
           <p className="text-[12.5px] text-brand-800">
             Role changes take effect the next time that person signs in — ask them to sign out and back
             in after you update their role.
           </p>
+        </Card>
+
+        <Card className="flex items-center justify-between gap-4 px-5 py-4">
+          <div>
+            <p className="text-[13px] font-bold text-ink-900">Prognosis Provider & Treatment Data</p>
+            <p className="mt-0.5 text-[12.5px] text-ink-500">
+              Provider and treatment lookup lists refresh automatically every night. If Prognosis's data
+              changed and you need it reflected sooner, sync now instead of waiting.
+            </p>
+          </div>
+          <form action={syncPrognosisLookups}>
+            <SubmitButton variant="secondary" className="whitespace-nowrap px-4 py-2" pendingLabel="Syncing…">
+              Sync Now
+            </SubmitButton>
+          </form>
         </Card>
 
         <Card>

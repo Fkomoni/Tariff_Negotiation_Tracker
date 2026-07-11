@@ -885,3 +885,24 @@ export async function searchTreatments(query: string, limit = 20): Promise<Treat
     .filter((t) => t.name.toLowerCase().includes(q) || t.procedureId.toLowerCase().includes(q))
     .slice(0, limit);
 }
+
+/**
+ * Forces an immediate refresh of the cached provider and treatment lists
+ * instead of waiting for the next midnight refresh, for when Prognosis's
+ * underlying data changes mid-day. Re-fetches eagerly (not just clears)
+ * so the cache is already warm by the time anyone actually searches —
+ * the first search right after a manual sync shouldn't be the one that
+ * pays the full-list fetch cost.
+ *
+ * Per-provider tariffs are cleared but not eagerly re-fetched — there are
+ * too many providers to warm all of them, so each just refetches lazily
+ * the next time that specific provider is searched.
+ */
+export async function resyncLookupCaches(): Promise<{ providers: number; treatments: number }> {
+  cachedProviders = null;
+  cachedTreatments = null;
+  cachedTariffsByProvider.clear();
+
+  const [providers, treatments] = await Promise.all([getProviders(), getTreatments()]);
+  return { providers: providers.length, treatments: treatments.length };
+}
