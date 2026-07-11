@@ -745,7 +745,14 @@ async function fetchProviderTariffFromPrognosis(providerCode: string): Promise<T
       "GET",
       `/api/WellnessBenefit/GetProviderTariff?code=${encodeURIComponent(providerCode)}`
     );
-    return extractTariffItems(payload);
+    const items = extractTariffItems(payload);
+    // Surfaces whether this endpoint is silently paginating like GetProviders
+    // was — if totalRecord/totalPages show up here and total exceeds
+    // items.length, this needs the same "ask for everything" fix.
+    const p = (payload && typeof payload === "object" ? payload : {}) as Record<string, unknown>;
+    const meta = { pageSize: p.pageSize, totalRecord: p.totalRecord, totalPages: p.totalPages, currentPage: p.currentPage };
+    console.error(`[prognosis] provider ${providerCode} tariff item count: ${items.length}`, JSON.stringify(meta));
+    return items;
   } catch (err) {
     console.error(`[prognosis] tariff lookup failed for provider ${providerCode}:`, err);
     return [];
