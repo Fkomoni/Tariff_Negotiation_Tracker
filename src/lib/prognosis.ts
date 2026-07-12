@@ -368,16 +368,20 @@ export async function addTariffReviews(items: TariffReviewItem[]): Promise<unkno
 }
 
 /**
- * Looks up a provider's tariff schedules and returns the name of whichever
- * one is currently active, so addTariffReviews can populate
- * TariffScheduleName instead of sending "". Prognosis's schema for this
- * endpoint reuses the same shape for the request filter and each response
- * record (Action/providerid/UserEmail/Skip/Take on the way in;
- * TariffInUse/DefaultCategory/etc. per schedule on the way out) — field
- * names are a best guess from the documented schema pending a real example
- * response, so this stays defensive and logs the raw payload
- * unconditionally (via serviceRequest) so the real shape shows up in
- * production logs the first time this runs.
+ * Looks up a provider's active tariff schedules and returns their name(s)
+ * as a single string, so addTariffReviews can populate TariffScheduleName
+ * instead of sending "". Prognosis returns one entry per active schedule —
+ * if a provider has more than one, all their names are joined with ", "
+ * rather than picking just one, since TariffScheduleName is a single field
+ * on the AddTarrifReviews payload.
+ *
+ * Prognosis's schema for this endpoint reuses the same shape for the
+ * request filter and each response record (Action/providerid/UserEmail/
+ * Skip/Take on the way in; TariffInUse/DefaultCategory/etc. per schedule on
+ * the way out) — field names are a best guess from the documented schema
+ * pending a real example response, so this stays defensive and logs the
+ * raw payload unconditionally (via serviceRequest) so the real shape shows
+ * up in production logs the first time this runs.
  */
 export async function getActiveTariffScheduleName(providerId: number, userEmail: string): Promise<string | null> {
   const payload = await serviceRequest("POST", "/api/ProviderNetwork/TarriffSchedules", {
@@ -401,11 +405,12 @@ export async function getActiveTariffScheduleName(providerId: number, userEmail:
   console.error(`[prognosis] tariff schedules: ${schedules.length} raw entries for provider ${providerId}`);
   if (schedules.length === 0) return null;
 
-  const isDefault = (s: Record<string, unknown>) =>
-    s.DefaultCategory === true || s.defaultCategory === true || s.IsDefault === true;
+  const names = schedules
+    .map((s) => firstString(s, ["TariffInUse", "TarrifInUse", "TariffScheduleName", "TarrifScheduleName", "ScheduleName", "Name"]))
+    .filter((n): n is string => !!n);
 
-  const active = schedules.find(isDefault) ?? schedules[0];
-  return firstString(active, ["TariffInUse", "TarrifInUse", "TariffScheduleName", "TarrifScheduleName", "ScheduleName", "Name"]);
+  const uniqueNames = Array.from(new Set(names));
+  return uniqueNames.length > 0 ? uniqueNames.join(", ") : null;
 }
 
 export interface ProviderRecord {
