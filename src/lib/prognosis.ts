@@ -236,6 +236,10 @@ async function serviceRequest(
       cache: "no-store",
     });
 
+  if (body !== undefined) {
+    console.error("[prognosis] request", method, path, JSON.stringify(body).slice(0, 3000));
+  }
+
   let token = await getServiceToken();
   let res = await call(token);
 

@@ -268,6 +268,7 @@ export async function updateCaseStatus(formData: FormData) {
       let tariffScheduleName = "";
       try {
         tariffScheduleName = (await getActiveTariffScheduleName(existing.providerId, userEmail)) ?? "";
+        console.error(`[case-actions] resolved tariff schedule for provider ${existing.providerId}: ${tariffScheduleName || "(none found)"}`);
       } catch (err) {
         console.error("[case-actions] tariff schedule lookup failed:", err);
       }
@@ -293,8 +294,10 @@ export async function updateCaseStatus(formData: FormData) {
           where: { id: { in: pushable.map((c) => c.id) } },
           data: { tariffPushedAt: new Date() },
         });
+        console.error(`[case-actions] tariff review push succeeded for provider ${existing.providerId}: ${pushable.map((c) => c.serviceCode).join(", ")}`);
       } catch (err) {
         failureNote = `Failed to submit tariff review to Prognosis: ${err instanceof Error ? err.message : "Unknown error"}`;
+        console.error("[case-actions] tariff review push failed:", err);
       }
 
       await Promise.all(
