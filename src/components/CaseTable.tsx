@@ -57,14 +57,18 @@ export function CaseTable({
             const pendingMs = (c.completedAt ?? new Date()).getTime() - c.loggedAt.getTime();
             const isAgreed = c.status === "COMPLETED" && c.finalAgreedAmount !== null;
             const diff = amountDifference(c.currentTariff.toString(), c.providerRequestedAmount.toString());
+            // Completed cases have no further status transitions (STATUS_TRANSITIONS.COMPLETED is
+            // empty) — there's nothing left to treat, so link straight to the read-only view even
+            // for Provider Team/Admin. Declined cases can still be reopened, so they keep "Treat".
+            const canTreat = isProviderTeamViewer && c.status !== "COMPLETED";
             return (
               <tr key={c.id} className="hover:bg-ink-100/40">
                 <td className="px-4 py-3">
                   <Link
-                    href={isProviderTeamViewer ? `/negotiations/${c.id}?tab=provider-team` : `/negotiations/${c.id}`}
+                    href={canTreat ? `/negotiations/${c.id}?tab=provider-team` : `/negotiations/${c.id}`}
                     className="rounded-md border border-ink-200 px-2.5 py-1.5 text-[11.5px] font-semibold text-ink-700 hover:bg-ink-100"
                   >
-                    {isProviderTeamViewer ? "Treat" : "View"}
+                    {canTreat ? "Treat" : "View"}
                   </Link>
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-ink-500">{formatDateTime(c.loggedAt)}</td>
