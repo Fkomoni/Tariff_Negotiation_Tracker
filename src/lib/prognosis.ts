@@ -823,6 +823,8 @@ function extractTreatmentRecords(payload: unknown): TreatmentRecord[] {
   }
   if (!Array.isArray(raw)) raw = raw && typeof raw === "object" ? [raw] : [];
 
+  console.error(`[prognosis] treatment catalog: ${(raw as unknown[]).length} raw entries in response`);
+
   // Field names are a best guess pending a real example response from
   // Prognosis — serviceRequest logs the raw payload unconditionally, so the
   // real keys will show up in production logs the first time this runs and
@@ -852,7 +854,13 @@ let inFlightTreatmentsFetch: Promise<TreatmentRecord[]> | null = null;
 async function fetchTreatmentsFromPrognosis(): Promise<TreatmentRecord[]> {
   const payload = await serviceRequest("GET", "/api/ListValues/GetAllProcedures");
   const records = extractTreatmentRecords(payload);
-  console.error(`[prognosis] loaded ${records.length} treatments`);
+  // Surfaces whether this endpoint silently paginates like GetProviders
+  // did — if totalRecord/totalPages show up and total exceeds the raw
+  // entry count logged in extractTreatmentRecords, this needs the same
+  // "ask for everything" fix GetProviders got.
+  const p = (payload && typeof payload === "object" ? payload : {}) as Record<string, unknown>;
+  const meta = { pageSize: p.pageSize, totalRecord: p.totalRecord, totalPages: p.totalPages, currentPage: p.currentPage };
+  console.error(`[prognosis] loaded ${records.length} treatments`, JSON.stringify(meta));
   return records;
 }
 
