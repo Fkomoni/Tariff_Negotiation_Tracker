@@ -850,7 +850,7 @@ let cachedTreatments: { data: TreatmentRecord[]; expiresAt: number } | null = nu
 let inFlightTreatmentsFetch: Promise<TreatmentRecord[]> | null = null;
 
 async function fetchTreatmentsFromPrognosis(): Promise<TreatmentRecord[]> {
-  const payload = await serviceRequest("GET", "/api/ListValues/GetAllTreatment");
+  const payload = await serviceRequest("GET", "/api/ListValues/GetAllProcedures");
   const records = extractTreatmentRecords(payload);
   console.error(`[prognosis] loaded ${records.length} treatments`);
   return records;
