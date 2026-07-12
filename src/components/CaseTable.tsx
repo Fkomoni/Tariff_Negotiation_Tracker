@@ -3,7 +3,7 @@ import type { NegotiationCase, RequestType, Role, ServiceType, User } from "@pri
 import { Badge } from "@/components/ui";
 import {
   CASE_TYPE_BADGE,
-  CASE_TYPE_LABELS,
+  CASE_TYPE_BADGE_LABEL,
   REQUEST_TYPE_BADGE,
   REQUEST_TYPE_LABELS,
   SERVICE_TYPE_LABELS,
@@ -82,7 +82,7 @@ export function CaseTable({
                 </td>
                 <td className="px-4 py-3">
                   {c.caseType === "PROVIDER_MANAGEMENT" ? (
-                    <Badge className={CASE_TYPE_BADGE.PROVIDER_MANAGEMENT}>{CASE_TYPE_LABELS.PROVIDER_MANAGEMENT}</Badge>
+                    <Badge className={CASE_TYPE_BADGE.PROVIDER_MANAGEMENT}>{CASE_TYPE_BADGE_LABEL.PROVIDER_MANAGEMENT}</Badge>
                   ) : (
                     <Badge className={REQUEST_TYPE_BADGE[c.requestType as RequestType]}>
                       {REQUEST_TYPE_LABELS[c.requestType as RequestType]}

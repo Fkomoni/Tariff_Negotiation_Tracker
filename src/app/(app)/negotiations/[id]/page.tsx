@@ -11,7 +11,7 @@ import {
   CASE_STATUS_BADGE,
   CASE_STATUS_LABELS,
   CASE_TYPE_BADGE,
-  CASE_TYPE_LABELS,
+  CASE_TYPE_BADGE_LABEL,
   PM_CATEGORY_LABELS,
   REQUEST_TYPE_BADGE,
   REQUEST_TYPE_LABELS,
@@ -208,7 +208,7 @@ export default async function CaseDetailsPage({
               <Detail label="Handled By" value={negotiationCase.owner?.displayName ?? negotiationCase.owner?.prognosisUsername ?? "Unclaimed"} />
             </dl>
             <div className="mt-4 flex gap-2">
-              <Badge className={CASE_TYPE_BADGE[negotiationCase.caseType]}>{CASE_TYPE_LABELS[negotiationCase.caseType]}</Badge>
+              <Badge className={CASE_TYPE_BADGE[negotiationCase.caseType]}>{CASE_TYPE_BADGE_LABEL[negotiationCase.caseType]}</Badge>
               {negotiationCase.caseType === "TARIFF_UPDATE" && (
                 <Badge className={REQUEST_TYPE_BADGE[negotiationCase.requestType]}>{REQUEST_TYPE_LABELS[negotiationCase.requestType]}</Badge>
               )}
@@ -311,7 +311,7 @@ export default async function CaseDetailsPage({
                 }`}
                 action={
                   <div className="flex gap-2">
-                    <Badge className={CASE_TYPE_BADGE[negotiationCase.caseType]}>{CASE_TYPE_LABELS[negotiationCase.caseType]}</Badge>
+                    <Badge className={CASE_TYPE_BADGE[negotiationCase.caseType]}>{CASE_TYPE_BADGE_LABEL[negotiationCase.caseType]}</Badge>
                     {negotiationCase.caseType === "TARIFF_UPDATE" && (
                       <Badge className={REQUEST_TYPE_BADGE[negotiationCase.requestType]}>{REQUEST_TYPE_LABELS[negotiationCase.requestType]}</Badge>
                     )}

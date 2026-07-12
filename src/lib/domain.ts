@@ -5,6 +5,14 @@ export const CASE_TYPE_LABELS: Record<CaseType, string> = {
   PROVIDER_MANAGEMENT: "Other Provider Management Request",
 };
 
+/// Shorter wording for compact badges (table cells, "at a glance" rows) —
+/// the full CASE_TYPE_LABELS text is fine for a big clickable button but
+/// wraps awkwardly in a small pill.
+export const CASE_TYPE_BADGE_LABEL: Record<CaseType, string> = {
+  TARIFF_UPDATE: "Tariff Update",
+  PROVIDER_MANAGEMENT: "Provider Management",
+};
+
 export const CASE_TYPE_BADGE: Record<CaseType, string> = {
   TARIFF_UPDATE: "bg-ink-100 text-ink-700",
   PROVIDER_MANAGEMENT: "bg-sky-100 text-sky-800",
