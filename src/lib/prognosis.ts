@@ -210,10 +210,6 @@ async function getServiceToken(forceRefresh = false): Promise<string> {
   }
 
   const token = await prognosisLogin(service.username, service.password);
-  // Temporary: logs the freshly-issued service token so it can be copied
-  // out of Render's logs for manual Postman/curl testing against Prognosis.
-  // Remove once no longer needed — this is a live bearer token.
-  console.error("[prognosis] service token issued:", token);
   cachedServiceToken = { token, expiresAt: Date.now() + TOKEN_TTL_MS };
   return token;
 }
