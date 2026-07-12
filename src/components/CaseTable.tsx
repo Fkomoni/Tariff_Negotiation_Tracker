@@ -46,7 +46,8 @@ export function CaseTable({
             <th className="px-4 py-3">Service</th>
             <th className="px-4 py-3">Request Type</th>
             <th className="px-4 py-3 text-right">Current Tariff</th>
-            <th className="px-4 py-3 text-right">Requested / Agreed Amount</th>
+            <th className="px-4 py-3 text-right">Requested Amount</th>
+            <th className="px-4 py-3 text-right">Updated Amount</th>
             <th className="px-4 py-3">Time Pending</th>
             <th className="px-4 py-3">Handled By</th>
           </tr>
@@ -55,8 +56,7 @@ export function CaseTable({
           {cases.map((c) => {
             const pendingMs = (c.completedAt ?? new Date()).getTime() - c.loggedAt.getTime();
             const isAgreed = c.status === "COMPLETED" && c.finalAgreedAmount !== null;
-            const displayAmount = isAgreed ? c.finalAgreedAmount!.toString() : c.providerRequestedAmount.toString();
-            const diff = amountDifference(c.currentTariff.toString(), displayAmount);
+            const diff = amountDifference(c.currentTariff.toString(), c.providerRequestedAmount.toString());
             return (
               <tr key={c.id} className="hover:bg-ink-100/40">
                 <td className="px-4 py-3">
@@ -79,15 +79,13 @@ export function CaseTable({
                 </td>
                 <td className="px-4 py-3 text-right text-ink-700">{formatCurrency(c.currentTariff.toString())}</td>
                 <td className="px-4 py-3 text-right font-semibold text-ink-900">
-                  {formatCurrency(displayAmount)}
+                  {formatCurrency(c.providerRequestedAmount.toString())}
                   <span className={`ml-1.5 text-[10.5px] ${diff > 0 ? "text-brand-600" : "text-ink-400"}`}>
                     ({diff > 0 ? "+" : ""}{formatCurrency(diff)})
                   </span>
-                  {isAgreed && (
-                    <p className="mt-0.5 text-[10.5px] font-normal text-ink-400">
-                      Agreed · requested {formatCurrency(c.providerRequestedAmount.toString())}
-                    </p>
-                  )}
+                </td>
+                <td className="px-4 py-3 text-right font-semibold text-ink-900">
+                  {isAgreed ? formatCurrency(c.finalAgreedAmount!.toString()) : "—"}
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-ink-500">{formatDuration(pendingMs)}</td>
                 <td className="px-4 py-3 text-ink-600">{c.owner?.displayName ?? c.owner?.prognosisUsername ?? "—"}</td>
