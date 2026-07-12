@@ -524,8 +524,8 @@ function buildEmailMessage(template: "ROUTINE" | "URGENT", memberName: string, h
 
 function buildSmsMessage(template: "ROUTINE" | "URGENT", hospitalName: string): string {
   if (template === "URGENT") {
-    return `Leadway Health: Your care is approved on our end. ${hospitalName} is renegotiating an already-agreed tariff, causing this urgent delay. We're pushing hard for an immediate resolution.`;
+    return `Dear Member, your care is approved on our end. ${hospitalName} is renegotiating an already-agreed tariff, causing this urgent delay. We're pushing hard for an immediate resolution.`;
   }
-  return `Leadway Health: We're ready to approve your care now. ${hospitalName} is renegotiating an already-agreed tariff, causing the delay. We're following up to resolve this quickly.`;
+  return `Dear Member, we're ready to approve your care now. ${hospitalName} is renegotiating an already-agreed tariff, causing the delay. We're following up to resolve this quickly.`;
 }
 
