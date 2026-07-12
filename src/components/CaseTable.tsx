@@ -1,14 +1,10 @@
 import Link from "next/link";
-import type { CaseStatus, NegotiationCase, RequestType, Role, ServiceType, Urgency, User } from "@prisma/client";
+import type { NegotiationCase, RequestType, Role, ServiceType, User } from "@prisma/client";
 import { Badge } from "@/components/ui";
 import {
-  CASE_STATUS_BADGE,
-  CASE_STATUS_LABELS,
   REQUEST_TYPE_BADGE,
   REQUEST_TYPE_LABELS,
   SERVICE_TYPE_LABELS,
-  URGENCY_BADGE,
-  URGENCY_LABELS,
   formatCurrency,
   formatDateTime,
   formatDuration,
@@ -42,6 +38,7 @@ export function CaseTable({
       <table className="w-full min-w-[1080px] text-left text-[12.5px]">
         <thead className="border-b border-ink-100 bg-ink-100/50 text-[11px] font-semibold uppercase tracking-wide text-ink-400">
           <tr>
+            <th className="px-4 py-3" />
             <th className="px-4 py-3">Time Logged</th>
             <th className="px-4 py-3">Agent</th>
             <th className="px-4 py-3">Provider</th>
@@ -50,11 +47,8 @@ export function CaseTable({
             <th className="px-4 py-3">Request Type</th>
             <th className="px-4 py-3 text-right">Current Tariff</th>
             <th className="px-4 py-3 text-right">Requested / Agreed Amount</th>
-            <th className="px-4 py-3">Urgency</th>
-            <th className="px-4 py-3">Status</th>
             <th className="px-4 py-3">Time Pending</th>
             <th className="px-4 py-3">Handled By</th>
-            <th className="px-4 py-3" />
           </tr>
         </thead>
         <tbody className="divide-y divide-ink-100">
@@ -65,6 +59,14 @@ export function CaseTable({
             const diff = amountDifference(c.currentTariff.toString(), displayAmount);
             return (
               <tr key={c.id} className="hover:bg-ink-100/40">
+                <td className="px-4 py-3">
+                  <Link
+                    href={isProviderTeamViewer ? `/negotiations/${c.id}?tab=provider-team` : `/negotiations/${c.id}`}
+                    className="rounded-md border border-ink-200 px-2.5 py-1.5 text-[11.5px] font-semibold text-ink-700 hover:bg-ink-100"
+                  >
+                    {isProviderTeamViewer ? "Treat" : "View"}
+                  </Link>
+                </td>
                 <td className="whitespace-nowrap px-4 py-3 text-ink-500">{formatDateTime(c.loggedAt)}</td>
                 <td className="px-4 py-3 text-ink-600">{c.loggedBy.displayName ?? c.loggedBy.prognosisUsername}</td>
                 <td className="px-4 py-3 font-semibold text-ink-900">{c.providerName}</td>
@@ -87,24 +89,8 @@ export function CaseTable({
                     </p>
                   )}
                 </td>
-                <td className="px-4 py-3">
-                  <Badge className={URGENCY_BADGE[c.urgency as Urgency]}>{URGENCY_LABELS[c.urgency as Urgency]}</Badge>
-                </td>
-                <td className="px-4 py-3">
-                  <Badge className={CASE_STATUS_BADGE[c.status as CaseStatus]}>{CASE_STATUS_LABELS[c.status as CaseStatus]}</Badge>
-                </td>
                 <td className="whitespace-nowrap px-4 py-3 text-ink-500">{formatDuration(pendingMs)}</td>
                 <td className="px-4 py-3 text-ink-600">{c.owner?.displayName ?? c.owner?.prognosisUsername ?? "—"}</td>
-                <td className="px-4 py-3 text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <Link
-                      href={isProviderTeamViewer ? `/negotiations/${c.id}?tab=provider-team` : `/negotiations/${c.id}`}
-                      className="rounded-md border border-ink-200 px-2.5 py-1.5 text-[11.5px] font-semibold text-ink-700 hover:bg-ink-100"
-                    >
-                      {isProviderTeamViewer ? "Treat" : "View"}
-                    </Link>
-                  </div>
-                </td>
               </tr>
             );
           })}

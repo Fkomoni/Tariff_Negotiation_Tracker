@@ -9,6 +9,7 @@ import { OPEN_STATUSES, CASE_STATUS_LABELS, URGENCY_LABELS } from "@/lib/domain"
 import type { Prisma, Urgency } from "@prisma/client";
 
 const SORT_OPTIONS: Record<string, { label: string; orderBy: Prisma.NegotiationCaseOrderByWithRelationInput[] }> = {
+  newest: { label: "Newest First", orderBy: [{ loggedAt: "desc" }] },
   oldest: { label: "Oldest First", orderBy: [{ loggedAt: "asc" }] },
   urgent: { label: "Urgent First", orderBy: [{ urgency: "desc" }, { loggedAt: "asc" }] },
   provider: { label: "Provider", orderBy: [{ providerName: "asc" }] },
@@ -25,7 +26,7 @@ export default async function OpenNegotiationsPage({
   const session = await auth();
   if (!session?.user) return null;
 
-  const sortKey = searchParams.sort && SORT_OPTIONS[searchParams.sort] ? searchParams.sort : "oldest";
+  const sortKey = searchParams.sort && SORT_OPTIONS[searchParams.sort] ? searchParams.sort : "newest";
   const statusFilter = searchParams.status && OPEN_STATUSES.includes(searchParams.status as never) ? searchParams.status : undefined;
   const urgencyFilter =
     searchParams.urgency && Object.keys(URGENCY_LABELS).includes(searchParams.urgency) ? (searchParams.urgency as Urgency) : undefined;
