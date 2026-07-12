@@ -415,10 +415,16 @@ export async function getActiveTariffScheduleName(providerId: number, userEmail:
     TarrifSchedulesList: [
       {
         Action: "Select",
-        providerid: providerId,
+        TypeID: 0,
+        TariffInUse: "",
         UserEmail: userEmail,
+        DefaultCategory: false,
+        CurrencyID: 0,
+        Zerorate: false,
+        IsCustomised: false,
         Skip: 0,
         Take: 100,
+        providerid: providerId,
       },
     ],
   });
