@@ -2,8 +2,7 @@ import Link from "next/link";
 import type { NegotiationCase, RequestType, Role, ServiceType, User } from "@prisma/client";
 import { Badge } from "@/components/ui";
 import {
-  CASE_TYPE_BADGE,
-  CASE_TYPE_BADGE_LABEL,
+  PM_CATEGORY_SHORT_LABELS,
   REQUEST_TYPE_BADGE,
   REQUEST_TYPE_LABELS,
   SERVICE_TYPE_LABELS,
@@ -78,11 +77,17 @@ export function CaseTable({
                 <td className="px-4 py-3 font-semibold text-ink-900">{c.providerName}</td>
                 <td className="px-4 py-3 text-ink-700">{c.enrolleeName}</td>
                 <td className="px-4 py-3 text-ink-700">
-                  {c.caseType === "PROVIDER_MANAGEMENT" ? c.requestedItem : c.serviceType ? SERVICE_TYPE_LABELS[c.serviceType as ServiceType] : "—"}
+                  {c.caseType === "PROVIDER_MANAGEMENT" ? "—" : c.serviceType ? SERVICE_TYPE_LABELS[c.serviceType as ServiceType] : "—"}
                 </td>
                 <td className="px-4 py-3">
                   {c.caseType === "PROVIDER_MANAGEMENT" ? (
-                    <Badge className={CASE_TYPE_BADGE.PROVIDER_MANAGEMENT}>{CASE_TYPE_BADGE_LABEL.PROVIDER_MANAGEMENT}</Badge>
+                    <div className="flex flex-wrap gap-1">
+                      {c.pmCategories.map((cat) => (
+                        <Badge key={cat} className="bg-sky-100 text-sky-800">
+                          {PM_CATEGORY_SHORT_LABELS[cat]}
+                        </Badge>
+                      ))}
+                    </div>
                   ) : (
                     <Badge className={REQUEST_TYPE_BADGE[c.requestType as RequestType]}>
                       {REQUEST_TYPE_LABELS[c.requestType as RequestType]}

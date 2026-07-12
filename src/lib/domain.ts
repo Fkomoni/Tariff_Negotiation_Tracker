@@ -34,6 +34,25 @@ export const PM_CATEGORY_LABELS: Record<ProviderManagementCategory, string> = {
   OTHER: "Other (Specify in Details Below)",
 };
 
+/// Short wording for compact contexts (queue table badges) — the full
+/// PM_CATEGORY_LABELS sentences are fine on the case detail page but too
+/// long for a repeated table-cell pill.
+export const PM_CATEGORY_SHORT_LABELS: Record<ProviderManagementCategory, string> = {
+  PORTAL_LOGIN_ISSUE: "Portal Login Issue",
+  PROVIDER_SIGN_UP_REQUEST: "Sign-Up Request",
+  NEW_FACILITY_SIGN_ON: "New Facility",
+  CONTACT_INFO_UPDATE: "Contact Update",
+  BANK_INFO_UPDATE: "Bank Info Update",
+  FACILITY_TIER_CHANGE: "Tier Change",
+  FULL_TARIFF_REVIEW_REQUEST: "Full Tariff Review",
+  PROVIDER_SUSPENDED_US: "Suspended Us",
+  PROVIDER_DEACTIVATION_REQUEST: "Exit Request",
+  COMPLIANCE_DOCUMENT_UPDATE: "Compliance Docs",
+  REPORT_ABUSE_FRAUD: "Abuse / Fraud Report",
+  REPORT_POOR_ENROLLEE_EXPERIENCE: "Poor Experience Report",
+  OTHER: "Other",
+};
+
 /// Categories are grouped into mini-categories purely for the picker UI and
 /// for reporting breakdowns — the underlying enum stays flat.
 export const PM_CATEGORY_GROUPS: { group: string; categories: ProviderManagementCategory[] }[] = [
