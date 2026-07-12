@@ -19,7 +19,14 @@ export function RequestFields({
 }) {
   const [caseType, setCaseType] = useState<CaseType>("TARIFF_UPDATE");
   const [providerCode, setProviderCode] = useState(initialProvider?.code ?? "");
+  const [pmCategories, setPmCategories] = useState<string[]>([]);
   const isTariffUpdate = caseType === "TARIFF_UPDATE";
+  // A brand-new facility won't exist in Prognosis yet, so searching for it
+  // there would never find anything — this is the one category where we
+  // need a plain text facility name instead of the Prognosis provider
+  // search, and we only know that once a category is picked, which is why
+  // category selection comes before the provider field for this case type.
+  const isNewFacility = pmCategories.includes("NEW_FACILITY_SIGN_ON");
 
   return (
     <>
@@ -40,10 +47,10 @@ export function RequestFields({
         ))}
       </div>
 
-      <ProviderFields initial={initialProvider} onProviderCodeChange={setProviderCode} />
-
       {isTariffUpdate ? (
         <>
+          <ProviderFields initial={initialProvider} onProviderCodeChange={setProviderCode} />
+
           <Field label="Service Type" required>
             <select name="serviceType" required className={inputClass} defaultValue="CONSULTATION">
               {Object.entries(SERVICE_TYPE_LABELS).map(([value, label]) => (
@@ -57,10 +64,33 @@ export function RequestFields({
           <ServiceTariffFields providerCode={providerCode} />
         </>
       ) : (
-        <ProviderManagementCategoryFields />
+        <>
+          <ProviderManagementCategoryFields onCategoriesChange={setPmCategories} />
+
+          {isNewFacility ? (
+            <>
+              <Field
+                label="New Facility Name"
+                required
+                hint="Not yet in Prognosis — type the facility name as given by the enrollee"
+                className="sm:col-span-2"
+              >
+                <input name="providerName" required className={inputClass} placeholder="e.g. Sunrise Diagnostic Centre" />
+              </Field>
+              <Field label="Facility Email" hint="Optional — if provided">
+                <input name="providerEmail" type="email" className={inputClass} />
+              </Field>
+              <Field label="Facility Phone" hint="Optional — if provided">
+                <input name="providerPhone" className={inputClass} />
+              </Field>
+            </>
+          ) : (
+            <ProviderFields initial={initialProvider} onProviderCodeChange={setProviderCode} />
+          )}
+        </>
       )}
 
-      <EnrolleeFields initial={initialEnrollee} required={isTariffUpdate} />
+      {isTariffUpdate && <EnrolleeFields initial={initialEnrollee} required />}
 
       {isTariffUpdate && (
         <Field label="Reason Provider Is Negotiating" required className="sm:col-span-2">

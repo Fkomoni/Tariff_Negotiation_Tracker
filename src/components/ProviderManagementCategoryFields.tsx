@@ -4,13 +4,21 @@ import { useState } from "react";
 import { inputClass } from "@/components/ui";
 import { PM_CATEGORY_GROUPS, PM_CATEGORY_LABELS, PM_CATEGORIES_REQUIRING_ATTACHMENT } from "@/lib/domain";
 
-export function ProviderManagementCategoryFields() {
+export function ProviderManagementCategoryFields({
+  onCategoriesChange,
+}: {
+  onCategoriesChange?: (categories: string[]) => void;
+}) {
   const [selected, setSelected] = useState<string[]>([]);
 
   const needsAttachment = selected.some((c) => PM_CATEGORIES_REQUIRING_ATTACHMENT.includes(c as never));
 
   function toggle(category: string) {
-    setSelected((prev) => (prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category]));
+    setSelected((prev) => {
+      const next = prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category];
+      onCategoriesChange?.(next);
+      return next;
+    });
   }
 
   return (
