@@ -264,6 +264,23 @@ async function servicePost(path: string, body: unknown): Promise<void> {
   await serviceRequest("POST", path, body);
 }
 
+/**
+ * Some ProviderNetwork endpoints (confirmed so far: TarrifSchedules,
+ * AddTarrifReviews) return HTTP 200 even on failure, wrapping the real
+ * outcome in the JSON body instead: {"status":500,"Message":"...",
+ * "result":null}. serviceRequest only checks the HTTP status, so a body-level
+ * failure would otherwise be silently treated as success — this throws so
+ * the caller's existing error handling (or catch block) takes over instead.
+ */
+function throwIfProgosisBodyFailed(payload: Record<string, unknown> | null, path: string): void {
+  if (!payload) return;
+  const status = payload.status;
+  if (typeof status === "number" && status >= 400) {
+    const message = typeof payload.Message === "string" ? payload.Message : `Prognosis returned status ${status}`;
+    throw new Error(`${path}: ${message}`);
+  }
+}
+
 export interface SendEmailAlertParams {
   emailAddress: string;
   subject: string;
@@ -344,12 +361,14 @@ export interface TariffReviewItem {
  * doesn't — so it covers both "update an existing price" and "add a new
  * service to this provider" through the same call.
  *
- * Response shape is unconfirmed; serviceRequest logs the raw response
- * unconditionally so the real shape shows up in production logs the first
- * time this is called.
+ * Confirmed against real production traffic: Prognosis returns HTTP 200
+ * even when the push is rejected, with the real outcome in the body (e.g.
+ * {"status":500,"Message":"Invalid provider id!",...}) — see
+ * throwIfProgosisBodyFailed. ProcedureCode is echoed back in that error
+ * body, confirming that field name is correct.
  */
 export async function addTariffReviews(items: TariffReviewItem[]): Promise<unknown> {
-  return serviceRequest("POST", "/api/ProviderNetwork/AddTarrifReviews", {
+  const payload = await serviceRequest("POST", "/api/ProviderNetwork/AddTarrifReviews", {
     TarifList: items.map((i) => ({
       ProcedureCode: i.procedureId,
       ProcedureName: i.procedureName,
@@ -364,6 +383,8 @@ export async function addTariffReviews(items: TariffReviewItem[]): Promise<unkno
       zerorate: i.zeroRate ?? false,
     })),
   });
+  throwIfProgosisBodyFailed(payload, "/api/ProviderNetwork/AddTarrifReviews");
+  return payload;
 }
 
 /**
@@ -394,10 +415,11 @@ export async function getActiveTariffScheduleName(providerId: number, userEmail:
       },
     ],
   });
+  throwIfProgosisBodyFailed(payload, "/api/ProviderNetwork/TarriffSchedules");
 
   const p = (payload && typeof payload === "object" ? payload : {}) as Record<string, unknown>;
   let raw: unknown =
-    p.TarrifSchedulesList ?? p.TariffSchedulesList ?? p.data ?? p.Data ?? p.result ?? p.Result ?? p;
+    p.TarrifSchedulesList ?? p.TariffSchedulesList ?? p.TariffSchedule ?? p.data ?? p.Data ?? p.result ?? p.Result ?? p;
   if (!Array.isArray(raw)) raw = raw && typeof raw === "object" ? [raw] : [];
 
   const schedules = (raw as unknown[]).filter((e): e is Record<string, unknown> => !!e && typeof e === "object");

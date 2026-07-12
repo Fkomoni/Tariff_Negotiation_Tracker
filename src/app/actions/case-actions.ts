@@ -306,7 +306,7 @@ export async function updateCaseStatus(formData: FormData) {
               type: "NOTE",
               note:
                 failureNote ??
-                `Tariff review submitted to Prognosis${pushable.length > 1 ? ` (batch of ${pushable.length})` : ""}: ${c.serviceCode} → ${c.finalAgreedAmount}.`,
+                `Tariff review submitted to Prognosis${pushable.length > 1 ? ` (batch of ${pushable.length})` : ""}: ${c.serviceCode} → ${c.finalAgreedAmount}. Tariff schedule: ${tariffScheduleName || "none found — sent blank"}.`,
             },
           })
         )
@@ -453,62 +453,3 @@ function buildSmsMessage(template: "ROUTINE" | "URGENT", hospitalName: string): 
   return `Leadway Health: We're ready to approve your care now. ${hospitalName} is renegotiating an already-agreed tariff, causing the delay. We're following up to resolve this quickly.`;
 }
 
-export async function notifyMember(formData: FormData) {
-  const session = await requireSession();
-  if (!["CONTACT_CENTER", "ADMIN"].includes(session.user.role)) {
-    throw new Error("Only Contact Centre can notify the member");
-  }
-  const caseId = String(formData.get("caseId"));
-  const template = String(formData.get("template") ?? "ROUTINE") as "ROUTINE" | "URGENT";
-  const channels = formData.getAll("channel").map(String) as Array<"EMAIL" | "SMS">;
-  const overrideEmail = String(formData.get("email") ?? "").trim();
-  const overridePhone = String(formData.get("phone") ?? "").trim();
-
-  const negotiationCase = await prisma.negotiationCase.findUnique({ where: { id: caseId } });
-  if (!negotiationCase) throw new Error("Case not found");
-
-  const email = overrideEmail || negotiationCase.enrolleeEmail;
-  const phone = overridePhone || negotiationCase.enrolleePhone;
-
-  const wantsEmail = channels.includes("EMAIL");
-  const wantsSms = channels.includes("SMS");
-
-  if (!wantsEmail && !wantsSms) {
-    redirect(`/negotiations/${caseId}?error=${encodeURIComponent("Choose at least one channel (Email or SMS) to notify the member.")}`);
-  }
-  if (wantsEmail && !email) {
-    redirect(`/negotiations/${caseId}?error=${encodeURIComponent("No member email on file. Add one to send an email notification.")}`);
-  }
-  if (wantsSms && !phone) {
-    redirect(`/negotiations/${caseId}?error=${encodeURIComponent("No member phone number on file. Add one to send an SMS notification.")}`);
-  }
-
-  const results = await dispatchMemberNotifications({
-    caseId,
-    caseNumber: negotiationCase.caseNumber,
-    providerName: negotiationCase.providerName,
-    enrolleeName: negotiationCase.enrolleeName,
-    enrolleeId: negotiationCase.enrolleeId,
-    requestedItem: negotiationCase.requestedItem,
-    serviceType: negotiationCase.serviceType as ServiceType,
-    loggedAt: negotiationCase.loggedAt,
-    template,
-    wantsEmail,
-    wantsSms,
-    email,
-    phone,
-    sentByUserId: session.user.id,
-  });
-
-  await prisma.caseUpdate.create({
-    data: {
-      caseId,
-      userId: session.user.id,
-      type: "NOTIFICATION",
-      note: `Member notification (${template.toLowerCase()} template): ${results.join(", ")}`,
-    },
-  });
-
-  revalidatePath(`/negotiations/${caseId}`);
-  redirect(`/negotiations/${caseId}?notified=${encodeURIComponent(results.join(", "))}`);
-}

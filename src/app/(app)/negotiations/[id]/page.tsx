@@ -21,7 +21,7 @@ import {
   formatDuration,
   amountDifference,
 } from "@/lib/domain";
-import { updateCaseStatus, addNote, notifyMember } from "@/app/actions/case-actions";
+import { updateCaseStatus, addNote } from "@/app/actions/case-actions";
 import type { CaseStatus } from "@prisma/client";
 
 export default async function CaseDetailsPage({
@@ -29,7 +29,7 @@ export default async function CaseDetailsPage({
   searchParams,
 }: {
   params: { id: string };
-  searchParams: { error?: string; tab?: string; notified?: string };
+  searchParams: { error?: string; tab?: string };
 }) {
   const session = await auth();
   if (!session?.user) return null;
@@ -105,12 +105,6 @@ export default async function CaseDetailsPage({
         {searchParams.error && (
           <p className="mb-4 rounded-lg bg-brand-50 px-3.5 py-2.5 text-[12.5px] font-medium text-brand-700">
             {searchParams.error}
-          </p>
-        )}
-
-        {searchParams.notified && (
-          <p className="mb-4 flex items-center gap-2 rounded-lg bg-emerald-50 px-3.5 py-2.5 text-[12.5px] font-medium text-emerald-700">
-            <span aria-hidden>✓</span> Member notified — {searchParams.notified}.
           </p>
         )}
 
@@ -369,63 +363,31 @@ export default async function CaseDetailsPage({
 
             {canLogNegotiation && (
               <Card>
-                <CardHeader title="Notify Member" icon={<BellIcon className="h-4 w-4" />} />
-                <form action={notifyMember} className="space-y-4 px-5 py-4">
-                  <input type="hidden" name="caseId" value={negotiationCase.id} />
-                  <Field label="Message Template">
-                    <select name="template" className={inputClass} defaultValue={negotiationCase.urgency === "ROUTINE" ? "ROUTINE" : "URGENT"}>
-                      <option value="ROUTINE">Routine delay notice</option>
-                      <option value="URGENT">Urgent delay notice</option>
-                    </select>
-                  </Field>
-                  <div className="flex gap-4">
-                    <label className="flex items-center gap-2 text-[12.5px] text-ink-700">
-                      <input type="checkbox" name="channel" value="EMAIL" defaultChecked={!!negotiationCase.enrolleeEmail} />
-                      Email
-                    </label>
-                    <label className="flex items-center gap-2 text-[12.5px] text-ink-700">
-                      <input type="checkbox" name="channel" value="SMS" defaultChecked={!!negotiationCase.enrolleePhone} />
-                      SMS
-                    </label>
-                  </div>
-                  <Field label="Email" hint="Override or fill in if missing">
-                    <input name="email" type="email" defaultValue={negotiationCase.enrolleeEmail ?? ""} className={inputClass} />
-                  </Field>
-                  <Field label="Phone" hint="Override or fill in if missing">
-                    <input name="phone" defaultValue={negotiationCase.enrolleePhone ?? ""} className={inputClass} />
-                  </Field>
-                  <SubmitButton className="w-full" pendingLabel="Sending…">
-                    Notify Member
-                  </SubmitButton>
-                </form>
+                <CardHeader title="Member Notification" icon={<BellIcon className="h-4 w-4" />} subtitle="Sent automatically when the case was logged" />
+                {negotiationCase.notifications.length === 0 ? (
+                  <p className="px-5 py-6 text-[12.5px] text-ink-400">No notifications sent yet.</p>
+                ) : (
+                  <ul className="divide-y divide-ink-100">
+                    {negotiationCase.notifications.map((n) => (
+                      <li key={n.id} className="px-5 py-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[12px] font-semibold text-ink-800">
+                            {n.channel} · {n.template === "URGENT" ? "Urgent" : "Routine"}
+                          </span>
+                          <Badge className={n.status === "SENT" ? "bg-emerald-100 text-emerald-800" : "bg-brand-100 text-brand-700"}>
+                            {n.status}
+                          </Badge>
+                        </div>
+                        <p className="mt-1 text-[11.5px] text-ink-500">
+                          {n.recipientEmail ?? n.recipientPhone} · {formatDateTime(n.createdAt)}
+                        </p>
+                        <p className="mt-1 text-[11px] text-ink-400">by {n.sentBy.displayName ?? n.sentBy.prognosisUsername}</p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </Card>
             )}
-
-            <Card>
-              <CardHeader title="Notification History" />
-              {negotiationCase.notifications.length === 0 ? (
-                <p className="px-5 py-6 text-[12.5px] text-ink-400">No notifications sent yet.</p>
-              ) : (
-                <ul className="divide-y divide-ink-100">
-                  {negotiationCase.notifications.map((n) => (
-                    <li key={n.id} className="px-5 py-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[12px] font-semibold text-ink-800">
-                          {n.channel} · {n.template === "URGENT" ? "Urgent" : "Routine"}
-                        </span>
-                        <Badge className={n.status === "SENT" ? "bg-emerald-100 text-emerald-800" : "bg-brand-100 text-brand-700"}>
-                          {n.status}
-                        </Badge>
-                      </div>
-                      <p className="mt-1 text-[11.5px] text-ink-500">
-                        {n.recipientEmail ?? n.recipientPhone} · {formatDateTime(n.createdAt)}
-                      </p>
-                      <p className="mt-1 text-[11px] text-ink-400">by {n.sentBy.displayName ?? n.sentBy.prognosisUsername}</p>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </Card>
           </div>
         </div>
       )}
