@@ -39,7 +39,7 @@ export default async function CaseDetailsPage({
     include: {
       loggedBy: true,
       owner: true,
-      updates: { include: { user: true }, orderBy: { createdAt: "asc" } },
+      updates: { include: { user: true }, orderBy: { createdAt: "desc" } },
       notifications: { include: { sentBy: true }, orderBy: { createdAt: "desc" } },
     },
   });
@@ -76,7 +76,7 @@ export default async function CaseDetailsPage({
       include: {
         loggedBy: true,
         owner: true,
-        updates: { include: { user: true }, orderBy: { createdAt: "asc" } },
+        updates: { include: { user: true }, orderBy: { createdAt: "desc" } },
         notifications: { include: { sentBy: true }, orderBy: { createdAt: "desc" } },
       },
     });
