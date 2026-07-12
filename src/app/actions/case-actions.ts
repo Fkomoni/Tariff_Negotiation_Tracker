@@ -167,6 +167,7 @@ const updateStatusSchema = z.object({
   ]),
   note: z.string().optional(),
   finalAgreedAmount: z.coerce.number().optional(),
+  effectiveDate: z.string().optional(),
   approvalReason: z.string().optional(),
 });
 
@@ -198,13 +199,18 @@ export async function updateCaseStatus(formData: FormData) {
   if (data.status === "COMPLETED" && !data.finalAgreedAmount) {
     redirect(`/negotiations/${data.caseId}?error=${encodeURIComponent("Final agreed amount is required to mark as Completed")}`);
   }
+  if (data.status === "COMPLETED" && !data.effectiveDate) {
+    redirect(`/negotiations/${data.caseId}?error=${encodeURIComponent("Tariff effective date is required to mark as Completed")}`);
+  }
 
   const now = new Date();
+  const tariffEffectiveDate = data.effectiveDate ? new Date(data.effectiveDate) : existing.tariffEffectiveDate ?? undefined;
   await prisma.negotiationCase.update({
     where: { id: data.caseId },
     data: {
       status: data.status,
       finalAgreedAmount: data.finalAgreedAmount ?? existing.finalAgreedAmount ?? undefined,
+      tariffEffectiveDate,
       approvalReason: data.approvalReason || existing.approvalReason || undefined,
       ownerUserId: existing.ownerUserId ?? session.user.id,
       firstActionAt: existing.firstActionAt ?? now,
@@ -288,6 +294,7 @@ export async function updateCaseStatus(formData: FormData) {
             providerTariffCode: c.providerTariffCode ?? "",
             providerTariffName: "",
             zeroRate: false,
+            effectiveDate: c.tariffEffectiveDate ?? new Date(),
           }))
         );
         await prisma.negotiationCase.updateMany({

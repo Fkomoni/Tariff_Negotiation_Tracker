@@ -209,6 +209,16 @@ export default async function CaseDetailsPage({
                     className={inputClass}
                   />
                 </Field>
+                <Field label="Tariff Effective Date" hint="Required to mark Completed — when this price takes effect on Prognosis">
+                  <input
+                    name="effectiveDate"
+                    type="date"
+                    defaultValue={
+                      (negotiationCase.tariffEffectiveDate ?? new Date()).toISOString().slice(0, 10)
+                    }
+                    className={inputClass}
+                  />
+                </Field>
                 <Field label="Approved / Declined Reason">
                   <textarea
                     name="approvalReason"
@@ -302,6 +312,9 @@ export default async function CaseDetailsPage({
                 {negotiationCase.notes && <Detail label="Notes" value={negotiationCase.notes} full />}
                 {negotiationCase.finalAgreedAmount && (
                   <Detail label="Final Agreed Amount" value={formatCurrency(negotiationCase.finalAgreedAmount.toString())} />
+                )}
+                {negotiationCase.tariffEffectiveDate && (
+                  <Detail label="Tariff Effective Date" value={negotiationCase.tariffEffectiveDate.toISOString().slice(0, 10)} />
                 )}
                 {negotiationCase.approvalReason && <Detail label="Approval / Decline Reason" value={negotiationCase.approvalReason} full />}
               </dl>

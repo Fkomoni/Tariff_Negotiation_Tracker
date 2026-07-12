@@ -356,6 +356,8 @@ export interface TariffReviewItem {
   providerTariffCode?: string;
   providerTariffName?: string;
   zeroRate?: boolean;
+  /** When the new/updated price should take effect on Prognosis's side. */
+  effectiveDate: Date;
 }
 
 /**
@@ -385,6 +387,7 @@ export async function addTariffReviews(items: TariffReviewItem[]): Promise<unkno
       ProviderTarifCode: i.providerTariffCode ?? "",
       ProviderTarifName: i.providerTariffName ?? "",
       zerorate: i.zeroRate ?? false,
+      EffectiveDate: i.effectiveDate.toISOString(),
     })),
   });
   throwIfProgosisBodyFailed(payload, "/api/ProviderNetwork/AddTarrifReviews");

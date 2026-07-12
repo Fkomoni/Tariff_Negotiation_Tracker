@@ -136,6 +136,10 @@ model NegotiationCase {
   finalAgreedAmount      Decimal?    @db.Decimal(14, 2)
   approvalReason         String?
   tariffPushedAt         DateTime?
+  /// When the new/updated price should take effect on Prognosis's side —
+  /// set by Provider Team when marking a case Completed, sent as
+  /// EffectiveDate on the AddTarrifReviews push.
+  tariffEffectiveDate    DateTime?
 
   /// Groups multiple service negotiations logged for the same provider
   /// visit ("quick repeat") without merging their independent statuses/timers.
