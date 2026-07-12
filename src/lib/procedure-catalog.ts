@@ -16,13 +16,17 @@ function todayUtcMidnight(): Date {
 
 /** Wholesale-replaces the persisted procedure catalog and records the sync
  * time, so the full list survives app restarts/redeploys instead of living
- * only in memory. */
+ * only in memory. Prognosis's raw catalog has been observed to contain
+ * duplicate procedure codes (same tariff_code appearing more than once) —
+ * skipDuplicates keeps one of each instead of the whole persist (and every
+ * search behind it) failing on the unique constraint. */
 async function persistTreatments(records: TreatmentRecord[]): Promise<void> {
   const now = new Date();
-  await prisma.$transaction([
+  const [, inserted] = await prisma.$transaction([
     prisma.procedureCatalogEntry.deleteMany({}),
     prisma.procedureCatalogEntry.createMany({
       data: records.map((r) => ({ procedureId: r.procedureId, name: r.name, tariffId: r.tariffId })),
+      skipDuplicates: true,
     }),
     prisma.lookupSync.upsert({
       where: { key: TREATMENTS_SYNC_KEY },
@@ -30,6 +34,9 @@ async function persistTreatments(records: TreatmentRecord[]): Promise<void> {
       update: { lastSyncedAt: now, recordCount: records.length },
     }),
   ]);
+  if (inserted.count < records.length) {
+    console.error(`[procedure-catalog] skipped ${records.length - inserted.count} duplicate procedure code(s) out of ${records.length}`);
+  }
 }
 
 /** Returns the persisted catalog if it was synced today (UTC), else null —
