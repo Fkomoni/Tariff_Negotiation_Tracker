@@ -10,6 +10,9 @@ import { LogIcon, BellIcon } from "@/components/icons";
 import {
   CASE_STATUS_BADGE,
   CASE_STATUS_LABELS,
+  CASE_TYPE_BADGE,
+  CASE_TYPE_LABELS,
+  PM_CATEGORY_LABELS,
   REQUEST_TYPE_BADGE,
   REQUEST_TYPE_LABELS,
   SERVICE_TYPE_LABELS,
@@ -96,7 +99,11 @@ export default async function CaseDetailsPage({
     <>
       <Header
         title={negotiationCase.caseNumber}
-        subtitle={`${negotiationCase.providerName} · ${negotiationCase.enrolleeName}`}
+        subtitle={
+          negotiationCase.enrolleeName !== "N/A"
+            ? `${negotiationCase.providerName} · ${negotiationCase.enrolleeName}`
+            : negotiationCase.providerName
+        }
         icon={<LogIcon />}
         user={{ name: session.user.name ?? session.user.prognosisUsername, role: session.user.role }}
       />
@@ -144,33 +151,67 @@ export default async function CaseDetailsPage({
               <Detail label="Provider ID" value={negotiationCase.providerId ?? "—"} />
               <Detail label="Provider Email" value={negotiationCase.providerEmail ?? "—"} />
               <Detail label="Provider Phone" value={negotiationCase.providerPhone ?? "—"} />
-              <Detail label="Member Full Name" value={negotiationCase.enrolleeName} />
+              {negotiationCase.enrolleeName !== "N/A" && <Detail label="Member Full Name" value={negotiationCase.enrolleeName} />}
               <Detail label="Company" value={negotiationCase.enrolleeCompany ?? "—"} />
               <Detail label="Scheme / Plan" value={negotiationCase.enrolleeScheme ?? "—"} />
-              <Detail
-                label="Requested Item"
-                value={
-                  negotiationCase.serviceCode
-                    ? `${negotiationCase.requestedItem} (${negotiationCase.serviceCode})`
-                    : negotiationCase.requestedItem
-                }
-              />
-              <Detail
-                label={negotiationCase.requestType === "NEW_SERVICE" ? "Proposed Price (not yet priced on this provider)" : "Current → Requested"}
-                value={
-                  negotiationCase.requestType === "NEW_SERVICE"
-                    ? formatCurrency(negotiationCase.providerRequestedAmount.toString())
-                    : `${formatCurrency(negotiationCase.currentTariff.toString())} → ${formatCurrency(negotiationCase.providerRequestedAmount.toString())}`
-                }
-                full
-              />
-              <Detail label="Reason for Tariff Increase" value={negotiationCase.reason} full />
+              {negotiationCase.caseType === "PROVIDER_MANAGEMENT" ? (
+                <>
+                  <Detail
+                    label="Categories"
+                    value={
+                      <div className="flex flex-wrap gap-1">
+                        {negotiationCase.pmCategories.map((c) => (
+                          <Badge key={c} className="bg-sky-100 text-sky-800">
+                            {PM_CATEGORY_LABELS[c]}
+                          </Badge>
+                        ))}
+                      </div>
+                    }
+                    full
+                  />
+                  {negotiationCase.pmAttachmentName && (
+                    <Detail
+                      label="Attachment"
+                      value={
+                        <a href={`/api/pm-attachment/${negotiationCase.id}`} className="text-brand-600 hover:underline">
+                          {negotiationCase.pmAttachmentName}
+                        </a>
+                      }
+                    />
+                  )}
+                  <Detail label="Details for Provider Management" value={negotiationCase.reason} full />
+                </>
+              ) : (
+                <>
+                  <Detail
+                    label="Requested Item"
+                    value={
+                      negotiationCase.serviceCode
+                        ? `${negotiationCase.requestedItem} (${negotiationCase.serviceCode})`
+                        : negotiationCase.requestedItem
+                    }
+                  />
+                  <Detail
+                    label={negotiationCase.requestType === "NEW_SERVICE" ? "Proposed Price (not yet priced on this provider)" : "Current → Requested"}
+                    value={
+                      negotiationCase.requestType === "NEW_SERVICE"
+                        ? formatCurrency(negotiationCase.providerRequestedAmount.toString())
+                        : `${formatCurrency(negotiationCase.currentTariff.toString())} → ${formatCurrency(negotiationCase.providerRequestedAmount.toString())}`
+                    }
+                    full
+                  />
+                  <Detail label="Reason for Tariff Increase" value={negotiationCase.reason} full />
+                </>
+              )}
               {negotiationCase.notes && <Detail label="Notes from Contact Centre" value={negotiationCase.notes} full />}
               <Detail label="Logged By" value={negotiationCase.loggedBy.displayName ?? negotiationCase.loggedBy.prognosisUsername} />
               <Detail label="Handled By" value={negotiationCase.owner?.displayName ?? negotiationCase.owner?.prognosisUsername ?? "Unclaimed"} />
             </dl>
             <div className="mt-4 flex gap-2">
-              <Badge className={REQUEST_TYPE_BADGE[negotiationCase.requestType]}>{REQUEST_TYPE_LABELS[negotiationCase.requestType]}</Badge>
+              <Badge className={CASE_TYPE_BADGE[negotiationCase.caseType]}>{CASE_TYPE_LABELS[negotiationCase.caseType]}</Badge>
+              {negotiationCase.caseType === "TARIFF_UPDATE" && (
+                <Badge className={REQUEST_TYPE_BADGE[negotiationCase.requestType]}>{REQUEST_TYPE_LABELS[negotiationCase.requestType]}</Badge>
+              )}
               <Badge className={URGENCY_BADGE[negotiationCase.urgency]}>{URGENCY_LABELS[negotiationCase.urgency]}</Badge>
               <Badge className={CASE_STATUS_BADGE[negotiationCase.status]}>{CASE_STATUS_LABELS[negotiationCase.status]}</Badge>
             </div>
@@ -199,26 +240,30 @@ export default async function CaseDetailsPage({
                     ))}
                   </select>
                 </Field>
-                <Field label="Final Agreed Amount (₦)" hint="Required to mark Completed">
-                  <input
-                    name="finalAgreedAmount"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    defaultValue={negotiationCase.finalAgreedAmount?.toString() ?? ""}
-                    className={inputClass}
-                  />
-                </Field>
-                <Field label="Tariff Effective Date" hint="Required to mark Completed — when this price takes effect on Prognosis">
-                  <input
-                    name="effectiveDate"
-                    type="date"
-                    defaultValue={
-                      (negotiationCase.tariffEffectiveDate ?? new Date()).toISOString().slice(0, 10)
-                    }
-                    className={inputClass}
-                  />
-                </Field>
+                {negotiationCase.caseType === "TARIFF_UPDATE" && (
+                  <>
+                    <Field label="Final Agreed Amount (₦)" hint="Required to mark Completed">
+                      <input
+                        name="finalAgreedAmount"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        defaultValue={negotiationCase.finalAgreedAmount?.toString() ?? ""}
+                        className={inputClass}
+                      />
+                    </Field>
+                    <Field label="Tariff Effective Date" hint="Required to mark Completed — when this price takes effect on Prognosis">
+                      <input
+                        name="effectiveDate"
+                        type="date"
+                        defaultValue={
+                          (negotiationCase.tariffEffectiveDate ?? new Date()).toISOString().slice(0, 10)
+                        }
+                        className={inputClass}
+                      />
+                    </Field>
+                  </>
+                )}
                 <Field label="Approved / Declined Reason">
                   <textarea
                     name="approvalReason"
@@ -266,7 +311,10 @@ export default async function CaseDetailsPage({
                 }`}
                 action={
                   <div className="flex gap-2">
-                    <Badge className={REQUEST_TYPE_BADGE[negotiationCase.requestType]}>{REQUEST_TYPE_LABELS[negotiationCase.requestType]}</Badge>
+                    <Badge className={CASE_TYPE_BADGE[negotiationCase.caseType]}>{CASE_TYPE_LABELS[negotiationCase.caseType]}</Badge>
+                    {negotiationCase.caseType === "TARIFF_UPDATE" && (
+                      <Badge className={REQUEST_TYPE_BADGE[negotiationCase.requestType]}>{REQUEST_TYPE_LABELS[negotiationCase.requestType]}</Badge>
+                    )}
                     <Badge className={URGENCY_BADGE[negotiationCase.urgency]}>{URGENCY_LABELS[negotiationCase.urgency]}</Badge>
                     <Badge className={CASE_STATUS_BADGE[negotiationCase.status]}>{CASE_STATUS_LABELS[negotiationCase.status]}</Badge>
                   </div>
@@ -274,41 +322,77 @@ export default async function CaseDetailsPage({
               />
               <dl className="grid grid-cols-1 gap-5 px-5 py-5 sm:grid-cols-2">
                 <Detail label="Provider / Hospital" value={negotiationCase.providerName} />
-                <Detail label="Enrollee" value={`${negotiationCase.enrolleeName}${negotiationCase.enrolleeId ? ` (${negotiationCase.enrolleeId})` : ""}`} />
+                {negotiationCase.enrolleeName !== "N/A" && (
+                  <Detail label="Enrollee" value={`${negotiationCase.enrolleeName}${negotiationCase.enrolleeId ? ` (${negotiationCase.enrolleeId})` : ""}`} />
+                )}
                 <Detail label="Provider Email" value={negotiationCase.providerEmail ?? "—"} />
                 <Detail label="Provider Phone" value={negotiationCase.providerPhone ?? "—"} />
                 <Detail label="Company / Scheme" value={[negotiationCase.enrolleeCompany, negotiationCase.enrolleeScheme].filter(Boolean).join(" · ") || "—"} />
                 <Detail label="Age" value={negotiationCase.enrolleeAge ?? "—"} />
-                <Detail label="Service Type" value={SERVICE_TYPE_LABELS[negotiationCase.serviceType]} />
-                <Detail
-                  label="Requested Item"
-                  value={
-                    negotiationCase.serviceCode
-                      ? `${negotiationCase.requestedItem} (${negotiationCase.serviceCode})`
-                      : negotiationCase.requestedItem
-                  }
-                />
-                <Detail
-                  label={negotiationCase.requestType === "NEW_SERVICE" ? "Current Tariff (not priced on this provider)" : "Current Tariff"}
-                  value={negotiationCase.requestType === "NEW_SERVICE" ? "—" : formatCurrency(negotiationCase.currentTariff.toString())}
-                />
-                <Detail
-                  label="Provider Requested Amount"
-                  value={
-                    <>
-                      {formatCurrency(negotiationCase.providerRequestedAmount.toString())}{" "}
-                      <span className={diff > 0 ? "text-brand-600" : "text-ink-400"}>
-                        ({diff > 0 ? "+" : ""}
-                        {formatCurrency(diff)})
-                      </span>
-                    </>
-                  }
-                />
+                {negotiationCase.caseType === "PROVIDER_MANAGEMENT" ? (
+                  <>
+                    <Detail
+                      label="Categories"
+                      value={
+                        <div className="flex flex-wrap gap-1">
+                          {negotiationCase.pmCategories.map((c) => (
+                            <Badge key={c} className="bg-sky-100 text-sky-800">
+                              {PM_CATEGORY_LABELS[c]}
+                            </Badge>
+                          ))}
+                        </div>
+                      }
+                      full
+                    />
+                    {negotiationCase.pmAttachmentName && (
+                      <Detail
+                        label="Attachment"
+                        value={
+                          <a href={`/api/pm-attachment/${negotiationCase.id}`} className="text-brand-600 hover:underline">
+                            {negotiationCase.pmAttachmentName}
+                          </a>
+                        }
+                      />
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {negotiationCase.serviceType && <Detail label="Service Type" value={SERVICE_TYPE_LABELS[negotiationCase.serviceType]} />}
+                    <Detail
+                      label="Requested Item"
+                      value={
+                        negotiationCase.serviceCode
+                          ? `${negotiationCase.requestedItem} (${negotiationCase.serviceCode})`
+                          : negotiationCase.requestedItem
+                      }
+                    />
+                    <Detail
+                      label={negotiationCase.requestType === "NEW_SERVICE" ? "Current Tariff (not priced on this provider)" : "Current Tariff"}
+                      value={negotiationCase.requestType === "NEW_SERVICE" ? "—" : formatCurrency(negotiationCase.currentTariff.toString())}
+                    />
+                    <Detail
+                      label="Provider Requested Amount"
+                      value={
+                        <>
+                          {formatCurrency(negotiationCase.providerRequestedAmount.toString())}{" "}
+                          <span className={diff > 0 ? "text-brand-600" : "text-ink-400"}>
+                            ({diff > 0 ? "+" : ""}
+                            {formatCurrency(diff)})
+                          </span>
+                        </>
+                      }
+                    />
+                  </>
+                )}
                 <Detail label="Enrollee Email" value={negotiationCase.enrolleeEmail ?? "—"} />
                 <Detail label="Enrollee Phone" value={negotiationCase.enrolleePhone ?? "—"} />
                 <Detail label="Logged By" value={negotiationCase.loggedBy.displayName ?? negotiationCase.loggedBy.prognosisUsername} />
                 <Detail label="Handled By" value={negotiationCase.owner?.displayName ?? negotiationCase.owner?.prognosisUsername ?? "Unclaimed"} />
-                <Detail label="Reason Provider Is Negotiating" value={negotiationCase.reason} full />
+                <Detail
+                  label={negotiationCase.caseType === "PROVIDER_MANAGEMENT" ? "Details for Provider Management" : "Reason Provider Is Negotiating"}
+                  value={negotiationCase.reason}
+                  full
+                />
                 {negotiationCase.notes && <Detail label="Notes" value={negotiationCase.notes} full />}
                 {negotiationCase.finalAgreedAmount && (
                   <Detail label="Final Agreed Amount" value={formatCurrency(negotiationCase.finalAgreedAmount.toString())} />

@@ -2,6 +2,8 @@ import Link from "next/link";
 import type { NegotiationCase, RequestType, Role, ServiceType, User } from "@prisma/client";
 import { Badge } from "@/components/ui";
 import {
+  CASE_TYPE_BADGE,
+  CASE_TYPE_LABELS,
   REQUEST_TYPE_BADGE,
   REQUEST_TYPE_LABELS,
   SERVICE_TYPE_LABELS,
@@ -75,21 +77,35 @@ export function CaseTable({
                 <td className="px-4 py-3 text-ink-600">{c.loggedBy.displayName ?? c.loggedBy.prognosisUsername}</td>
                 <td className="px-4 py-3 font-semibold text-ink-900">{c.providerName}</td>
                 <td className="px-4 py-3 text-ink-700">{c.enrolleeName}</td>
-                <td className="px-4 py-3 text-ink-700">{SERVICE_TYPE_LABELS[c.serviceType as ServiceType]}</td>
+                <td className="px-4 py-3 text-ink-700">
+                  {c.caseType === "PROVIDER_MANAGEMENT" ? c.requestedItem : c.serviceType ? SERVICE_TYPE_LABELS[c.serviceType as ServiceType] : "—"}
+                </td>
                 <td className="px-4 py-3">
-                  <Badge className={REQUEST_TYPE_BADGE[c.requestType as RequestType]}>
-                    {REQUEST_TYPE_LABELS[c.requestType as RequestType]}
-                  </Badge>
+                  {c.caseType === "PROVIDER_MANAGEMENT" ? (
+                    <Badge className={CASE_TYPE_BADGE.PROVIDER_MANAGEMENT}>{CASE_TYPE_LABELS.PROVIDER_MANAGEMENT}</Badge>
+                  ) : (
+                    <Badge className={REQUEST_TYPE_BADGE[c.requestType as RequestType]}>
+                      {REQUEST_TYPE_LABELS[c.requestType as RequestType]}
+                    </Badge>
+                  )}
                 </td>
-                <td className="px-4 py-3 text-right text-ink-700">{formatCurrency(c.currentTariff.toString())}</td>
-                <td className="px-4 py-3 text-right font-semibold text-ink-900">
-                  {formatCurrency(c.providerRequestedAmount.toString())}
-                  <span className={`ml-1.5 text-[10.5px] ${diff > 0 ? "text-brand-600" : "text-ink-400"}`}>
-                    ({diff > 0 ? "+" : ""}{formatCurrency(diff)})
-                  </span>
+                <td className="px-4 py-3 text-right text-ink-700">
+                  {c.caseType === "PROVIDER_MANAGEMENT" ? "—" : formatCurrency(c.currentTariff.toString())}
                 </td>
                 <td className="px-4 py-3 text-right font-semibold text-ink-900">
-                  {isAgreed ? formatCurrency(c.finalAgreedAmount!.toString()) : "—"}
+                  {c.caseType === "PROVIDER_MANAGEMENT" ? (
+                    "—"
+                  ) : (
+                    <>
+                      {formatCurrency(c.providerRequestedAmount.toString())}
+                      <span className={`ml-1.5 text-[10.5px] ${diff > 0 ? "text-brand-600" : "text-ink-400"}`}>
+                        ({diff > 0 ? "+" : ""}{formatCurrency(diff)})
+                      </span>
+                    </>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-right font-semibold text-ink-900">
+                  {c.caseType === "PROVIDER_MANAGEMENT" ? "—" : isAgreed ? formatCurrency(c.finalAgreedAmount!.toString()) : "—"}
                 </td>
                 <td className="whitespace-nowrap px-4 py-3 text-ink-500">{formatDuration(pendingMs)}</td>
                 <td className="px-4 py-3 text-ink-600">{c.owner?.displayName ?? c.owner?.prognosisUsername ?? "—"}</td>

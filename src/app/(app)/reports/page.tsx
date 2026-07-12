@@ -12,6 +12,7 @@ import {
   delayBreakdown,
   tariffAgreedVsOriginal,
   urgentCasesTable,
+  pmCategoryCounts,
 } from "@/lib/reports";
 
 export default async function ReportsPage({
@@ -47,8 +48,11 @@ export default async function ReportsPage({
   const agreedVsOriginal = tariffAgreedVsOriginal(cases).slice(0, 10);
   const urgentTable = urgentCasesTable(cases).slice(0, 10);
   const totalExtraRequested = byProvider.reduce((s, p) => s + p.totalExtra, 0);
-  const newServiceCount = cases.filter((c) => c.requestType === "NEW_SERVICE").length;
-  const tariffUpdateCount = cases.length - newServiceCount;
+  const tariffCases = cases.filter((c) => c.caseType === "TARIFF_UPDATE");
+  const newServiceCount = tariffCases.filter((c) => c.requestType === "NEW_SERVICE").length;
+  const tariffUpdateCount = tariffCases.length - newServiceCount;
+  const pmCases = cases.filter((c) => c.caseType === "PROVIDER_MANAGEMENT");
+  const pmCategories = pmCategoryCounts(cases);
 
   return (
     <>
@@ -94,9 +98,10 @@ export default async function ReportsPage({
           <StatTile label="Avg. Log → Completion" value={delay.avgTotalMs !== null ? formatDuration(delay.avgTotalMs) : "—"} hint="Total resolution time" />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
           <StatTile label="Update Existing Tariff Requests" value={tariffUpdateCount} />
           <StatTile label="New Service Requests" value={newServiceCount} hint="Not previously priced on the provider" />
+          <StatTile label="Other Provider Management Requests" value={pmCases.length} tone="brand" />
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -165,6 +170,14 @@ export default async function ReportsPage({
             <Table
               head={["Provider Team Member", "Cases Resolved", "Avg Resolution Time"]}
               rows={teamResolution.map((r) => [r.name, r.count, formatDuration(r.avgMs)])}
+            />
+          </Card>
+
+          <Card>
+            <CardHeader title="Provider Management Requests by Category" subtitle="A request can count toward more than one category" />
+            <Table
+              head={["Category", "Count"]}
+              rows={pmCategories.map((c) => [c.label, c.count])}
             />
           </Card>
         </div>

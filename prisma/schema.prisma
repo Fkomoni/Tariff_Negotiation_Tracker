@@ -45,6 +45,34 @@ enum RequestType {
   NEW_SERVICE
 }
 
+/// Top-level split at logging time: a real tariff negotiation that pushes
+/// to Prognosis (everything the app did before this), vs. a general
+/// Provider Management issue that just needs to land in the same queue
+/// with no API call involved.
+enum CaseType {
+  TARIFF_UPDATE
+  PROVIDER_MANAGEMENT
+}
+
+/// Categories for CaseType.PROVIDER_MANAGEMENT requests, grouped in the UI
+/// (see PM_CATEGORY_GROUPS in src/lib/domain.ts) so reports can break down
+/// volume by category and by group.
+enum ProviderManagementCategory {
+  PORTAL_LOGIN_ISSUE
+  PROVIDER_SIGN_UP_REQUEST
+  NEW_FACILITY_SIGN_ON
+  CONTACT_INFO_UPDATE
+  BANK_INFO_UPDATE
+  FACILITY_TIER_CHANGE
+  FULL_TARIFF_REVIEW_REQUEST
+  PROVIDER_SUSPENDED_US
+  PROVIDER_DEACTIVATION_REQUEST
+  COMPLIANCE_DOCUMENT_UPDATE
+  REPORT_ABUSE_FRAUD
+  REPORT_POOR_ENROLLEE_EXPERIENCE
+  OTHER
+}
+
 enum UpdateType {
   STATUS_CHANGE
   NOTE
@@ -121,16 +149,32 @@ model NegotiationCase {
   enrolleeScheme         String?
   enrolleeAge            Int?
 
-  serviceType            ServiceType
+  /// Top-level split from the logging form — TARIFF_UPDATE is everything
+  /// that existed before this field (pushes to Prognosis); PROVIDER_MANAGEMENT
+  /// is a general provider-management issue with no API call, sharing the
+  /// same queue/workflow/reporting.
+  caseType               CaseType    @default(TARIFF_UPDATE)
+
+  serviceType            ServiceType?
   requestType            RequestType @default(EXISTING_TARIFF_UPDATE)
   requestedItem          String
   serviceCode            String?
   providerTariffCode     String?
-  currentTariff          Decimal     @db.Decimal(14, 2)
-  providerRequestedAmount Decimal    @db.Decimal(14, 2)
+  currentTariff          Decimal     @db.Decimal(14, 2) @default(0)
+  providerRequestedAmount Decimal    @db.Decimal(14, 2) @default(0)
   reason                 String
   urgency                Urgency     @default(ROUTINE)
   notes                  String?
+
+  /// Multi-select categories for a PROVIDER_MANAGEMENT case — empty for
+  /// TARIFF_UPDATE cases.
+  pmCategories           ProviderManagementCategory[] @default([])
+  /// Letterhead/document attachment for categories like Bank Info Update —
+  /// stored directly in Postgres (low volume, small files, no object
+  /// storage set up for this app).
+  pmAttachmentName       String?
+  pmAttachmentMimeType   String?
+  pmAttachmentData       Bytes?
 
   status                 CaseStatus  @default(NEW_REQUEST)
   finalAgreedAmount      Decimal?    @db.Decimal(14, 2)

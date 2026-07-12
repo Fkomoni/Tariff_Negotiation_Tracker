@@ -1,4 +1,59 @@
-import type { CaseStatus, RequestType, ServiceType, Urgency, Role } from "@prisma/client";
+import type { CaseStatus, CaseType, ProviderManagementCategory, RequestType, ServiceType, Urgency, Role } from "@prisma/client";
+
+export const CASE_TYPE_LABELS: Record<CaseType, string> = {
+  TARIFF_UPDATE: "Tariff Update",
+  PROVIDER_MANAGEMENT: "Other Provider Management Request",
+};
+
+export const CASE_TYPE_BADGE: Record<CaseType, string> = {
+  TARIFF_UPDATE: "bg-ink-100 text-ink-700",
+  PROVIDER_MANAGEMENT: "bg-sky-100 text-sky-800",
+};
+
+export const PM_CATEGORY_LABELS: Record<ProviderManagementCategory, string> = {
+  PORTAL_LOGIN_ISSUE: "Provider Can't Log Into the Provider Portal",
+  PROVIDER_SIGN_UP_REQUEST: "Provider Is Requesting to Be Signed Up",
+  NEW_FACILITY_SIGN_ON: "New Facility Sign-On Request From Enrollee",
+  CONTACT_INFO_UPDATE: "Provider Contact / Address Update",
+  BANK_INFO_UPDATE: "Provider Bank Information Update",
+  FACILITY_TIER_CHANGE: "Facility Tier / Category Change Request",
+  FULL_TARIFF_REVIEW_REQUEST: "Provider Is Asking for a Full Tariff Review",
+  PROVIDER_SUSPENDED_US: "Provider Has Suspended Us",
+  PROVIDER_DEACTIVATION_REQUEST: "Provider Requesting to Exit the Network",
+  COMPLIANCE_DOCUMENT_UPDATE: "Compliance Document Update (License / Accreditation)",
+  REPORT_ABUSE_FRAUD: "Report a Provider for Abuse / Fraud",
+  REPORT_POOR_ENROLLEE_EXPERIENCE: "Report a Provider for Poor Enrollee Experience",
+  OTHER: "Other (Specify in Details Below)",
+};
+
+/// Categories are grouped into mini-categories purely for the picker UI and
+/// for reporting breakdowns — the underlying enum stays flat.
+export const PM_CATEGORY_GROUPS: { group: string; categories: ProviderManagementCategory[] }[] = [
+  {
+    group: "Access & Onboarding",
+    categories: ["PORTAL_LOGIN_ISSUE", "PROVIDER_SIGN_UP_REQUEST", "NEW_FACILITY_SIGN_ON"],
+  },
+  {
+    group: "Provider Records",
+    categories: ["CONTACT_INFO_UPDATE", "BANK_INFO_UPDATE", "FACILITY_TIER_CHANGE", "COMPLIANCE_DOCUMENT_UPDATE"],
+  },
+  {
+    group: "Tariff & Network Status",
+    categories: ["FULL_TARIFF_REVIEW_REQUEST", "PROVIDER_SUSPENDED_US", "PROVIDER_DEACTIVATION_REQUEST"],
+  },
+  {
+    group: "Complaints",
+    categories: ["REPORT_ABUSE_FRAUD", "REPORT_POOR_ENROLLEE_EXPERIENCE"],
+  },
+  {
+    group: "Other",
+    categories: ["OTHER"],
+  },
+];
+
+/// Only this category needs a supporting document today — used to
+/// conditionally show the attachment upload in the logging form.
+export const PM_CATEGORIES_REQUIRING_ATTACHMENT: ProviderManagementCategory[] = ["BANK_INFO_UPDATE"];
 
 export const REQUEST_TYPE_LABELS: Record<RequestType, string> = {
   EXISTING_TARIFF_UPDATE: "Update Existing Tariff",

@@ -24,7 +24,7 @@ export interface EnrolleeInitial {
   age: string;
 }
 
-export function EnrolleeFields({ initial }: { initial?: EnrolleeInitial }) {
+export function EnrolleeFields({ initial, required = true }: { initial?: EnrolleeInitial; required?: boolean }) {
   const [query, setQuery] = useState(initial?.fullName ?? "");
   const [hasSelection, setHasSelection] = useState(!!initial?.fullName);
   const [enrolleeId, setEnrolleeId] = useState(initial?.enrolleeId ?? "");
@@ -111,11 +111,16 @@ export function EnrolleeFields({ initial }: { initial?: EnrolleeInitial }) {
 
   return (
     <>
-      <Field label="Enrollee" required hint="Search by name, phone, email, or enrollee ID" className="sm:col-span-2">
+      <Field
+        label="Enrollee"
+        required={required}
+        hint={required ? "Search by name, phone, email, or enrollee ID" : "Optional — search by name, phone, email, or enrollee ID"}
+        className="sm:col-span-2"
+      >
         <div ref={containerRef} className="relative">
           <input
             name="enrolleeName"
-            required
+            required={required}
             autoComplete="off"
             className={inputClass}
             value={query}

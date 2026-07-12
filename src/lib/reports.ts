@@ -1,5 +1,5 @@
-import type { CaseStatus, NegotiationCase, RequestType, Urgency, User } from "@prisma/client";
-import { REQUEST_TYPE_LABELS } from "@/lib/domain";
+import type { CaseStatus, NegotiationCase, ProviderManagementCategory, RequestType, Urgency, User } from "@prisma/client";
+import { REQUEST_TYPE_LABELS, CASE_TYPE_LABELS, PM_CATEGORY_LABELS } from "@/lib/domain";
 
 export type ReportCase = NegotiationCase & { loggedBy: User; owner: User | null };
 
@@ -7,9 +7,38 @@ function toNum(v: unknown): number {
   return Number(v ?? 0);
 }
 
+/** $ figures are 0/meaningless for PROVIDER_MANAGEMENT cases (no tariff
+ * negotiation involved), so every $ breakdown below only looks at
+ * TARIFF_UPDATE cases to avoid those zeros skewing totals or averages. */
+function tariffOnly(cases: ReportCase[]): ReportCase[] {
+  return cases.filter((c) => c.caseType === "TARIFF_UPDATE");
+}
+
+export interface PmCategoryCount {
+  category: ProviderManagementCategory;
+  label: string;
+  count: number;
+}
+
+/** Counts how many PROVIDER_MANAGEMENT cases include each category — a
+ * case with multiple categories counts once per category, not once
+ * overall, so the breakdown reflects volume per issue type. */
+export function pmCategoryCounts(cases: ReportCase[]): PmCategoryCount[] {
+  const map = new Map<ProviderManagementCategory, number>();
+  for (const c of cases) {
+    if (c.caseType !== "PROVIDER_MANAGEMENT") continue;
+    for (const category of c.pmCategories) {
+      map.set(category, (map.get(category) ?? 0) + 1);
+    }
+  }
+  return Array.from(map.entries())
+    .map(([category, count]) => ({ category, label: PM_CATEGORY_LABELS[category], count }))
+    .sort((a, b) => b.count - a.count);
+}
+
 export function groupByProvider(cases: ReportCase[]) {
   const map = new Map<string, { providerName: string; count: number; totalCurrent: number; totalRequested: number }>();
-  for (const c of cases) {
+  for (const c of tariffOnly(cases)) {
     const entry = map.get(c.providerName) ?? { providerName: c.providerName, count: 0, totalCurrent: 0, totalRequested: 0 };
     entry.count += 1;
     entry.totalCurrent += toNum(c.currentTariff);
@@ -23,7 +52,7 @@ export function groupByProvider(cases: ReportCase[]) {
 
 export function groupByItem(cases: ReportCase[]) {
   const map = new Map<string, { item: string; count: number; totalExtra: number }>();
-  for (const c of cases) {
+  for (const c of tariffOnly(cases)) {
     const entry = map.get(c.requestedItem) ?? { item: c.requestedItem, count: 0, totalExtra: 0 };
     entry.count += 1;
     entry.totalExtra += toNum(c.providerRequestedAmount) - toNum(c.currentTariff);
@@ -80,7 +109,7 @@ export function delayBreakdown(cases: ReportCase[]) {
 }
 
 export function tariffAgreedVsOriginal(cases: ReportCase[]) {
-  return cases
+  return tariffOnly(cases)
     .filter((c) => c.status === "COMPLETED" && c.finalAgreedAmount)
     .map((c) => {
       const current = toNum(c.currentTariff);
@@ -117,7 +146,7 @@ export function tariffReviewCandidates(cases: ReportCase[]): TariffReviewCandida
     { item: string; count: number; totalExtraPct: number; totalExtraAmount: number; providers: Set<string> }
   >();
 
-  for (const c of cases) {
+  for (const c of tariffOnly(cases)) {
     const current = toNum(c.currentTariff);
     const requested = toNum(c.providerRequestedAmount);
     if (current <= 0 || requested <= current) continue;
@@ -149,6 +178,7 @@ export const CLOSED: CaseStatus[] = ["COMPLETED", "DECLINED"];
 
 export const CASE_EXPORT_HEADER = [
   "Case Number",
+  "Case Type",
   "Provider ID",
   "Provider Code",
   "Provider Name",
@@ -159,6 +189,7 @@ export const CASE_EXPORT_HEADER = [
   "Existing Price",
   "Requested Price",
   "New Price",
+  "PM Categories",
   "Status",
   "Agent That Logged",
   "Agent That Handled",
@@ -169,18 +200,21 @@ export const CASE_EXPORT_HEADER = [
 export function buildCaseExportRows(cases: ReportCase[]): (string | number)[][] {
   return cases.map((c) => {
     const tatMs = c.completedAt ? c.completedAt.getTime() - c.loggedAt.getTime() : null;
+    const isTariff = c.caseType === "TARIFF_UPDATE";
     return [
       c.caseNumber,
+      CASE_TYPE_LABELS[c.caseType],
       c.providerId ?? "",
       c.providerCode ?? "",
       c.providerName,
       c.loggedAt.toISOString(),
-      REQUEST_TYPE_LABELS[c.requestType as RequestType],
-      c.serviceType,
+      isTariff ? REQUEST_TYPE_LABELS[c.requestType as RequestType] : "",
+      c.serviceType ?? "",
       c.requestedItem,
-      toNum(c.currentTariff),
-      toNum(c.providerRequestedAmount),
+      isTariff ? toNum(c.currentTariff) : "",
+      isTariff ? toNum(c.providerRequestedAmount) : "",
       c.finalAgreedAmount ? toNum(c.finalAgreedAmount) : "",
+      c.pmCategories.map((cat) => PM_CATEGORY_LABELS[cat]).join("; "),
       c.status,
       c.loggedBy.displayName ?? c.loggedBy.prognosisUsername,
       c.owner?.displayName ?? c.owner?.prognosisUsername ?? "",

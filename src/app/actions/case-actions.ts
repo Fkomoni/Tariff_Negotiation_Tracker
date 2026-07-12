@@ -6,8 +6,8 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendEmailAlert, sendSms, addTariffReviews, getActiveTariffScheduleName } from "@/lib/prognosis";
-import { generateCaseNumber, CASE_STATUS_LABELS, SERVICE_TYPE_LABELS } from "@/lib/domain";
-import type { CaseStatus, ServiceType } from "@prisma/client";
+import { generateCaseNumber, CASE_STATUS_LABELS, SERVICE_TYPE_LABELS, PM_CATEGORY_LABELS, PM_CATEGORIES_REQUIRING_ATTACHMENT } from "@/lib/domain";
+import type { CaseStatus, ProviderManagementCategory, ServiceType } from "@prisma/client";
 import { STATUS_TRANSITIONS } from "@/lib/domain";
 import { buildMemberNotificationEmailHtml } from "@/lib/email-template";
 
@@ -17,49 +17,73 @@ async function requireSession() {
   return session;
 }
 
-const createCaseSchema = z.object({
-  providerName: z.string().min(2, "Provider/Hospital name is required"),
-  providerCode: z.string().optional(),
-  providerId: z.preprocess(
-    (v) => (v === "" || v === undefined ? undefined : v),
-    z.coerce.number().int().optional()
-  ),
-  providerEmail: z.string().email("Enter a valid provider email").optional().or(z.literal("")),
-  providerPhone: z.string().optional(),
-  enrolleeName: z.string().min(2, "Enrollee name is required"),
-  enrolleeId: z.string().optional(),
-  enrolleeEmail: z.string().email("Enter a valid email").optional().or(z.literal("")),
-  enrolleePhone: z.string().optional(),
-  enrolleeCompany: z.string().optional(),
-  enrolleeScheme: z.string().optional(),
-  enrolleeAge: z.preprocess(
-    (v) => (v === "" || v === undefined ? undefined : v),
-    z.coerce.number().int().min(0).optional()
-  ),
-  serviceType: z.enum([
-    "CONSULTATION",
-    "MEDICATIONS",
-    "INVESTIGATIONS",
-    "ADMISSION_RELATED_SERVICES",
-    "PROCEDURES_AND_SERVICES",
-    "SURGERIES",
-  ]),
-  requestType: z.enum(["EXISTING_TARIFF_UPDATE", "NEW_SERVICE"]).default("EXISTING_TARIFF_UPDATE"),
-  requestedItem: z.string().min(2, "Requested service/item is required"),
-  serviceCode: z.string().optional(),
-  providerTariffCode: z.string().optional(),
-  currentTariff: z.coerce.number().min(0, "Current tariff must be 0 or more"),
-  providerRequestedAmount: z.coerce.number().min(0, "Provider requested amount must be 0 or more"),
-  reason: z.string().min(3, "Reason is required"),
-  urgency: z.enum(["ROUTINE", "URGENT", "EMERGENCY"]),
-  notes: z.string().optional(),
-  sessionGroupId: z.string().optional(),
-});
+const PM_CATEGORY_VALUES = Object.keys(PM_CATEGORY_LABELS) as [ProviderManagementCategory, ...ProviderManagementCategory[]];
+
+const createCaseSchema = z
+  .object({
+    caseType: z.enum(["TARIFF_UPDATE", "PROVIDER_MANAGEMENT"]).default("TARIFF_UPDATE"),
+    providerName: z.string().min(2, "Provider/Hospital name is required"),
+    providerCode: z.string().optional(),
+    providerId: z.preprocess(
+      (v) => (v === "" || v === undefined ? undefined : v),
+      z.coerce.number().int().optional()
+    ),
+    providerEmail: z.string().email("Enter a valid provider email").optional().or(z.literal("")),
+    providerPhone: z.string().optional(),
+    enrolleeName: z.string().optional(),
+    enrolleeId: z.string().optional(),
+    enrolleeEmail: z.string().email("Enter a valid email").optional().or(z.literal("")),
+    enrolleePhone: z.string().optional(),
+    enrolleeCompany: z.string().optional(),
+    enrolleeScheme: z.string().optional(),
+    enrolleeAge: z.preprocess(
+      (v) => (v === "" || v === undefined ? undefined : v),
+      z.coerce.number().int().min(0).optional()
+    ),
+    serviceType: z
+      .enum(["CONSULTATION", "MEDICATIONS", "INVESTIGATIONS", "ADMISSION_RELATED_SERVICES", "PROCEDURES_AND_SERVICES", "SURGERIES"])
+      .optional(),
+    requestType: z.enum(["EXISTING_TARIFF_UPDATE", "NEW_SERVICE"]).default("EXISTING_TARIFF_UPDATE"),
+    requestedItem: z.string().optional(),
+    serviceCode: z.string().optional(),
+    providerTariffCode: z.string().optional(),
+    currentTariff: z.preprocess((v) => (v === "" || v === undefined ? undefined : v), z.coerce.number().min(0).optional()),
+    providerRequestedAmount: z.preprocess((v) => (v === "" || v === undefined ? undefined : v), z.coerce.number().min(0).optional()),
+    reason: z.string().min(3, "Reason is required"),
+    urgency: z.enum(["ROUTINE", "URGENT", "EMERGENCY"]),
+    notes: z.string().optional(),
+    sessionGroupId: z.string().optional(),
+    pmCategories: z.array(z.enum(PM_CATEGORY_VALUES)).optional().default([]),
+  })
+  .superRefine((data, ctx) => {
+    if (data.caseType === "TARIFF_UPDATE") {
+      if (!data.enrolleeName || data.enrolleeName.trim().length < 2) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Enrollee name is required", path: ["enrolleeName"] });
+      }
+      if (!data.serviceType) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Service type is required", path: ["serviceType"] });
+      }
+      if (!data.requestedItem || data.requestedItem.trim().length < 2) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Requested service/item is required", path: ["requestedItem"] });
+      }
+      if (data.currentTariff === undefined) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Current tariff is required", path: ["currentTariff"] });
+      }
+      if (data.providerRequestedAmount === undefined) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Provider requested amount is required", path: ["providerRequestedAmount"] });
+      }
+    } else {
+      if (data.pmCategories.length === 0) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Pick at least one category for this request", path: ["pmCategories"] });
+      }
+    }
+  });
 
 export async function createCase(formData: FormData) {
   const session = await requireSession();
 
-  const raw = Object.fromEntries(formData.entries());
+  const raw: Record<string, unknown> = Object.fromEntries(formData.entries());
+  raw.pmCategories = formData.getAll("pmCategories");
   const parsed = createCaseSchema.safeParse(raw);
 
   if (!parsed.success) {
@@ -68,32 +92,59 @@ export async function createCase(formData: FormData) {
   }
 
   const data = parsed.data;
+  const isProviderManagement = data.caseType === "PROVIDER_MANAGEMENT";
+
+  let pmAttachmentName: string | null = null;
+  let pmAttachmentMimeType: string | null = null;
+  let pmAttachmentData: Buffer | null = null;
+
+  if (isProviderManagement) {
+    const needsAttachment = data.pmCategories.some((c) => PM_CATEGORIES_REQUIRING_ATTACHMENT.includes(c));
+    const file = formData.get("pmAttachment");
+    if (needsAttachment) {
+      if (!(file instanceof File) || file.size === 0) {
+        redirect(`/negotiations/new?error=${encodeURIComponent("A bank details letterhead file is required for a bank information update")}`);
+      }
+      pmAttachmentName = (file as File).name;
+      pmAttachmentMimeType = (file as File).type || "application/octet-stream";
+      pmAttachmentData = Buffer.from(await (file as File).arrayBuffer());
+    }
+  }
+
+  const requestedItem = isProviderManagement
+    ? data.pmCategories.map((c) => PM_CATEGORY_LABELS[c]).join(", ")
+    : data.requestedItem!;
 
   const created = await prisma.negotiationCase.create({
     data: {
       caseNumber: generateCaseNumber(),
+      caseType: data.caseType,
       providerName: data.providerName,
       providerCode: data.providerCode || null,
       providerId: data.providerId ?? null,
       providerEmail: data.providerEmail || null,
       providerPhone: data.providerPhone || null,
-      enrolleeName: data.enrolleeName,
+      enrolleeName: data.enrolleeName?.trim() || "N/A",
       enrolleeId: data.enrolleeId || null,
       enrolleeEmail: data.enrolleeEmail || null,
       enrolleePhone: data.enrolleePhone || null,
       enrolleeCompany: data.enrolleeCompany || null,
       enrolleeScheme: data.enrolleeScheme || null,
       enrolleeAge: data.enrolleeAge ?? null,
-      serviceType: data.serviceType,
+      serviceType: data.serviceType ?? null,
       requestType: data.requestType,
-      requestedItem: data.requestedItem,
+      requestedItem,
       serviceCode: data.serviceCode || null,
       providerTariffCode: data.providerTariffCode || null,
-      currentTariff: data.currentTariff,
-      providerRequestedAmount: data.providerRequestedAmount,
+      currentTariff: data.currentTariff ?? 0,
+      providerRequestedAmount: data.providerRequestedAmount ?? 0,
       reason: data.reason,
       urgency: data.urgency,
       notes: data.notes || null,
+      pmCategories: data.pmCategories,
+      pmAttachmentName,
+      pmAttachmentMimeType,
+      pmAttachmentData,
       status: "NEW_REQUEST",
       sessionGroupId: data.sessionGroupId || null,
       loggedByUserId: session.user.id,
@@ -108,44 +159,58 @@ export async function createCase(formData: FormData) {
     },
   });
 
-  const wantsEmail = !!created.enrolleeEmail;
-  const wantsSms = !!created.enrolleePhone;
-  const autoTemplate: "ROUTINE" | "URGENT" = created.urgency === "ROUTINE" ? "ROUTINE" : "URGENT";
-
-  if (wantsEmail || wantsSms) {
-    const results = await dispatchMemberNotifications({
-      caseId: created.id,
-      caseNumber: created.caseNumber,
-      providerName: created.providerName,
-      enrolleeName: created.enrolleeName,
-      enrolleeId: created.enrolleeId,
-      requestedItem: created.requestedItem,
-      serviceType: created.serviceType,
-      loggedAt: created.loggedAt,
-      template: autoTemplate,
-      wantsEmail,
-      wantsSms,
-      email: created.enrolleeEmail,
-      phone: created.enrolleePhone,
-      sentByUserId: session.user.id,
-    });
-    await prisma.caseUpdate.create({
-      data: {
-        caseId: created.id,
-        userId: session.user.id,
-        type: "NOTIFICATION",
-        note: `Member auto-notified at logging (${autoTemplate.toLowerCase()} template): ${results.join(", ")}`,
-      },
-    });
-  } else {
+  // Provider Management requests (portal access, bank info, complaints, etc.)
+  // aren't about a member's care being delayed, so the "your care may be
+  // delayed" auto-notification doesn't apply — skip it entirely for those.
+  if (isProviderManagement) {
     await prisma.caseUpdate.create({
       data: {
         caseId: created.id,
         userId: session.user.id,
         type: "NOTE",
-        note: "Member not auto-notified: no email or phone number on file.",
+        note: "Provider Management request — no member notification applicable.",
       },
     });
+  } else {
+    const wantsEmail = !!created.enrolleeEmail;
+    const wantsSms = !!created.enrolleePhone;
+    const autoTemplate: "ROUTINE" | "URGENT" = created.urgency === "ROUTINE" ? "ROUTINE" : "URGENT";
+
+    if (wantsEmail || wantsSms) {
+      const results = await dispatchMemberNotifications({
+        caseId: created.id,
+        caseNumber: created.caseNumber,
+        providerName: created.providerName,
+        enrolleeName: created.enrolleeName,
+        enrolleeId: created.enrolleeId,
+        requestedItem: created.requestedItem,
+        serviceType: created.serviceType as ServiceType,
+        loggedAt: created.loggedAt,
+        template: autoTemplate,
+        wantsEmail,
+        wantsSms,
+        email: created.enrolleeEmail,
+        phone: created.enrolleePhone,
+        sentByUserId: session.user.id,
+      });
+      await prisma.caseUpdate.create({
+        data: {
+          caseId: created.id,
+          userId: session.user.id,
+          type: "NOTIFICATION",
+          note: `Member auto-notified at logging (${autoTemplate.toLowerCase()} template): ${results.join(", ")}`,
+        },
+      });
+    } else {
+      await prisma.caseUpdate.create({
+        data: {
+          caseId: created.id,
+          userId: session.user.id,
+          type: "NOTE",
+          note: "Member not auto-notified: no email or phone number on file.",
+        },
+      });
+    }
   }
 
   revalidatePath("/negotiations/queue");
@@ -196,10 +261,11 @@ export async function updateCaseStatus(formData: FormData) {
     );
   }
 
-  if (data.status === "COMPLETED" && !data.finalAgreedAmount) {
+  const isTariffCase = existing.caseType === "TARIFF_UPDATE";
+  if (isTariffCase && data.status === "COMPLETED" && !data.finalAgreedAmount) {
     redirect(`/negotiations/${data.caseId}?error=${encodeURIComponent("Final agreed amount is required to mark as Completed")}`);
   }
-  if (data.status === "COMPLETED" && !data.effectiveDate) {
+  if (isTariffCase && data.status === "COMPLETED" && !data.effectiveDate) {
     redirect(`/negotiations/${data.caseId}?error=${encodeURIComponent("Tariff effective date is required to mark as Completed")}`);
   }
 
@@ -227,7 +293,7 @@ export async function updateCaseStatus(formData: FormData) {
     },
   });
 
-  if (data.status === "COMPLETED" && data.finalAgreedAmount) {
+  if (isTariffCase && data.status === "COMPLETED" && data.finalAgreedAmount) {
     if (!existing.providerId) {
       await prisma.caseUpdate.create({
         data: {

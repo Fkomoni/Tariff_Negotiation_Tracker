@@ -6,8 +6,7 @@ import { SubmitButton } from "@/components/SubmitButton";
 import { LogIcon } from "@/components/icons";
 import { createCase } from "@/app/actions/case-actions";
 import { URGENCY_LABELS } from "@/lib/domain";
-import { ProviderAndServiceFields } from "@/components/ProviderAndServiceFields";
-import { EnrolleeFields } from "@/components/EnrolleeFields";
+import { RequestFields } from "@/components/RequestFields";
 import type { ProviderInitial } from "@/components/ProviderFields";
 import type { EnrolleeInitial } from "@/components/EnrolleeFields";
 
@@ -76,12 +75,10 @@ export default async function LogNegotiationPage({
             </p>
           )}
 
-          <form action={createCase} className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <form action={createCase} encType="multipart/form-data" className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2">
             <input type="hidden" name="sessionGroupId" value={sessionGroupId ?? ""} />
 
-            <ProviderAndServiceFields initialProvider={initialProvider} />
-
-            <EnrolleeFields initial={initialEnrollee} />
+            <RequestFields initialProvider={initialProvider} initialEnrollee={initialEnrollee} />
 
             <Field label="Urgency" required>
               <select name="urgency" required className={inputClass} defaultValue="ROUTINE">
@@ -91,10 +88,6 @@ export default async function LogNegotiationPage({
                   </option>
                 ))}
               </select>
-            </Field>
-
-            <Field label="Reason Provider Is Negotiating" required className="sm:col-span-2">
-              <textarea name="reason" required rows={3} className={inputClass} placeholder="e.g. Provider says current tariff is below their cost for this procedure" />
             </Field>
 
             <Field label="Notes" className="sm:col-span-2">
