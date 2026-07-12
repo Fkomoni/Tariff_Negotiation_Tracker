@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { sendEmailAlert, sendSms, addTariffReviews } from "@/lib/prognosis";
+import { sendEmailAlert, sendSms, addTariffReviews, getActiveTariffScheduleName } from "@/lib/prognosis";
 import { generateCaseNumber, CASE_STATUS_LABELS, SERVICE_TYPE_LABELS } from "@/lib/domain";
 import type { CaseStatus, ServiceType } from "@prisma/client";
 import { STATUS_TRANSITIONS } from "@/lib/domain";
@@ -261,6 +261,17 @@ export async function updateCaseStatus(formData: FormData) {
       const actingUser = await prisma.user.findUnique({ where: { id: session.user.id } });
       const userEmail = actingUser?.email ?? "";
 
+      // Look up which tariff schedule is currently active for this provider
+      // so the push carries a real TariffScheduleName instead of "" — falls
+      // back to "" if the lookup fails, so a schedule-lookup hiccup never
+      // blocks the actual price push.
+      let tariffScheduleName = "";
+      try {
+        tariffScheduleName = (await getActiveTariffScheduleName(existing.providerId, userEmail)) ?? "";
+      } catch (err) {
+        console.error("[case-actions] tariff schedule lookup failed:", err);
+      }
+
       let failureNote: string | null = null;
       try {
         await addTariffReviews(
@@ -269,7 +280,7 @@ export async function updateCaseStatus(formData: FormData) {
             procedureName: c.requestedItem,
             newPrice: Number(c.finalAgreedAmount),
             providerId: c.providerId!,
-            tariffScheduleName: "",
+            tariffScheduleName,
             userEmail,
             requestorMobile: "",
             action: "Insert",

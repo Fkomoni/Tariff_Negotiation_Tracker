@@ -367,6 +367,47 @@ export async function addTariffReviews(items: TariffReviewItem[]): Promise<unkno
   });
 }
 
+/**
+ * Looks up a provider's tariff schedules and returns the name of whichever
+ * one is currently active, so addTariffReviews can populate
+ * TariffScheduleName instead of sending "". Prognosis's schema for this
+ * endpoint reuses the same shape for the request filter and each response
+ * record (Action/providerid/UserEmail/Skip/Take on the way in;
+ * TariffInUse/DefaultCategory/etc. per schedule on the way out) — field
+ * names are a best guess from the documented schema pending a real example
+ * response, so this stays defensive and logs the raw payload
+ * unconditionally (via serviceRequest) so the real shape shows up in
+ * production logs the first time this runs.
+ */
+export async function getActiveTariffScheduleName(providerId: number, userEmail: string): Promise<string | null> {
+  const payload = await serviceRequest("POST", "/api/ProviderNetwork/TarriffSchedules", {
+    TarrifSchedulesList: [
+      {
+        Action: "Select",
+        providerid: providerId,
+        UserEmail: userEmail,
+        Skip: 0,
+        Take: 100,
+      },
+    ],
+  });
+
+  const p = (payload && typeof payload === "object" ? payload : {}) as Record<string, unknown>;
+  let raw: unknown =
+    p.TarrifSchedulesList ?? p.TariffSchedulesList ?? p.data ?? p.Data ?? p.result ?? p.Result ?? p;
+  if (!Array.isArray(raw)) raw = raw && typeof raw === "object" ? [raw] : [];
+
+  const schedules = (raw as unknown[]).filter((e): e is Record<string, unknown> => !!e && typeof e === "object");
+  console.error(`[prognosis] tariff schedules: ${schedules.length} raw entries for provider ${providerId}`);
+  if (schedules.length === 0) return null;
+
+  const isDefault = (s: Record<string, unknown>) =>
+    s.DefaultCategory === true || s.defaultCategory === true || s.IsDefault === true;
+
+  const active = schedules.find(isDefault) ?? schedules[0];
+  return firstString(active, ["TariffInUse", "TarrifInUse", "TariffScheduleName", "TarrifScheduleName", "ScheduleName", "Name"]);
+}
+
 export interface ProviderRecord {
   code: string;
   id: number;
