@@ -1,4 +1,14 @@
-import type { CaseStatus, ServiceType, Urgency, Role } from "@prisma/client";
+import type { CaseStatus, RequestType, ServiceType, Urgency, Role } from "@prisma/client";
+
+export const REQUEST_TYPE_LABELS: Record<RequestType, string> = {
+  EXISTING_TARIFF_UPDATE: "Update Existing Tariff",
+  NEW_SERVICE: "New Service",
+};
+
+export const REQUEST_TYPE_BADGE: Record<RequestType, string> = {
+  EXISTING_TARIFF_UPDATE: "bg-ink-100 text-ink-700",
+  NEW_SERVICE: "bg-violet-100 text-violet-800",
+};
 
 export const SERVICE_TYPE_LABELS: Record<ServiceType, string> = {
   CONSULTATION: "Consultation",

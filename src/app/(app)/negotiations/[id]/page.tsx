@@ -10,6 +10,8 @@ import { LogIcon, BellIcon } from "@/components/icons";
 import {
   CASE_STATUS_BADGE,
   CASE_STATUS_LABELS,
+  REQUEST_TYPE_BADGE,
+  REQUEST_TYPE_LABELS,
   SERVICE_TYPE_LABELS,
   URGENCY_BADGE,
   URGENCY_LABELS,
@@ -159,13 +161,22 @@ export default async function CaseDetailsPage({
                     : negotiationCase.requestedItem
                 }
               />
-              <Detail label="Current → Requested" value={`${formatCurrency(negotiationCase.currentTariff.toString())} → ${formatCurrency(negotiationCase.providerRequestedAmount.toString())}`} full />
+              <Detail
+                label={negotiationCase.requestType === "NEW_SERVICE" ? "Proposed Price (not yet priced on this provider)" : "Current → Requested"}
+                value={
+                  negotiationCase.requestType === "NEW_SERVICE"
+                    ? formatCurrency(negotiationCase.providerRequestedAmount.toString())
+                    : `${formatCurrency(negotiationCase.currentTariff.toString())} → ${formatCurrency(negotiationCase.providerRequestedAmount.toString())}`
+                }
+                full
+              />
               <Detail label="Reason for Tariff Increase" value={negotiationCase.reason} full />
               {negotiationCase.notes && <Detail label="Notes from Contact Centre" value={negotiationCase.notes} full />}
               <Detail label="Logged By" value={negotiationCase.loggedBy.displayName ?? negotiationCase.loggedBy.prognosisUsername} />
               <Detail label="Handled By" value={negotiationCase.owner?.displayName ?? negotiationCase.owner?.prognosisUsername ?? "Unclaimed"} />
             </dl>
             <div className="mt-4 flex gap-2">
+              <Badge className={REQUEST_TYPE_BADGE[negotiationCase.requestType]}>{REQUEST_TYPE_LABELS[negotiationCase.requestType]}</Badge>
               <Badge className={URGENCY_BADGE[negotiationCase.urgency]}>{URGENCY_LABELS[negotiationCase.urgency]}</Badge>
               <Badge className={CASE_STATUS_BADGE[negotiationCase.status]}>{CASE_STATUS_LABELS[negotiationCase.status]}</Badge>
             </div>
@@ -251,6 +262,7 @@ export default async function CaseDetailsPage({
                 }`}
                 action={
                   <div className="flex gap-2">
+                    <Badge className={REQUEST_TYPE_BADGE[negotiationCase.requestType]}>{REQUEST_TYPE_LABELS[negotiationCase.requestType]}</Badge>
                     <Badge className={URGENCY_BADGE[negotiationCase.urgency]}>{URGENCY_LABELS[negotiationCase.urgency]}</Badge>
                     <Badge className={CASE_STATUS_BADGE[negotiationCase.status]}>{CASE_STATUS_LABELS[negotiationCase.status]}</Badge>
                   </div>
@@ -272,7 +284,10 @@ export default async function CaseDetailsPage({
                       : negotiationCase.requestedItem
                   }
                 />
-                <Detail label="Current Tariff" value={formatCurrency(negotiationCase.currentTariff.toString())} />
+                <Detail
+                  label={negotiationCase.requestType === "NEW_SERVICE" ? "Current Tariff (not priced on this provider)" : "Current Tariff"}
+                  value={negotiationCase.requestType === "NEW_SERVICE" ? "—" : formatCurrency(negotiationCase.currentTariff.toString())}
+                />
                 <Detail
                   label="Provider Requested Amount"
                   value={

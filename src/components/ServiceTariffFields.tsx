@@ -188,6 +188,8 @@ export function ServiceTariffFields({ providerCode }: { providerCode: string }) 
 
   return (
     <>
+      <input type="hidden" name="requestType" value={mode === "new" ? "NEW_SERVICE" : "EXISTING_TARIFF_UPDATE"} />
+
       <div className="flex items-center gap-2 sm:col-span-2">
         <button
           type="button"

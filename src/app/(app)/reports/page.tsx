@@ -47,6 +47,8 @@ export default async function ReportsPage({
   const agreedVsOriginal = tariffAgreedVsOriginal(cases).slice(0, 10);
   const urgentTable = urgentCasesTable(cases).slice(0, 10);
   const totalExtraRequested = byProvider.reduce((s, p) => s + p.totalExtra, 0);
+  const newServiceCount = cases.filter((c) => c.requestType === "NEW_SERVICE").length;
+  const tariffUpdateCount = cases.length - newServiceCount;
 
   return (
     <>
@@ -90,6 +92,11 @@ export default async function ReportsPage({
           <StatTile label="Avg. Log → First Action" value={delay.avgFirstActionMs !== null ? formatDuration(delay.avgFirstActionMs) : "—"} hint="Internal response time" />
           <StatTile label="Avg. First Action → Completion" value={delay.avgNegotiationMs !== null ? formatDuration(delay.avgNegotiationMs) : "—"} hint="Provider negotiation time" />
           <StatTile label="Avg. Log → Completion" value={delay.avgTotalMs !== null ? formatDuration(delay.avgTotalMs) : "—"} hint="Total resolution time" />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <StatTile label="Update Existing Tariff Requests" value={tariffUpdateCount} />
+          <StatTile label="New Service Requests" value={newServiceCount} hint="Not previously priced on the provider" />
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

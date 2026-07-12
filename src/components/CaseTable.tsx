@@ -1,9 +1,11 @@
 import Link from "next/link";
-import type { CaseStatus, NegotiationCase, Role, ServiceType, Urgency, User } from "@prisma/client";
+import type { CaseStatus, NegotiationCase, RequestType, Role, ServiceType, Urgency, User } from "@prisma/client";
 import { Badge } from "@/components/ui";
 import {
   CASE_STATUS_BADGE,
   CASE_STATUS_LABELS,
+  REQUEST_TYPE_BADGE,
+  REQUEST_TYPE_LABELS,
   SERVICE_TYPE_LABELS,
   URGENCY_BADGE,
   URGENCY_LABELS,
@@ -45,6 +47,7 @@ export function CaseTable({
             <th className="px-4 py-3">Provider</th>
             <th className="px-4 py-3">Enrollee</th>
             <th className="px-4 py-3">Service</th>
+            <th className="px-4 py-3">Request Type</th>
             <th className="px-4 py-3 text-right">Current Tariff</th>
             <th className="px-4 py-3 text-right">Requested Amount</th>
             <th className="px-4 py-3">Urgency</th>
@@ -65,6 +68,11 @@ export function CaseTable({
                 <td className="px-4 py-3 font-semibold text-ink-900">{c.providerName}</td>
                 <td className="px-4 py-3 text-ink-700">{c.enrolleeName}</td>
                 <td className="px-4 py-3 text-ink-700">{SERVICE_TYPE_LABELS[c.serviceType as ServiceType]}</td>
+                <td className="px-4 py-3">
+                  <Badge className={REQUEST_TYPE_BADGE[c.requestType as RequestType]}>
+                    {REQUEST_TYPE_LABELS[c.requestType as RequestType]}
+                  </Badge>
+                </td>
                 <td className="px-4 py-3 text-right text-ink-700">{formatCurrency(c.currentTariff.toString())}</td>
                 <td className="px-4 py-3 text-right font-semibold text-ink-900">
                   {formatCurrency(c.providerRequestedAmount.toString())}

@@ -1,4 +1,5 @@
-import type { CaseStatus, NegotiationCase, Urgency, User } from "@prisma/client";
+import type { CaseStatus, NegotiationCase, RequestType, Urgency, User } from "@prisma/client";
+import { REQUEST_TYPE_LABELS } from "@/lib/domain";
 
 export type ReportCase = NegotiationCase & { loggedBy: User; owner: User | null };
 
@@ -152,6 +153,7 @@ export const CASE_EXPORT_HEADER = [
   "Provider Code",
   "Provider Name",
   "Date of Request",
+  "Request Type",
   "Service Type",
   "Service Requested",
   "Existing Price",
@@ -173,6 +175,7 @@ export function buildCaseExportRows(cases: ReportCase[]): (string | number)[][] 
       c.providerCode ?? "",
       c.providerName,
       c.loggedAt.toISOString(),
+      REQUEST_TYPE_LABELS[c.requestType as RequestType],
       c.serviceType,
       c.requestedItem,
       toNum(c.currentTariff),

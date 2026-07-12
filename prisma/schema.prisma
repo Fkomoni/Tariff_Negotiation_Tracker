@@ -40,6 +40,11 @@ enum CaseStatus {
   ESCALATED
 }
 
+enum RequestType {
+  EXISTING_TARIFF_UPDATE
+  NEW_SERVICE
+}
+
 enum UpdateType {
   STATUS_CHANGE
   NOTE
@@ -117,6 +122,7 @@ model NegotiationCase {
   enrolleeAge            Int?
 
   serviceType            ServiceType
+  requestType            RequestType @default(EXISTING_TARIFF_UPDATE)
   requestedItem          String
   serviceCode            String?
   providerTariffCode     String?

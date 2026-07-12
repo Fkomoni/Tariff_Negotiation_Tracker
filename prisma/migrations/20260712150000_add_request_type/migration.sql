@@ -1,0 +1,5 @@
+-- CreateEnum
+CREATE TYPE "RequestType" AS ENUM ('EXISTING_TARIFF_UPDATE', 'NEW_SERVICE');
+
+-- AlterTable
+ALTER TABLE "NegotiationCase" ADD COLUMN "requestType" "RequestType" NOT NULL DEFAULT 'EXISTING_TARIFF_UPDATE';
