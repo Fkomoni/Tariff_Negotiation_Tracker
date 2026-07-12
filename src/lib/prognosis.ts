@@ -344,15 +344,14 @@ export interface TariffReviewItem {
  * doesn't — so it covers both "update an existing price" and "add a new
  * service to this provider" through the same call.
  *
- * TariffScheduleName's real expected value is still unconfirmed — sent as
- * an empty string until that's nailed down. Response shape is also
- * unconfirmed; serviceRequest logs the raw response unconditionally so the
- * real shape shows up in production logs the first time this is called.
+ * Response shape is unconfirmed; serviceRequest logs the raw response
+ * unconditionally so the real shape shows up in production logs the first
+ * time this is called.
  */
 export async function addTariffReviews(items: TariffReviewItem[]): Promise<unknown> {
   return serviceRequest("POST", "/api/ProviderNetwork/AddTarrifReviews", {
     TarifList: items.map((i) => ({
-      ProcedureId: i.procedureId,
+      ProcedureCode: i.procedureId,
       ProcedureName: i.procedureName,
       NewPrice: i.newPrice,
       ProviderID: i.providerId,
