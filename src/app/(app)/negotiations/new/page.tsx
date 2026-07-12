@@ -83,10 +83,6 @@ export default async function LogNegotiationPage({
 
             <EnrolleeFields initial={initialEnrollee} />
 
-            <Field label="Provider Requested Amount (₦)" required>
-              <input name="providerRequestedAmount" type="number" min="0" step="0.01" required className={inputClass} />
-            </Field>
-
             <Field label="Urgency" required>
               <select name="urgency" required className={inputClass} defaultValue="ROUTINE">
                 {Object.entries(URGENCY_LABELS).map(([value, label]) => (

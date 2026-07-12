@@ -28,6 +28,7 @@ export function ServiceTariffFields({ providerCode }: { providerCode: string }) 
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<TariffResult | null>(null);
   const [currentTariff, setCurrentTariff] = useState("");
+  const [requestedAmount, setRequestedAmount] = useState("");
   const [results, setResults] = useState<TariffResult[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -40,7 +41,7 @@ export function ServiceTariffFields({ providerCode }: { providerCode: string }) 
 
   const [treatmentQuery, setTreatmentQuery] = useState("");
   const [selectedTreatment, setSelectedTreatment] = useState<TreatmentResult | null>(null);
-  const [newCurrentTariff, setNewCurrentTariff] = useState("");
+  const [proposedAmount, setProposedAmount] = useState("");
   const [treatmentResults, setTreatmentResults] = useState<TreatmentResult[]>([]);
   const [treatmentTotalMatches, setTreatmentTotalMatches] = useState(0);
   const [treatmentOpen, setTreatmentOpen] = useState(false);
@@ -53,6 +54,7 @@ export function ServiceTariffFields({ providerCode }: { providerCode: string }) 
     setSelected(null);
     setQuery("");
     setCurrentTariff("");
+    setRequestedAmount("");
     setResults([]);
     setSearchedNoMatch(false);
     confirmedDescriptionRef.current = "";
@@ -176,11 +178,12 @@ export function ServiceTariffFields({ providerCode }: { providerCode: string }) 
     setSelected(null);
     setQuery("");
     setCurrentTariff("");
+    setRequestedAmount("");
     setResults([]);
     setSearchedNoMatch(false);
     setSelectedTreatment(null);
     setTreatmentQuery("");
-    setNewCurrentTariff("");
+    setProposedAmount("");
     setTreatmentResults([]);
     setTreatmentSearchedNoMatch(false);
     confirmedTreatmentNameRef.current = "";
@@ -283,6 +286,19 @@ export function ServiceTariffFields({ providerCode }: { providerCode: string }) 
               onChange={(e) => setCurrentTariff(e.target.value)}
             />
           </Field>
+
+          <Field label="Provider Requested Amount (₦)" required>
+            <input
+              name="providerRequestedAmount"
+              type="number"
+              min="0"
+              step="0.01"
+              required
+              className={inputClass}
+              value={requestedAmount}
+              onChange={(e) => setRequestedAmount(e.target.value)}
+            />
+          </Field>
         </>
       ) : (
         <>
@@ -338,16 +354,17 @@ export function ServiceTariffFields({ providerCode }: { providerCode: string }) 
             </div>
           </Field>
 
-          <Field label="Current Tariff Amount (₦)" required hint="No existing price on this provider — enter what's being proposed">
+          <input type="hidden" name="currentTariff" value="0" />
+          <Field label="Proposed Amount (₦)" required hint="No existing price on this provider — enter what's being proposed">
             <input
-              name="currentTariff"
+              name="providerRequestedAmount"
               type="number"
               min="0"
               step="0.01"
               required
               className={inputClass}
-              value={newCurrentTariff}
-              onChange={(e) => setNewCurrentTariff(e.target.value)}
+              value={proposedAmount}
+              onChange={(e) => setProposedAmount(e.target.value)}
             />
           </Field>
         </>
