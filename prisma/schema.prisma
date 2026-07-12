@@ -98,6 +98,13 @@ enum NotificationChannel {
 enum AuditAction {
   LOGIN
   ROLE_CHANGE
+  MFA_ENABLED
+  MFA_DISABLED
+}
+
+enum MfaCodePurpose {
+  LOGIN
+  ENABLE
 }
 
 model User {
@@ -107,14 +114,50 @@ model User {
   email               String?
   role                Role     @default(PENDING)
   lastLoginAt         DateTime?
+  /// Per-user opt-in for email-OTP MFA at login. Off by default — set via
+  /// the Account Security page (enableMfa/confirmEnableMfa in mfa-actions.ts).
+  mfaEnabled          Boolean  @default(false)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
-  loggedCases   NegotiationCase[] @relation("LoggedBy")
-  ownedCases    NegotiationCase[] @relation("OwnedBy")
-  caseUpdates   CaseUpdate[]
-  notifications MemberNotification[]
-  auditLogs     AuditLog[]
+  loggedCases    NegotiationCase[] @relation("LoggedBy")
+  ownedCases     NegotiationCase[] @relation("OwnedBy")
+  caseUpdates    CaseUpdate[]
+  notifications  MemberNotification[]
+  auditLogs      AuditLog[]
+  mfaCodes       MfaCode[]
+  trustedDevices TrustedDevice[]
+}
+
+/// Single-use, hashed email OTPs — used both for the login MFA challenge and
+/// for confirming a user actually controls their on-file email before
+/// enabling MFA on their account.
+model MfaCode {
+  id         String         @id @default(cuid())
+  userId     String
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash   String
+  purpose    MfaCodePurpose
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime       @default(now())
+
+  @@index([userId, purpose])
+}
+
+/// A browser that completed an MFA challenge and was marked "trusted" by the
+/// user — the token (hashed) lives in an httpOnly cookie and lets that
+/// browser skip the OTP challenge until expiresAt (90 days out).
+model TrustedDevice {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  lastUsedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
 }
 
 /// System-wide audit trail for events that aren't tied to a single

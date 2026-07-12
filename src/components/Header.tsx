@@ -1,7 +1,8 @@
 import Image from "next/image";
+import Link from "next/link";
 import { ROLE_LABELS } from "@/lib/domain";
 import { logoutAction } from "@/app/actions/auth-actions";
-import { BellIcon, LogoutIcon } from "@/components/icons";
+import { BellIcon, LogoutIcon, ShieldIcon } from "@/components/icons";
 import type { Role } from "@prisma/client";
 
 interface HeaderProps {
@@ -47,7 +48,14 @@ export function Header({ title, subtitle, user, actions }: HeaderProps) {
               <span className="block text-[11px] leading-tight text-ink-400">{ROLE_LABELS[user.role]}</span>
             </span>
           </summary>
-          <div className="absolute right-0 top-11 z-10 w-44 rounded-lg border border-ink-100 bg-white py-1 shadow-lg">
+          <div className="absolute right-0 top-11 z-10 w-48 rounded-lg border border-ink-100 bg-white py-1 shadow-lg">
+            <Link
+              href="/account/security"
+              className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-ink-700 hover:bg-ink-100"
+            >
+              <ShieldIcon className="h-4 w-4" />
+              Account Security
+            </Link>
             <form action={logoutAction}>
               <button
                 type="submit"
