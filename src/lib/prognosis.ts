@@ -386,7 +386,7 @@ export interface ProviderRecord {
  * of on a rolling multi-hour timer, cutting down repeat full-list fetches
  * from Prognosis during the day.
  */
-function msUntilNextUtcMidnight(): number {
+export function msUntilNextUtcMidnight(): number {
   const now = new Date();
   const nextMidnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, 0, 0, 0, 0);
   return nextMidnight - now.getTime();
@@ -848,10 +848,14 @@ function extractTreatmentRecords(payload: unknown): TreatmentRecord[] {
   return records;
 }
 
-let cachedTreatments: { data: TreatmentRecord[]; expiresAt: number } | null = null;
-let inFlightTreatmentsFetch: Promise<TreatmentRecord[]> | null = null;
-
-async function fetchTreatmentsFromPrognosis(): Promise<TreatmentRecord[]> {
+/**
+ * Raw fetch of Prognosis's full master treatment/procedure catalog — no
+ * caching here. src/lib/procedure-catalog.ts builds the actual cached,
+ * database-backed search on top of this; this file stays free of any
+ * database import on purpose, since it's reachable from middleware.ts (via
+ * auth.ts) which runs in the Edge runtime, where Prisma cannot execute.
+ */
+export async function fetchTreatmentsFromPrognosis(): Promise<TreatmentRecord[]> {
   const payload = await serviceRequest("GET", "/api/ListValues/GetAllProcedures");
   const records = extractTreatmentRecords(payload);
   // Surfaces whether this endpoint silently paginates like GetProviders
@@ -864,53 +868,10 @@ async function fetchTreatmentsFromPrognosis(): Promise<TreatmentRecord[]> {
   return records;
 }
 
-/**
- * Returns Prognosis's full master treatment/procedure catalog, cached in
- * memory until the next UTC midnight — the endpoint takes no search
- * parameter and always returns everything, so (like the provider list) we
- * fetch once a day and filter client-side for a live search experience.
- */
-async function getTreatments(): Promise<TreatmentRecord[]> {
-  if (cachedTreatments && cachedTreatments.expiresAt > Date.now()) return cachedTreatments.data;
-  if (!inFlightTreatmentsFetch) {
-    inFlightTreatmentsFetch = fetchTreatmentsFromPrognosis()
-      .then((data) => {
-        cachedTreatments = { data, expiresAt: Date.now() + msUntilNextUtcMidnight() };
-        return data;
-      })
-      .finally(() => {
-        inFlightTreatmentsFetch = null;
-      });
-  }
-  return inFlightTreatmentsFetch;
-}
-
-export async function searchTreatments(query: string, limit = 20): Promise<TreatmentRecord[]> {
-  const q = query.trim().toLowerCase();
-  if (q.length < 2) return [];
-  const treatments = await getTreatments();
-  return treatments
-    .filter((t) => t.name.toLowerCase().includes(q) || t.procedureId.toLowerCase().includes(q))
-    .slice(0, limit);
-}
-
-/**
- * Forces an immediate refresh of the cached provider and treatment lists
- * instead of waiting for the next midnight refresh, for when Prognosis's
- * underlying data changes mid-day. Re-fetches eagerly (not just clears)
- * so the cache is already warm by the time anyone actually searches —
- * the first search right after a manual sync shouldn't be the one that
- * pays the full-list fetch cost.
- *
- * Per-provider tariffs are cleared but not eagerly re-fetched — there are
- * too many providers to warm all of them, so each just refetches lazily
- * the next time that specific provider is searched.
- */
-export async function resyncLookupCaches(): Promise<{ providers: number; treatments: number }> {
+/** Clears the in-memory provider cache and re-fetches, for "Sync Now" —
+ * see src/lib/procedure-catalog.ts's resyncLookupCaches(). */
+export async function refreshProviders(): Promise<number> {
   cachedProviders = null;
-  cachedTreatments = null;
-  cachedTariffsByProvider.clear();
-
-  const [providers, treatments] = await Promise.all([getProviders(), getTreatments()]);
-  return { providers: providers.length, treatments: treatments.length };
+  const data = await getProviders();
+  return data.length;
 }

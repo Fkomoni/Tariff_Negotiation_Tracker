@@ -196,3 +196,22 @@ model MemberNotification {
 
   @@index([caseId])
 }
+
+/// One row per Prognosis service/treatment master catalog entry — persisted
+/// so the full list survives app restarts/redeploys and doesn't need
+/// refetching from Prognosis every time the in-memory cache is cold. Synced
+/// wholesale (replace-all) once a day via LookupSync, or on demand via the
+/// Configuration "Sync Now" button.
+model ProcedureCatalogEntry {
+  procedureId String  @id
+  name        String
+  tariffId    Int?
+}
+
+/// Tracks when each wholesale lookup-list sync last ran, so the app knows
+/// whether the persisted copy is still good for today or needs refreshing.
+model LookupSync {
+  key          String   @id
+  lastSyncedAt DateTime
+  recordCount  Int
+}

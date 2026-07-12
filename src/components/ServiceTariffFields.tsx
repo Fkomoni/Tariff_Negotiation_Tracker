@@ -42,6 +42,7 @@ export function ServiceTariffFields({ providerCode }: { providerCode: string }) 
   const [selectedTreatment, setSelectedTreatment] = useState<TreatmentResult | null>(null);
   const [newCurrentTariff, setNewCurrentTariff] = useState("");
   const [treatmentResults, setTreatmentResults] = useState<TreatmentResult[]>([]);
+  const [treatmentTotalMatches, setTreatmentTotalMatches] = useState(0);
   const [treatmentOpen, setTreatmentOpen] = useState(false);
   const [treatmentLoading, setTreatmentLoading] = useState(false);
   const [treatmentSearchedNoMatch, setTreatmentSearchedNoMatch] = useState(false);
@@ -108,10 +109,12 @@ export function ServiceTariffFields({ providerCode }: { providerCode: string }) 
         const data = await res.json();
         const found = data.results ?? [];
         setTreatmentResults(found);
+        setTreatmentTotalMatches(data.totalMatches ?? found.length);
         setTreatmentSearchedNoMatch(found.length === 0);
         setTreatmentOpen(true);
       } catch {
         setTreatmentResults([]);
+        setTreatmentTotalMatches(0);
       } finally {
         setTreatmentLoading(false);
       }
@@ -322,6 +325,12 @@ export function ServiceTariffFields({ providerCode }: { providerCode: string }) 
               {!treatmentLoading && treatmentSearchedNoMatch && !selectedTreatment && (
                 <p className="mt-1.5 text-[11px] text-ink-400">
                   No matching procedure found in Prognosis's treatment catalog.
+                </p>
+              )}
+              {!treatmentLoading && treatmentTotalMatches > treatmentResults.length && (
+                <p className="mt-1.5 text-[11px] text-ink-400">
+                  Showing {treatmentResults.length} of {treatmentTotalMatches} matches — keep typing to narrow it
+                  down.
                 </p>
               )}
             </div>

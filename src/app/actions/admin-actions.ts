@@ -8,7 +8,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { ROLE_LABELS } from "@/lib/domain";
-import { resyncLookupCaches } from "@/lib/prognosis";
+import { resyncLookupCaches } from "@/lib/procedure-catalog";
 
 const assignRoleSchema = z.object({
   userId: z.string(),
