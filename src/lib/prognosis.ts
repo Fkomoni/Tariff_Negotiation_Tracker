@@ -435,8 +435,13 @@ export async function getActiveTariffScheduleName(providerId: number, userEmail:
   throwIfProgosisBodyFailed(payload, "/api/ProviderNetwork/TarriffSchedules");
 
   const p = (payload && typeof payload === "object" ? payload : {}) as Record<string, unknown>;
-  let raw: unknown =
-    p.TarrifSchedulesList ?? p.TariffSchedulesList ?? p.TariffSchedule ?? p.data ?? p.Data ?? p.result ?? p.Result ?? p;
+  // Confirmed against a real response: "result" holds the schedule array,
+  // while "TariffSchedule" is an unrelated field that's usually "" — an
+  // empty string, not null/undefined, so a `??` chain checking it first
+  // would stop there and never reach "result". Picking the first candidate
+  // that's actually an array avoids that trap.
+  const candidates = [p.result, p.Result, p.TarrifSchedulesList, p.TariffSchedulesList, p.TariffSchedule, p.data, p.Data];
+  let raw: unknown = candidates.find((c) => Array.isArray(c)) ?? p;
   if (!Array.isArray(raw)) raw = raw && typeof raw === "object" ? [raw] : [];
 
   const schedules = (raw as unknown[]).filter((e): e is Record<string, unknown> => !!e && typeof e === "object");
