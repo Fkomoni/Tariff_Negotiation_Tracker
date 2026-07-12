@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireApiSession } from "@/lib/api-auth";
 import { searchEnrollees } from "@/lib/prognosis";
 
 export async function GET(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await requireApiSession(["CONTACT_CENTER", "ADMIN"]);
+  if (session instanceof NextResponse) return session;
 
   const q = req.nextUrl.searchParams.get("q") ?? "";
 

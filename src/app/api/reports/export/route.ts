@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireApiSession } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { buildCaseExportRows, CASE_EXPORT_HEADER } from "@/lib/reports";
 import { toCsv } from "@/lib/csv";
 
 export async function GET(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await requireApiSession(["ADMIN", "CONTACT_CENTER", "PROVIDER_TEAM"]);
+  if (session instanceof NextResponse) return session;
 
   const from = req.nextUrl.searchParams.get("from");
   const to = req.nextUrl.searchParams.get("to");
