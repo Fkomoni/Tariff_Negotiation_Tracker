@@ -118,7 +118,15 @@ class RateLimitedSignin extends CredentialsSignin {
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  session: { strategy: "jwt" },
+  session: {
+    strategy: "jwt",
+    // NextAuth's default is 30 days — too long for a staff portal holding
+    // enrollee PII and negotiated pricing. 12h caps how long a left-open or
+    // stolen session stays usable; updateAge refreshes it on activity so an
+    // actively-working session doesn't get logged out mid-shift.
+    maxAge: 12 * 60 * 60,
+    updateAge: 60 * 60,
+  },
   trustHost: true,
   pages: {
     signIn: "/login",

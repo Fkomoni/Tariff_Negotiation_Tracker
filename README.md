@@ -86,3 +86,15 @@ npm run dev
   deliberate upgrade rather than doing it under this MVP.
 - Role changes made in Configuration apply on the affected user's *next* sign-in, not
   instantly — this keeps the middleware edge-runtime-safe (Prisma can't run there).
+- Sessions expire after 12 hours (or after 12h of inactivity — active use refreshes it
+  hourly); see `session.maxAge`/`updateAge` in `src/lib/auth.ts`.
+- Auth.js is configured with `trustHost: true`, which is required on Render (and most
+  non-Vercel platforms) — without it, every request fails with an `UntrustedHost` error,
+  because Auth.js needs the incoming `Host`/`X-Forwarded-Host` header to construct its own
+  callback URLs even when `NEXTAUTH_URL` is set. This app never derives trust decisions or
+  absolute URLs from the request Host itself (notification emails use the explicit
+  `NEXTAUTH_URL` env var, not a request-derived host), so the residual risk is scoped to
+  whatever Auth.js does internally with that header. Render's own edge routes by the
+  service's assigned hostname rather than trusting an arbitrary client-supplied `Host`, but
+  if this ever moves behind a different reverse proxy, confirm that proxy validates/strips
+  inbound `Host`/`X-Forwarded-Host` from external clients before forwarding.
