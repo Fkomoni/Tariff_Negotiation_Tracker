@@ -1,11 +1,26 @@
 import { headers } from "next/headers";
 
-/** Best-effort caller IP from proxy headers — Render sits in front of this
- * app, so the real client IP arrives via X-Forwarded-For, not the socket. */
+/**
+ * Best-effort caller IP from proxy headers — Render sits in front of this
+ * app, so the real client IP arrives via X-Forwarded-For, not the socket.
+ *
+ * Takes the LAST entry, not the first: each hop in a proxy chain appends its
+ * observed peer address to the right of the list, so the leftmost entry is
+ * whatever the originating client sent — fully attacker-controlled — and
+ * the rightmost is the address Render's own edge actually observed, which a
+ * client can't forge. Taking the first entry would let an attacker rotate a
+ * fake X-Forwarded-For on every request to reset their own rate-limit
+ * bucket on demand. This assumes Render is a single reverse-proxy hop in
+ * front of this app; if another proxy/CDN is ever added in front of Render,
+ * re-check which entry is actually trustworthy.
+ */
 export async function getClientIp(): Promise<string> {
   const h = await headers();
   const forwarded = h.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0].trim();
+  if (forwarded) {
+    const hops = forwarded.split(",").map((p) => p.trim()).filter(Boolean);
+    if (hops.length > 0) return hops[hops.length - 1];
+  }
   return h.get("x-real-ip") ?? "unknown";
 }
 

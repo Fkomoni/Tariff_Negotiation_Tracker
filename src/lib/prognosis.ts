@@ -19,6 +19,46 @@ const TOKEN_KEYS = [
 
 const ENVELOPE_KEYS = ["data", "Data", "result", "Result"];
 
+/**
+ * Prognosis payloads routinely carry enrollee PII and banking details
+ * (Member_EmailAddress_One, Member_Phone_One, Member_BankName,
+ * Member_AccountNumber, Client_BankAccountNumber, Member_DateOfBirth,
+ * Member_Address, etc.) — logging those verbatim means anyone with
+ * dashboard/log access to this service (a much broader audience than the
+ * app's own role-based access controls) can read them in plaintext. Matches
+ * by key-name pattern rather than an exact field allowlist, since Prognosis
+ * exposes the same kind of data under slightly different names across its
+ * various endpoints.
+ */
+const SENSITIVE_KEY_PATTERN =
+  /email|phone|mobile|bank|account|address|dob|dateofbirth|password|pin\b|secret|token|iban|swift|sortcode|bvn|nin\b/i;
+
+function redactSensitive(value: unknown, depth = 0): unknown {
+  if (depth > 6) return value;
+  if (Array.isArray(value)) return value.map((v) => redactSensitive(v, depth + 1));
+  if (value && typeof value === "object") {
+    const out: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+      out[key] = SENSITIVE_KEY_PATTERN.test(key) ? "[REDACTED]" : redactSensitive(val, depth + 1);
+    }
+    return out;
+  }
+  return value;
+}
+
+/** Best-effort redacted, length-capped stringification for logging — parses
+ * JSON (whether given as a string or an already-parsed value), redacts
+ * sensitive keys, then re-stringifies. Falls back to a safe placeholder if
+ * the input isn't parseable JSON, rather than ever logging it raw. */
+function redactedForLog(raw: unknown, maxLen = 3000): string {
+  try {
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    return JSON.stringify(redactSensitive(parsed)).slice(0, maxLen);
+  } catch {
+    return typeof raw === "string" ? `[unparsable body, length ${raw.length}]` : "[unloggable body]";
+  }
+}
+
 function extractToken(payload: unknown): string | null {
   if (!payload || typeof payload !== "object") return null;
 
@@ -116,20 +156,20 @@ export async function prognosisStaffLogin(username: string, password: string): P
 
   if (res.status >= 500) {
     const bodyText = await res.text().catch(() => "");
-    console.error("[prognosis] staff directory unavailable", res.status, bodyText.slice(0, 500));
+    console.error("[prognosis] staff directory unavailable", res.status, redactedForLog(bodyText, 500));
     throw new PrognosisUnavailableError(`Staff directory unavailable: ${res.status}`);
   }
 
   if (!res.ok) {
     const bodyText = await res.text().catch(() => "");
-    console.error("[prognosis] staff login failed", res.status, bodyText.slice(0, 500));
-    throw new PrognosisAuthError(`Prognosis login failed with status ${res.status}: ${bodyText.slice(0, 200)}`);
+    console.error("[prognosis] staff login failed", res.status, redactedForLog(bodyText, 500));
+    throw new PrognosisAuthError(`Prognosis login failed with status ${res.status}: ${redactedForLog(bodyText, 200)}`);
   }
 
   const payload = (await res.json().catch(() => null)) as Record<string, unknown> | null;
 
   if (payload && isFailureStatus(payload.status ?? payload.Status)) {
-    console.error("[prognosis] staff login returned failure status", JSON.stringify(payload).slice(0, 500));
+    console.error("[prognosis] staff login returned failure status", redactedForLog(payload, 500));
     throw new PrognosisAuthError("Invalid email or password");
   }
 
@@ -137,7 +177,7 @@ export async function prognosisStaffLogin(username: string, password: string): P
   const staffUser = Array.isArray(result) ? (result[0] as Record<string, unknown> | undefined) : undefined;
 
   if (!staffUser) {
-    console.error("[prognosis] no result in staff login response", JSON.stringify(payload).slice(0, 500));
+    console.error("[prognosis] no result in staff login response", redactedForLog(payload, 500));
     throw new PrognosisAuthError("Invalid email or password");
   }
 
@@ -176,14 +216,14 @@ export async function prognosisLogin(username: string, password: string): Promis
 
   if (!res.ok) {
     const bodyText = await res.text().catch(() => "");
-    console.error("[prognosis] login rejected", res.status, bodyText.slice(0, 500));
-    throw new PrognosisAuthError(`Prognosis login failed with status ${res.status}: ${bodyText.slice(0, 200)}`);
+    console.error("[prognosis] login rejected", res.status, redactedForLog(bodyText, 500));
+    throw new PrognosisAuthError(`Prognosis login failed with status ${res.status}: ${redactedForLog(bodyText, 200)}`);
   }
 
   const payload = await res.json().catch(() => null);
   const token = extractToken(payload);
   if (!token) {
-    console.error("[prognosis] no token found in response", JSON.stringify(payload).slice(0, 500));
+    console.error("[prognosis] no token found in response", redactedForLog(payload, 500));
     throw new PrognosisAuthError("Prognosis login succeeded but no token was found in the response");
   }
   return token;
@@ -237,7 +277,7 @@ async function serviceRequest(
     });
 
   if (body !== undefined) {
-    console.error("[prognosis] request", method, path, JSON.stringify(body).slice(0, 3000));
+    console.error("[prognosis] request", method, path, redactedForLog(body));
   }
 
   let token = await getServiceToken();
@@ -251,11 +291,13 @@ async function serviceRequest(
   const text = await res.text().catch(() => "");
 
   if (!res.ok) {
-    console.error("[prognosis] service request failed", method, path, res.status, text.slice(0, 500));
-    throw new Error(`${path} failed with status ${res.status}: ${text}`);
+    console.error("[prognosis] service request failed", method, path, res.status, redactedForLog(text, 500));
+    // Redacted here too: this message can end up staff-visible (e.g. stored
+    // as a CaseUpdate note when a tariff push fails), not just logged.
+    throw new Error(`${path} failed with status ${res.status}: ${redactedForLog(text)}`);
   }
 
-  console.error("[prognosis] response", method, path, res.status, text.slice(0, 3000));
+  console.error("[prognosis] response", method, path, res.status, redactedForLog(text));
 
   try {
     return text ? JSON.parse(text) : null;
@@ -750,7 +792,10 @@ async function searchByMembershipRoot(root: string): Promise<EnrolleeRecord[]> {
  */
 export async function searchEnrollees(query: string): Promise<EnrolleeRecord[]> {
   const classified = classifyEnrolleeQuery(query);
-  console.error("[prognosis] enrollee search classified", JSON.stringify(query), "as", classified);
+  // Deliberately not logging the raw query or classified.value here — it's
+  // routinely an enrollee's actual email or phone number as typed by staff.
+  // The type alone is enough to debug which lookup branch a search took.
+  console.error("[prognosis] enrollee search classified as", classified?.type ?? "unrecognized", `(query length ${query.length})`);
   if (!classified) return [];
 
   switch (classified.type) {
