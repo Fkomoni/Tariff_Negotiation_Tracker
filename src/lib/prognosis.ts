@@ -910,10 +910,12 @@ function extractTreatmentRecords(payload: unknown): TreatmentRecord[] {
 
   console.error(`[prognosis] treatment catalog: ${(raw as unknown[]).length} raw entries in response`);
 
-  // Field names are a best guess pending a real example response from
-  // Prognosis — serviceRequest logs the raw payload unconditionally, so the
-  // real keys will show up in production logs the first time this runs and
-  // this list can be corrected, same as the tariff/enrollee field fixes.
+  // Confirmed against a real production response: top-level shape is
+  // {"status":200,"result":[{"tariff_id":155334.0,"tariff_code":" J0110259C",
+  // "tariff_desc":"CO AMOXICLAV 500MG",...}]} — tariff_code/tariff_desc/
+  // tariff_id are the real fields (already first in each list below), the
+  // rest are fallbacks kept in case a different Prognosis deployment/version
+  // ever uses different naming.
   const records: TreatmentRecord[] = [];
   for (const entry of raw as unknown[]) {
     if (!entry || typeof entry !== "object") continue;
@@ -941,12 +943,13 @@ function extractTreatmentRecords(payload: unknown): TreatmentRecord[] {
  * auth.ts) which runs in the Edge runtime, where Prisma cannot execute.
  */
 export async function fetchTreatmentsFromPrognosis(): Promise<TreatmentRecord[]> {
-  // Confirmed against production logs: this endpoint 405s on GET
-  // ("The requested resource does not support http method 'GET'") — unlike
-  // GetProviders, it only accepts POST. Body is unused by the endpoint but
-  // sent as {} rather than omitted, since some ASP.NET Web API controllers
-  // choke on a POST with no body at all.
-  const payload = await serviceRequest("POST", "/api/ListValues/GetAllProcedures", {});
+  // GET, per Prognosis's documented contract for this endpoint — a prior
+  // revision switched this to POST off a single 405 in production ("doesn't
+  // support method 'GET'"), but that was wrong: the endpoint was confirmed
+  // working on GET before that change, and switching it to POST is what
+  // broke it. Whatever caused that one 405 (a transient issue on Prognosis's
+  // side, a bad token, something else) wasn't the HTTP verb.
+  const payload = await serviceRequest("GET", "/api/ListValues/GetAllProcedures");
   const records = extractTreatmentRecords(payload);
   // Surfaces whether this endpoint silently paginates like GetProviders
   // did — if totalRecord/totalPages show up and total exceeds the raw

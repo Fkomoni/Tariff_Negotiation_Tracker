@@ -446,9 +446,10 @@ interface DispatchNotificationsParams {
 }
 
 /**
- * Sends the member email/SMS for a case and records a MemberNotification
- * per channel. Shared by the auto-notify-on-log flow and the manual
- * "Notify Member" form so both produce identical, auditable results.
+ * Sends the member email/SMS for a case and records a MemberNotification per
+ * channel. Called exactly once, from createCase() below — member comms only
+ * go out at the moment Contact Centre logs the request, never on later
+ * status changes or any other action.
  */
 async function dispatchMemberNotifications(params: DispatchNotificationsParams): Promise<string[]> {
   const emailMessage = buildEmailMessage(params.template, params.enrolleeName, params.providerName);
