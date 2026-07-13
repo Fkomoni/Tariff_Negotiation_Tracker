@@ -12,7 +12,7 @@ import type { EnrolleeInitial } from "@/components/EnrolleeFields";
 
 export default async function LogNegotiationPage(
   props: {
-    searchParams: Promise<{ error?: string; repeatFrom?: string }>;
+    searchParams: Promise<{ repeatFrom?: string }>;
   }
 ) {
   const searchParams = await props.searchParams;
@@ -67,12 +67,6 @@ export default async function LogNegotiationPage(
             <p className="mt-4 rounded-lg bg-emerald-50 px-3.5 py-2.5 text-[12.5px] font-medium text-emerald-700">
               Logging another service for {initialProvider.name} — {initialEnrollee?.fullName}. Provider and
               enrollee details are carried over; just fill in the new service.
-            </p>
-          )}
-
-          {searchParams.error && (
-            <p className="mt-4 rounded-lg bg-brand-50 px-3.5 py-2.5 text-[12.5px] font-medium text-brand-700">
-              {searchParams.error}
             </p>
           )}
 

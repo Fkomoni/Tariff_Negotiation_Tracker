@@ -1,11 +1,13 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { auth, resolveStaffUser, checkLoginRateLimit } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PrognosisAuthError, PrognosisUnavailableError, sendEmailAlert } from "@/lib/prognosis";
 import { issueOtp, isDeviceTrusted, OtpRateLimitedError } from "@/lib/mfa";
 import { buildMfaCodeEmailHtml } from "@/lib/email-template";
+import { redirectWithToast } from "@/lib/toast";
 
 const BASE_URL = process.env.NEXTAUTH_URL ?? "https://tariff-negotiation-tracker.onrender.com";
 
@@ -65,7 +67,7 @@ export async function checkCredentialsAndMaybeSendOtp(username: string, password
 
 async function requireSession() {
   const session = await auth();
-  if (!session?.user) throw new Error("Not authenticated");
+  if (!session?.user) redirect("/login");
   return session;
 }
 
@@ -74,8 +76,11 @@ export async function revokeTrustedDevice(formData: FormData) {
   const deviceId = String(formData.get("deviceId") ?? "");
 
   const device = await prisma.trustedDevice.findUnique({ where: { id: deviceId } });
-  if (!device || device.userId !== session.user.id) throw new Error("Device not found");
+  if (!device || device.userId !== session.user.id) {
+    redirectWithToast("/account/security", { type: "error", message: "That device wasn't found." });
+  }
 
   await prisma.trustedDevice.delete({ where: { id: deviceId } });
   revalidatePath("/account/security");
+  redirectWithToast("/account/security", { type: "success", message: "Device access revoked." });
 }

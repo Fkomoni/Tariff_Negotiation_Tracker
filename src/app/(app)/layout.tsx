@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Sidebar } from "@/components/Sidebar";
+import { ToastHost } from "@/components/ToastHost";
 import { OPEN_STATUSES } from "@/lib/domain";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -14,6 +15,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="flex h-screen overflow-hidden bg-ink-100/60">
       <Sidebar role={session.user.role} openNegotiationsCount={openNegotiationsCount} />
       <div className="flex flex-1 flex-col overflow-y-auto">{children}</div>
+      <ToastHost />
     </div>
   );
 }

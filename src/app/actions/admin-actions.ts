@@ -9,6 +9,16 @@ import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
 import { ROLE_LABELS } from "@/lib/domain";
 import { resyncLookupCaches } from "@/lib/procedure-catalog";
+import { redirectWithToast } from "@/lib/toast";
+
+async function requireAdmin() {
+  const session = await auth();
+  if (!session?.user) redirect("/login");
+  if (session.user.role !== "ADMIN") {
+    redirectWithToast("/configuration", { type: "error", message: "Only an Admin can do that." });
+  }
+  return session;
+}
 
 const assignRoleSchema = z.object({
   userId: z.string(),
@@ -16,15 +26,18 @@ const assignRoleSchema = z.object({
 });
 
 export async function assignRole(formData: FormData) {
-  const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
-    throw new Error("Only an Admin can assign roles");
-  }
+  const session = await requireAdmin();
 
-  const data = assignRoleSchema.parse(Object.fromEntries(formData.entries()));
+  const parsed = assignRoleSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) {
+    redirectWithToast("/configuration", { type: "error", message: parsed.error.issues[0]?.message ?? "Invalid input" });
+  }
+  const data = parsed.data;
 
   const target = await prisma.user.findUnique({ where: { id: data.userId } });
-  if (!target) throw new Error("User not found");
+  if (!target) {
+    redirectWithToast("/configuration", { type: "error", message: "User not found." });
+  }
 
   await prisma.user.update({
     where: { id: data.userId },
@@ -40,6 +53,10 @@ export async function assignRole(formData: FormData) {
   }
 
   revalidatePath("/configuration");
+  redirectWithToast("/configuration", {
+    type: "success",
+    message: `${target.displayName ?? target.prognosisUsername}'s role is now ${ROLE_LABELS[data.role]}.`,
+  });
 }
 
 const provisionUserSchema = z.object({
@@ -53,12 +70,13 @@ const provisionUserSchema = z.object({
  * (matched case-insensitively in auth.ts) instead of landing on Pending.
  */
 export async function provisionUser(formData: FormData) {
-  const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
-    throw new Error("Only an Admin can set up staff accounts");
-  }
+  const session = await requireAdmin();
 
-  const data = provisionUserSchema.parse(Object.fromEntries(formData.entries()));
+  const parsed = provisionUserSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) {
+    redirectWithToast("/configuration", { type: "error", message: parsed.error.issues[0]?.message ?? "Invalid input" });
+  }
+  const data = parsed.data;
 
   const existing = await prisma.user.findFirst({
     where: { prognosisUsername: { equals: data.prognosisUsername, mode: "insensitive" } },
@@ -85,31 +103,30 @@ export async function provisionUser(formData: FormData) {
   }
 
   revalidatePath("/configuration");
+  redirectWithToast("/configuration", { type: "success", message: `${data.prognosisUsername} is set up as ${ROLE_LABELS[data.role]}.` });
 }
 
 export async function deleteUser(formData: FormData) {
-  const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
-    throw new Error("Only an Admin can remove staff accounts");
-  }
+  const session = await requireAdmin();
 
   const userId = String(formData.get("userId"));
   if (userId === session.user.id) {
-    redirect(`/configuration?error=${encodeURIComponent("You can't delete your own account while signed in as it.")}`);
+    redirectWithToast("/configuration", { type: "error", message: "You can't delete your own account while signed in as it." });
   }
 
   const target = await prisma.user.findUnique({ where: { id: userId } });
-  if (!target) throw new Error("User not found");
+  if (!target) {
+    redirectWithToast("/configuration", { type: "error", message: "User not found." });
+  }
 
   try {
     await prisma.user.delete({ where: { id: userId } });
   } catch (err) {
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2003") {
-      redirect(
-        `/configuration?error=${encodeURIComponent(
-          `Can't delete ${target.prognosisUsername}: they have existing cases, updates, or notifications on record. Set their role to Pending instead if you want to revoke access.`
-        )}`
-      );
+      redirectWithToast("/configuration", {
+        type: "error",
+        message: `Can't delete ${target.prognosisUsername}: they have existing cases, updates, or notifications on record. Set their role to Pending instead if you want to revoke access.`,
+      });
     }
     throw err;
   }
@@ -121,6 +138,7 @@ export async function deleteUser(formData: FormData) {
   );
 
   revalidatePath("/configuration");
+  redirectWithToast("/configuration", { type: "success", message: `Removed ${target.prognosisUsername}'s account.` });
 }
 
 /**
@@ -129,19 +147,16 @@ export async function deleteUser(formData: FormData) {
  * of waiting for the automatic midnight refresh.
  */
 export async function syncPrognosisLookups() {
-  const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
-    throw new Error("Only an Admin can sync Prognosis lookup data");
-  }
+  await requireAdmin();
 
   let message: string;
   try {
     const { providers, treatments } = await resyncLookupCaches();
     message = `Synced ${providers.toLocaleString()} providers and ${treatments.toLocaleString()} treatments from Prognosis.`;
   } catch (err) {
-    redirect(`/configuration?error=${encodeURIComponent(`Sync failed: ${err instanceof Error ? err.message : "Unknown error"}`)}`);
+    redirectWithToast("/configuration", { type: "error", message: `Sync failed: ${err instanceof Error ? err.message : "Unknown error"}` });
   }
 
   revalidatePath("/configuration");
-  redirect(`/configuration?synced=${encodeURIComponent(message)}`);
+  redirectWithToast("/configuration", { type: "success", message });
 }

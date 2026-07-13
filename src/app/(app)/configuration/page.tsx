@@ -7,12 +7,7 @@ import { ConfigIcon } from "@/components/icons";
 import { ROLE_LABELS, formatDateTime } from "@/lib/domain";
 import { assignRole, provisionUser, deleteUser, syncPrognosisLookups } from "@/app/actions/admin-actions";
 
-export default async function ConfigurationPage(
-  props: {
-    searchParams: Promise<{ error?: string; synced?: string }>;
-  }
-) {
-  const searchParams = await props.searchParams;
+export default async function ConfigurationPage() {
   const session = await auth();
   if (!session?.user) return null;
 
@@ -28,18 +23,6 @@ export default async function ConfigurationPage(
       />
 
       <div className="flex-1 space-y-4 px-8 py-8">
-        {searchParams.error && (
-          <p className="rounded-lg bg-brand-50 px-3.5 py-2.5 text-[12.5px] font-medium text-brand-700">
-            {searchParams.error}
-          </p>
-        )}
-
-        {searchParams.synced && (
-          <p className="flex items-center gap-2 rounded-lg bg-emerald-50 px-3.5 py-2.5 text-[12.5px] font-medium text-emerald-700">
-            <span aria-hidden>✓</span> {searchParams.synced}
-          </p>
-        )}
-
         <Card className="border-brand-100 bg-brand-50/40 px-5 py-3">
           <p className="text-[12.5px] text-brand-800">
             Role changes take effect the next time that person signs in — ask them to sign out and back

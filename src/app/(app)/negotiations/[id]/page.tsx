@@ -30,7 +30,7 @@ import type { CaseStatus } from "@prisma/client";
 export default async function CaseDetailsPage(
   props: {
     params: Promise<{ id: string }>;
-    searchParams: Promise<{ error?: string; tab?: string }>;
+    searchParams: Promise<{ tab?: string }>;
   }
 ) {
   const searchParams = await props.searchParams;
@@ -110,12 +110,6 @@ export default async function CaseDetailsPage(
       />
 
       <div className="px-8 pt-6">
-        {searchParams.error && (
-          <p className="mb-4 rounded-lg bg-brand-50 px-3.5 py-2.5 text-[12.5px] font-medium text-brand-700">
-            {searchParams.error}
-          </p>
-        )}
-
         {isProviderTeam && (
           <div className="flex gap-1 border-b border-ink-100">
             <Link

@@ -11,10 +11,11 @@ import type { CaseStatus, ProviderManagementCategory, ServiceType } from "@prism
 import { STATUS_TRANSITIONS } from "@/lib/domain";
 import { buildMemberNotificationEmailHtml } from "@/lib/email-template";
 import { detectAllowedFileType, sanitizeFilename } from "@/lib/file-validation";
+import { redirectWithToast } from "@/lib/toast";
 
 async function requireSession() {
   const session = await auth();
-  if (!session?.user) throw new Error("Not authenticated");
+  if (!session?.user) redirect("/login");
   return session;
 }
 
@@ -91,7 +92,7 @@ export async function createCase(formData: FormData) {
 
   if (!parsed.success) {
     const message = parsed.error.issues[0]?.message ?? "Invalid input";
-    redirect(`/negotiations/new?error=${encodeURIComponent(message)}`);
+    redirectWithToast("/negotiations/new", { type: "error", message });
   }
 
   const data = parsed.data;
@@ -106,11 +107,14 @@ export async function createCase(formData: FormData) {
     const file = formData.get("pmAttachment");
     if (needsAttachment) {
       if (!(file instanceof File) || file.size === 0) {
-        redirect(`/negotiations/new?error=${encodeURIComponent("A bank details letterhead file is required for a bank information update")}`);
+        redirectWithToast("/negotiations/new", {
+          type: "error",
+          message: "A bank details letterhead file is required for a bank information update",
+        });
       }
       const typedFile = file as File;
       if (typedFile.size > MAX_ATTACHMENT_BYTES) {
-        redirect(`/negotiations/new?error=${encodeURIComponent("Attachment is too large — the limit is 2MB.")}`);
+        redirectWithToast("/negotiations/new", { type: "error", message: "Attachment is too large — the limit is 2MB." });
       }
 
       const buffer = Buffer.from(await typedFile.arrayBuffer());
@@ -119,7 +123,7 @@ export async function createCase(formData: FormData) {
       // PDF/PNG/JPEG is accepted regardless of what the upload claimed to be.
       const detected = detectAllowedFileType(buffer);
       if (!detected) {
-        redirect(`/negotiations/new?error=${encodeURIComponent("Attachment must be a PDF, PNG, or JPEG file.")}`);
+        redirectWithToast("/negotiations/new", { type: "error", message: "Attachment must be a PDF, PNG, or JPEG file." });
       }
 
       pmAttachmentName = sanitizeFilename(typedFile.name, detected.extension);
@@ -232,7 +236,7 @@ export async function createCase(formData: FormData) {
 
   revalidatePath("/negotiations/queue");
   revalidatePath("/dashboard");
-  redirect(`/negotiations/${created.id}`);
+  redirectWithToast(`/negotiations/${created.id}`, { type: "success", message: `Case ${created.caseNumber} logged successfully.` });
 }
 
 const updateStatusSchema = z.object({
@@ -255,35 +259,38 @@ const updateStatusSchema = z.object({
 
 export async function updateCaseStatus(formData: FormData) {
   const session = await requireSession();
+  const raw = Object.fromEntries(formData.entries());
+  const caseId = String(raw.caseId ?? "");
+
   if (!["PROVIDER_TEAM", "ADMIN"].includes(session.user.role)) {
-    throw new Error("Only the Provider Team can update negotiation status");
+    redirectWithToast(`/negotiations/${caseId}`, { type: "error", message: "Only the Provider Team can update negotiation status." });
   }
 
-  const raw = Object.fromEntries(formData.entries());
   const parsed = updateStatusSchema.safeParse(raw);
   if (!parsed.success) {
-    redirect(`/negotiations/${raw.caseId}?error=${encodeURIComponent(parsed.error.issues[0]?.message ?? "Invalid input")}`);
+    redirectWithToast(`/negotiations/${caseId}`, { type: "error", message: parsed.error.issues[0]?.message ?? "Invalid input" });
   }
   const data = parsed.data;
 
   const existing = await prisma.negotiationCase.findUnique({ where: { id: data.caseId } });
-  if (!existing) throw new Error("Case not found");
+  if (!existing) {
+    redirectWithToast("/negotiations/queue", { type: "error", message: "That case no longer exists." });
+  }
 
   const allowed = STATUS_TRANSITIONS[existing.status as CaseStatus];
   if (existing.status !== data.status && !allowed.includes(data.status)) {
-    redirect(
-      `/negotiations/${data.caseId}?error=${encodeURIComponent(
-        `Cannot move from ${CASE_STATUS_LABELS[existing.status]} to ${CASE_STATUS_LABELS[data.status]}`
-      )}`
-    );
+    redirectWithToast(`/negotiations/${data.caseId}`, {
+      type: "error",
+      message: `Cannot move from ${CASE_STATUS_LABELS[existing.status]} to ${CASE_STATUS_LABELS[data.status]}`,
+    });
   }
 
   const isTariffCase = existing.caseType === "TARIFF_UPDATE";
   if (isTariffCase && data.status === "COMPLETED" && !data.finalAgreedAmount) {
-    redirect(`/negotiations/${data.caseId}?error=${encodeURIComponent("Final agreed amount is required to mark as Completed")}`);
+    redirectWithToast(`/negotiations/${data.caseId}`, { type: "error", message: "Final agreed amount is required to mark as Completed" });
   }
   if (isTariffCase && data.status === "COMPLETED" && !data.effectiveDate) {
-    redirect(`/negotiations/${data.caseId}?error=${encodeURIComponent("Tariff effective date is required to mark as Completed")}`);
+    redirectWithToast(`/negotiations/${data.caseId}`, { type: "error", message: "Tariff effective date is required to mark as Completed" });
   }
 
   const now = new Date();
@@ -411,21 +418,21 @@ export async function updateCaseStatus(formData: FormData) {
   revalidatePath("/negotiations/queue");
   revalidatePath("/negotiations/completed");
   revalidatePath("/dashboard");
-  redirect(`/negotiations/${data.caseId}`);
+  redirectWithToast(`/negotiations/${data.caseId}`, { type: "success", message: `Status updated to ${CASE_STATUS_LABELS[data.status]}.` });
 }
 
 export async function addNote(formData: FormData) {
   const session = await requireSession();
   const caseId = String(formData.get("caseId"));
   const note = String(formData.get("note") ?? "").trim();
-  if (!note) redirect(`/negotiations/${caseId}?error=${encodeURIComponent("Note cannot be empty")}`);
+  if (!note) redirectWithToast(`/negotiations/${caseId}`, { type: "error", message: "Note cannot be empty" });
 
   await prisma.caseUpdate.create({
     data: { caseId, userId: session.user.id, type: "NOTE", note },
   });
 
   revalidatePath(`/negotiations/${caseId}`);
-  redirect(`/negotiations/${caseId}`);
+  redirectWithToast(`/negotiations/${caseId}`, { type: "success", message: "Note added." });
 }
 
 interface DispatchNotificationsParams {
