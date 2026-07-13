@@ -88,7 +88,7 @@ export function LoginForm() {
         setNotice("We emailed you a 6-digit code. It expires in 10 minutes.");
         return;
       }
-      // no_mfa_needed — device already trusted, or MFA not enabled
+      // no_mfa_needed — this device already completed MFA and is trusted
       await completeSignIn();
     } finally {
       setLoading(false);

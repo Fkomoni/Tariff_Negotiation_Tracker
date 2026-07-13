@@ -98,6 +98,9 @@ enum NotificationChannel {
 enum AuditAction {
   LOGIN
   ROLE_CHANGE
+  /// Unused now that MFA is mandatory for everyone (no per-user
+  /// enable/disable event exists anymore) — kept rather than doing a
+  /// disruptive enum-value removal for no benefit.
   MFA_ENABLED
   MFA_DISABLED
 }
@@ -114,9 +117,6 @@ model User {
   email               String?
   role                Role     @default(PENDING)
   lastLoginAt         DateTime?
-  /// Per-user opt-in for email-OTP MFA at login. Off by default — set via
-  /// the Account Security page (enableMfa/confirmEnableMfa in mfa-actions.ts).
-  mfaEnabled          Boolean  @default(false)
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
@@ -129,9 +129,9 @@ model User {
   trustedDevices TrustedDevice[]
 }
 
-/// Single-use, hashed email OTPs — used both for the login MFA challenge and
-/// for confirming a user actually controls their on-file email before
-/// enabling MFA on their account.
+/// Single-use, hashed email OTPs for the mandatory login MFA challenge.
+/// The ENABLE purpose value is unused now that MFA applies to everyone
+/// (kept rather than doing a disruptive enum-value removal for no benefit).
 model MfaCode {
   id         String         @id @default(cuid())
   userId     String

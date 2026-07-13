@@ -162,14 +162,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           throw err;
         }
 
-        if (user.mfaEnabled) {
-          const trusted = await isDeviceTrusted(user.id);
-          if (!trusted) {
-            if (!mfaCode) throw new MfaRequiredSignin();
-            const ok = await verifyOtp(user.id, "LOGIN", mfaCode);
-            if (!ok) throw new MfaInvalidCodeSignin();
-            if (trustDevice) await trustThisDevice(user.id);
-          }
+        // MFA is mandatory for every account — the only way to skip the
+        // challenge is a previously-trusted device (still requires having
+        // completed MFA once on that device).
+        const trusted = await isDeviceTrusted(user.id);
+        if (!trusted) {
+          if (!mfaCode) throw new MfaRequiredSignin();
+          const ok = await verifyOtp(user.id, "LOGIN", mfaCode);
+          if (!ok) throw new MfaInvalidCodeSignin();
+          if (trustDevice) await trustThisDevice(user.id);
         }
 
         await logAudit("LOGIN", `${user.displayName ?? user.prognosisUsername} signed in`, user.id);
