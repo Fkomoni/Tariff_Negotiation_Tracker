@@ -2,10 +2,10 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { auth, resolveStaffUser } from "@/lib/auth";
+import { auth, resolveStaffUser, checkLoginRateLimit } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { prognosisStaffLogin, PrognosisAuthError, PrognosisUnavailableError, sendEmailAlert } from "@/lib/prognosis";
-import { issueOtp, verifyOtp, isDeviceTrusted } from "@/lib/mfa";
+import { issueOtp, verifyOtp, isDeviceTrusted, OtpRateLimitedError } from "@/lib/mfa";
 import { logAudit } from "@/lib/audit";
 
 function otpEmailHtml(code: string, purpose: "sign in to" | "enable multi-factor authentication on"): string {
@@ -31,14 +31,23 @@ export type CredentialsCheckResult =
   | { status: "invalid_credentials" }
   | { status: "no_mfa_needed" }
   | { status: "no_email_on_file" }
-  | { status: "otp_sent" };
+  | { status: "otp_sent" }
+  | { status: "rate_limited" };
 
 /**
  * Step 1 of login: verifies the password against Prognosis (never send an
  * OTP, or let the client reach the code-entry step, without that) and
  * decides whether an MFA challenge is actually needed for this user/device.
+ *
+ * Shares its rate-limit budget with authorize() in auth.ts (same username/IP
+ * keys) — this function also drives a full Prognosis credential check, so it
+ * must count against the same attempt limit, not double it.
  */
 export async function checkCredentialsAndMaybeSendOtp(username: string, password: string): Promise<CredentialsCheckResult> {
+  if (!checkLoginRateLimit(username).allowed) {
+    return { status: "rate_limited" };
+  }
+
   let user;
   try {
     user = await resolveStaffUser(username, password);
@@ -54,13 +63,18 @@ export async function checkCredentialsAndMaybeSendOtp(username: string, password
 
   if (!user.email) return { status: "no_email_on_file" };
 
-  const code = await issueOtp(user.id, "LOGIN");
-  await sendEmailAlert({
-    emailAddress: user.email,
-    subject: "Your Tariff Negotiation Tracker sign-in code",
-    messageBody: otpEmailHtml(code, "sign in to"),
-    reference: "MFA-LOGIN",
-  });
+  try {
+    const code = await issueOtp(user.id, "LOGIN");
+    await sendEmailAlert({
+      emailAddress: user.email,
+      subject: "Your Tariff Negotiation Tracker sign-in code",
+      messageBody: otpEmailHtml(code, "sign in to"),
+      reference: "MFA-LOGIN",
+    });
+  } catch (err) {
+    if (err instanceof OtpRateLimitedError) return { status: "rate_limited" };
+    throw err;
+  }
 
   return { status: "otp_sent" };
 }
@@ -82,13 +96,20 @@ export async function requestEnableMfaCode() {
     redirect(`/account/security?error=${encodeURIComponent("No email is on file for your account — contact the IT Help Desk before enabling MFA.")}`);
   }
 
-  const code = await issueOtp(user.id, "ENABLE");
-  await sendEmailAlert({
-    emailAddress: user.email,
-    subject: "Confirm enabling MFA on your account",
-    messageBody: otpEmailHtml(code, "enable multi-factor authentication on"),
-    reference: "MFA-ENABLE",
-  });
+  try {
+    const code = await issueOtp(user.id, "ENABLE");
+    await sendEmailAlert({
+      emailAddress: user.email,
+      subject: "Confirm enabling MFA on your account",
+      messageBody: otpEmailHtml(code, "enable multi-factor authentication on"),
+      reference: "MFA-ENABLE",
+    });
+  } catch (err) {
+    if (err instanceof OtpRateLimitedError) {
+      redirect(`/account/security?error=${encodeURIComponent("Too many codes requested — wait a few minutes and try again.")}`);
+    }
+    throw err;
+  }
 
   revalidatePath("/account/security");
   redirect("/account/security?codeSent=1");

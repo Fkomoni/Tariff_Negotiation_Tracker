@@ -8,8 +8,15 @@ export async function GET(req: NextRequest) {
   const session = await requireApiSession(["ADMIN", "CONTACT_CENTER", "PROVIDER_TEAM"]);
   if (session instanceof NextResponse) return session;
 
-  const from = req.nextUrl.searchParams.get("from");
-  const to = req.nextUrl.searchParams.get("to");
+  // Query params reach a Content-Disposition header below, so only accept
+  // them in the exact shape a date input can produce — anything else (an
+  // attempt at header/response splitting, or just a stray quote) is dropped
+  // rather than interpolated.
+  const DATE_PARAM = /^\d{4}-\d{2}-\d{2}$/;
+  const fromParam = req.nextUrl.searchParams.get("from");
+  const toParam = req.nextUrl.searchParams.get("to");
+  const from = fromParam && DATE_PARAM.test(fromParam) ? fromParam : null;
+  const to = toParam && DATE_PARAM.test(toParam) ? toParam : null;
 
   const loggedAt: { gte?: Date; lte?: Date } = {};
   if (from) loggedAt.gte = new Date(`${from}T00:00:00.000Z`);

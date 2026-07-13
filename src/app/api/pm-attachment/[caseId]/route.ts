@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiSession } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
+import { sanitizeFilename } from "@/lib/file-validation";
 
 export async function GET(req: NextRequest, { params }: { params: { caseId: string } }) {
   const session = await requireApiSession(["ADMIN", "CONTACT_CENTER", "PROVIDER_TEAM"]);
@@ -15,10 +16,15 @@ export async function GET(req: NextRequest, { params }: { params: { caseId: stri
     return NextResponse.json({ error: "No attachment on this case" }, { status: 404 });
   }
 
+  // Re-sanitized here too (not just at upload time) so rows written before
+  // this validation existed can't carry an unsafe filename into the header.
+  const filename = sanitizeFilename(negotiationCase.pmAttachmentName ?? "attachment", "bin");
+
   return new NextResponse(new Uint8Array(negotiationCase.pmAttachmentData), {
     headers: {
       "Content-Type": negotiationCase.pmAttachmentMimeType || "application/octet-stream",
-      "Content-Disposition": `attachment; filename="${negotiationCase.pmAttachmentName ?? "attachment"}"`,
+      "Content-Disposition": `attachment; filename="${filename}"`,
+      "X-Content-Type-Options": "nosniff",
     },
   });
 }

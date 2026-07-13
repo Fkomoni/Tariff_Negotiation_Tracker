@@ -10,12 +10,15 @@ import { generateCaseNumber, CASE_STATUS_LABELS, SERVICE_TYPE_LABELS, PM_CATEGOR
 import type { CaseStatus, ProviderManagementCategory, ServiceType } from "@prisma/client";
 import { STATUS_TRANSITIONS } from "@/lib/domain";
 import { buildMemberNotificationEmailHtml } from "@/lib/email-template";
+import { detectAllowedFileType, sanitizeFilename } from "@/lib/file-validation";
 
 async function requireSession() {
   const session = await auth();
   if (!session?.user) throw new Error("Not authenticated");
   return session;
 }
+
+const MAX_ATTACHMENT_BYTES = 2 * 1024 * 1024;
 
 const PM_CATEGORY_VALUES = Object.keys(PM_CATEGORY_LABELS) as [ProviderManagementCategory, ...ProviderManagementCategory[]];
 
@@ -105,9 +108,23 @@ export async function createCase(formData: FormData) {
       if (!(file instanceof File) || file.size === 0) {
         redirect(`/negotiations/new?error=${encodeURIComponent("A bank details letterhead file is required for a bank information update")}`);
       }
-      pmAttachmentName = (file as File).name;
-      pmAttachmentMimeType = (file as File).type || "application/octet-stream";
-      pmAttachmentData = Buffer.from(await (file as File).arrayBuffer());
+      const typedFile = file as File;
+      if (typedFile.size > MAX_ATTACHMENT_BYTES) {
+        redirect(`/negotiations/new?error=${encodeURIComponent("Attachment is too large — the limit is 2MB.")}`);
+      }
+
+      const buffer = Buffer.from(await typedFile.arrayBuffer());
+      // The browser-supplied name/MIME type are both attacker-controlled —
+      // only the file's actual leading bytes decide what it is, and only a
+      // PDF/PNG/JPEG is accepted regardless of what the upload claimed to be.
+      const detected = detectAllowedFileType(buffer);
+      if (!detected) {
+        redirect(`/negotiations/new?error=${encodeURIComponent("Attachment must be a PDF, PNG, or JPEG file.")}`);
+      }
+
+      pmAttachmentName = sanitizeFilename(typedFile.name, detected.extension);
+      pmAttachmentMimeType = detected.mimeType;
+      pmAttachmentData = buffer;
     }
   }
 

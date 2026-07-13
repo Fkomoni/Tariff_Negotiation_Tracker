@@ -41,6 +41,10 @@ export function LoginForm() {
       setError("That code is invalid or has expired.");
       return;
     }
+    if (result?.code === "rate_limited") {
+      setError("Too many attempts. Wait a few minutes and try again.");
+      return;
+    }
     if (result?.error) {
       setError("Invalid Prognosis username or password.");
       return;
@@ -69,6 +73,10 @@ export function LoginForm() {
       const check = await checkCredentialsAndMaybeSendOtp(username.trim(), password);
       if (check.status === "invalid_credentials") {
         setError("Invalid Prognosis username or password.");
+        return;
+      }
+      if (check.status === "rate_limited") {
+        setError("Too many attempts. Wait a few minutes and try again.");
         return;
       }
       if (check.status === "no_email_on_file") {
@@ -109,6 +117,10 @@ export function LoginForm() {
     setLoading(true);
     try {
       const check = await checkCredentialsAndMaybeSendOtp(username.trim(), password);
+      if (check.status === "rate_limited") {
+        setError("Too many code requests. Wait a few minutes and try again.");
+        return;
+      }
       setNotice(check.status === "otp_sent" ? "We sent a new code to your email." : "Enter the 6-digit code we emailed you.");
     } finally {
       setLoading(false);

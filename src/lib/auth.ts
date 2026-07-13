@@ -4,7 +4,26 @@ import { prisma } from "@/lib/prisma";
 import { prognosisStaffLogin, PrognosisAuthError, PrognosisUnavailableError } from "@/lib/prognosis";
 import { logAudit } from "@/lib/audit";
 import { isDeviceTrusted, trustThisDevice, verifyOtp } from "@/lib/mfa";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import type { Role, User as PrismaUser } from "@prisma/client";
+
+const LOGIN_MAX_PER_USERNAME = 8;
+const LOGIN_MAX_PER_IP = 20;
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+
+/**
+ * Shared by authorize() and checkCredentialsAndMaybeSendOtp() (mfa-actions.ts)
+ * — both independently call Prognosis to verify a password, so both must
+ * count against the same budget or an attacker gets double the attempts by
+ * alternating between the two entry points.
+ */
+export function checkLoginRateLimit(username: string): { allowed: boolean; retryAfterMs: number } {
+  const byUser = checkRateLimit(`login:user:${username.toLowerCase()}`, LOGIN_MAX_PER_USERNAME, LOGIN_WINDOW_MS);
+  const byIp = checkRateLimit(`login:ip:${getClientIp()}`, LOGIN_MAX_PER_IP, LOGIN_WINDOW_MS);
+  if (!byUser.allowed) return byUser;
+  if (!byIp.allowed) return byIp;
+  return { allowed: true, retryAfterMs: 0 };
+}
 
 declare module "next-auth" {
   interface Session {
@@ -93,6 +112,11 @@ class MfaInvalidCodeSignin extends CredentialsSignin {
   code = "mfa_invalid";
 }
 
+/** Thrown when too many login attempts have come from this username or IP recently. */
+class RateLimitedSignin extends CredentialsSignin {
+  code = "rate_limited";
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
   trustHost: true,
@@ -114,6 +138,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const mfaCode = credentials?.mfaCode ? String(credentials.mfaCode).trim() : "";
         const trustDevice = credentials?.trustDevice === "true";
+
+        if (!checkLoginRateLimit(username).allowed) {
+          throw new RateLimitedSignin();
+        }
 
         let user: PrismaUser;
         try {
