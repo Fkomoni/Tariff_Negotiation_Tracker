@@ -117,6 +117,12 @@ model User {
   email               String?
   role                Role     @default(PENDING)
   lastLoginAt         DateTime?
+  /// Set to now() on logout — any JWT session cookie whose iat predates
+  /// this is rejected on its next use (see the jwt callback in
+  /// src/lib/auth.ts). Without this, a JWT session is purely stateless and
+  /// a copy of the cookie captured before logout would otherwise remain
+  /// valid until its own expiry, regardless of the user logging out.
+  sessionInvalidatedAt DateTime?
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 

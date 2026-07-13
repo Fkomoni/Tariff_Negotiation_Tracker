@@ -190,7 +190,28 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.id = user.id;
         token.role = user.role;
         token.prognosisUsername = user.prognosisUsername;
+        return token;
       }
+
+      // Runs on every session read after initial sign-in (confirmed against
+      // Auth.js's own session-reading code — this callback receives the
+      // *incoming* cookie's original iat, not a refreshed one, and
+      // returning null here makes Auth.js clear the session cookie on this
+      // exact request). Skipped in the Edge proxy, where Prisma can't run —
+      // that's fine, since proxy.ts is coarse UX routing, not the
+      // authorization boundary; every real page/Server Action/API route
+      // also calls auth() in the Node.js runtime and will catch a revoked
+      // session there before any data is touched.
+      if (process.env.NEXT_RUNTIME !== "edge" && token.id && typeof token.iat === "number") {
+        const dbUser = await prisma.user.findUnique({
+          where: { id: token.id },
+          select: { sessionInvalidatedAt: true },
+        });
+        if (dbUser?.sessionInvalidatedAt && dbUser.sessionInvalidatedAt.getTime() > token.iat * 1000) {
+          return null;
+        }
+      }
+
       return token;
     },
     async session({ session, token }) {
