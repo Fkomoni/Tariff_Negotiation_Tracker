@@ -5,25 +5,9 @@ import { auth, resolveStaffUser, checkLoginRateLimit } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PrognosisAuthError, PrognosisUnavailableError, sendEmailAlert } from "@/lib/prognosis";
 import { issueOtp, isDeviceTrusted, OtpRateLimitedError } from "@/lib/mfa";
+import { buildMfaCodeEmailHtml } from "@/lib/email-template";
 
-function otpEmailHtml(code: string, purpose: "sign in to"): string {
-  return `<!doctype html>
-<html><body style="margin:0;padding:0;background:#f4f2f3;font-family:Arial,Helvetica,sans-serif;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f2f3;padding:28px 0;">
-    <tr><td align="center">
-      <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="width:480px;max-width:100%;background:#ffffff;border-radius:14px;border:1px solid #ece7ea;">
-        <tr><td style="padding:28px 32px;">
-          <p style="margin:0 0 12px 0;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9a94a1;">Leadway Health &middot; Provider Tariff Negotiation Tracker</p>
-          <h1 style="margin:0 0 12px 0;font-size:20px;color:#171316;">Your verification code</h1>
-          <p style="margin:0 0 20px 0;font-size:13.5px;line-height:1.6;color:#6b6470;">Use this code to ${purpose} your account. It expires in 10 minutes.</p>
-          <p style="margin:0 0 20px 0;font-size:32px;font-weight:800;letter-spacing:.12em;color:#F2661B;">${code}</p>
-          <p style="margin:0;font-size:12px;line-height:1.6;color:#9a94a1;">If you didn't request this, you can ignore this email — no changes were made to your account.</p>
-        </td></tr>
-      </table>
-    </td></tr>
-  </table>
-</body></html>`;
-}
+const BASE_URL = process.env.NEXTAUTH_URL ?? "https://tariff-negotiation-tracker.onrender.com";
 
 export type CredentialsCheckResult =
   | { status: "invalid_credentials" }
@@ -68,7 +52,7 @@ export async function checkCredentialsAndMaybeSendOtp(username: string, password
     await sendEmailAlert({
       emailAddress: user.email,
       subject: "Your Tariff Negotiation Tracker sign-in code",
-      messageBody: otpEmailHtml(code, "sign in to"),
+      messageBody: buildMfaCodeEmailHtml({ baseUrl: BASE_URL, code, purpose: "sign in to" }),
       reference: "MFA-LOGIN",
     });
   } catch (err) {
