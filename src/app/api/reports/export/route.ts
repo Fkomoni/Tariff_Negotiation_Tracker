@@ -3,8 +3,9 @@ import { requireApiSession } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { buildCaseExportRows, CASE_EXPORT_HEADER } from "@/lib/reports";
 import { toCsv } from "@/lib/csv";
+import { withCors, corsPreflight } from "@/lib/cors";
 
-export async function GET(req: NextRequest) {
+export const GET = withCors(async (req: NextRequest) => {
   const session = await requireApiSession(["ADMIN", "CONTACT_CENTER", "PROVIDER_TEAM"]);
   if (session instanceof NextResponse) return session;
 
@@ -37,4 +38,6 @@ export async function GET(req: NextRequest) {
       "Content-Disposition": `attachment; filename="${filename}"`,
     },
   });
-}
+});
+
+export const OPTIONS = corsPreflight("GET");

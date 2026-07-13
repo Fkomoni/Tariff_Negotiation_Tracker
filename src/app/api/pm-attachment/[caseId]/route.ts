@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireApiSession } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { sanitizeFilename } from "@/lib/file-validation";
+import { withCors, corsPreflight } from "@/lib/cors";
 
-export async function GET(req: NextRequest, props: { params: Promise<{ caseId: string }> }) {
+export const GET = withCors(async (req: NextRequest, props: { params: Promise<{ caseId: string }> }) => {
   const params = await props.params;
   const session = await requireApiSession(["ADMIN", "CONTACT_CENTER", "PROVIDER_TEAM"]);
   if (session instanceof NextResponse) return session;
@@ -28,4 +29,6 @@ export async function GET(req: NextRequest, props: { params: Promise<{ caseId: s
       "X-Content-Type-Options": "nosniff",
     },
   });
-}
+});
+
+export const OPTIONS = corsPreflight("GET");
