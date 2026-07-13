@@ -941,7 +941,12 @@ function extractTreatmentRecords(payload: unknown): TreatmentRecord[] {
  * auth.ts) which runs in the Edge runtime, where Prisma cannot execute.
  */
 export async function fetchTreatmentsFromPrognosis(): Promise<TreatmentRecord[]> {
-  const payload = await serviceRequest("GET", "/api/ListValues/GetAllProcedures");
+  // Confirmed against production logs: this endpoint 405s on GET
+  // ("The requested resource does not support http method 'GET'") — unlike
+  // GetProviders, it only accepts POST. Body is unused by the endpoint but
+  // sent as {} rather than omitted, since some ASP.NET Web API controllers
+  // choke on a POST with no body at all.
+  const payload = await serviceRequest("POST", "/api/ListValues/GetAllProcedures", {});
   const records = extractTreatmentRecords(payload);
   // Surfaces whether this endpoint silently paginates like GetProviders
   // did — if totalRecord/totalPages show up and total exceeds the raw
