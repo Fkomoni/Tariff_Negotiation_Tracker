@@ -775,12 +775,19 @@ async function searchByPhone(compact: string): Promise<EnrolleeRecord[]> {
   return [];
 }
 
+const MEMBERSHIP_ROOT_FANOUT_CONCURRENCY = 5;
+
 /** A bare 6-10 digit number with no "/" is a membership root, not a full
- * enrollee ID — the principal is {root}/0 and dependents are {root}/1..20,
- * so fan out across all of them concurrently and return every match. */
+ * enrollee ID — the principal is {root}/0 and dependents are {root}/1..20.
+ * Fetched in small concurrent batches (not all 21 at once) so one search
+ * request doesn't disproportionately amplify load against Prognosis. */
 async function searchByMembershipRoot(root: string): Promise<EnrolleeRecord[]> {
   const suffixes = Array.from({ length: 21 }, (_, i) => i);
-  const results = await Promise.all(suffixes.map((n) => fetchByEnrolleeId(`${root}/${n}`)));
+  const results: EnrolleeRecord[][] = [];
+  for (let i = 0; i < suffixes.length; i += MEMBERSHIP_ROOT_FANOUT_CONCURRENCY) {
+    const batch = suffixes.slice(i, i + MEMBERSHIP_ROOT_FANOUT_CONCURRENCY);
+    results.push(...(await Promise.all(batch.map((n) => fetchByEnrolleeId(`${root}/${n}`)))));
+  }
   return results.flat();
 }
 

@@ -8,10 +8,19 @@ import { checkCredentialsAndMaybeSendOtp } from "@/app/actions/mfa-actions";
 
 type Step = "credentials" | "otp";
 
+/** Only ever follow a same-origin, relative callbackUrl — anything else (an
+ * absolute URL or a protocol-relative "//host" one) gets dropped in favor of
+ * the default. Prevents an attacker-crafted /login?callbackUrl=https://evil
+ * link from hard-navigating a just-authenticated user off-site. */
+function safeCallbackUrl(raw: string | null): string {
+  if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return "/dashboard";
+  return raw;
+}
+
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+  const callbackUrl = safeCallbackUrl(searchParams.get("callbackUrl"));
 
   const [step, setStep] = useState<Step>("credentials");
   const [username, setUsername] = useState("");

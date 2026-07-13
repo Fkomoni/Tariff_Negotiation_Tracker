@@ -14,6 +14,20 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
+/** Escapes a URL for use in an href="..." attribute and rejects anything
+ * that isn't http(s) (e.g. javascript:) — no caller currently passes
+ * user-controlled input here, but this is shared chrome, so it's escaped
+ * the same as every other interpolated value rather than trusted as safe. */
+function escapeHref(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return "#";
+  } catch {
+    return "#";
+  }
+  return escapeHtml(url);
+}
+
 /** Wraps the first occurrence of `word` in `text` with a yellow highlight —
  * mirrors the reference template's title treatment (e.g. "Your
  * [Reimbursement] Code is Ready"). Falls back to the plain escaped title if
@@ -114,7 +128,7 @@ export function buildEmailShell(params: EmailShellParams): string {
 
   const ctaBlock = ctaButton
     ? `<tr><td align="center" style="padding:26px 32px 0 32px;">
-         <a href="${ctaButton.url}" style="display:inline-block;background:${BRAND_RED};color:#ffffff;font-size:13.5px;font-weight:700;text-decoration:none;padding:13px 28px;border-radius:8px;">${escapeHtml(ctaButton.label)} &rarr;</a>
+         <a href="${escapeHref(ctaButton.url)}" style="display:inline-block;background:${BRAND_RED};color:#ffffff;font-size:13.5px;font-weight:700;text-decoration:none;padding:13px 28px;border-radius:8px;">${escapeHtml(ctaButton.label)} &rarr;</a>
        </td></tr>`
     : "";
 
@@ -123,7 +137,7 @@ export function buildEmailShell(params: EmailShellParams): string {
          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f7f6f7;border:1px solid ${BORDER};border-radius:8px;">
            <tr><td style="padding:12px 16px;">
              <p style="margin:0 0 4px 0;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:${INK_300};">${escapeHtml(copyLink.label)}</p>
-             <a href="${copyLink.url}" style="font-size:12px;color:${BRAND_RED};word-break:break-all;">${escapeHtml(copyLink.url)}</a>
+             <a href="${escapeHref(copyLink.url)}" style="font-size:12px;color:${BRAND_RED};word-break:break-all;">${escapeHtml(copyLink.url)}</a>
            </td></tr>
          </table>
        </td></tr>`
