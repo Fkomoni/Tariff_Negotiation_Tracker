@@ -7,7 +7,7 @@ import type { MfaCodePurpose } from "@prisma/client";
 export const TRUST_COOKIE_NAME = "tnt_trusted_device";
 
 const OTP_TTL_MS = 10 * 60 * 1000;
-const TRUST_TTL_MS = 90 * 24 * 60 * 60 * 1000;
+const TRUST_TTL_MS = 45 * 24 * 60 * 60 * 1000;
 
 const OTP_SEND_MAX = 5;
 const OTP_SEND_WINDOW_MS = 15 * 60 * 1000;
@@ -101,7 +101,7 @@ export async function isDeviceTrusted(userId: string): Promise<boolean> {
   return true;
 }
 
-/** Marks this browser as trusted for 90 days: stores a hashed token server-side, sets the raw token in an httpOnly cookie. */
+/** Marks this browser as trusted for 45 days: stores a hashed token server-side, sets the raw token in an httpOnly cookie. */
 export async function trustThisDevice(userId: string): Promise<void> {
   const token = crypto.randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + TRUST_TTL_MS);

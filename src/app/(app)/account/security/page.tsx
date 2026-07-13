@@ -121,7 +121,7 @@ export default async function AccountSecurityPage({
         <Card>
           <CardHeader
             title="Trusted Devices"
-            subtitle="Browsers you chose to trust for 90 days after completing an MFA challenge"
+            subtitle="Browsers you chose to trust for 45 days after completing an MFA challenge"
           />
           {activeTrustedDevices.length === 0 ? (
             <p className="px-5 py-4 text-[12.5px] text-ink-400">No trusted devices on record.</p>

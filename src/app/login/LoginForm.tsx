@@ -155,7 +155,7 @@ export function LoginForm() {
             onChange={(e) => setTrustDevice(e.target.checked)}
             className="h-4 w-4 rounded border-ink-400"
           />
-          Trust this device for 90 days
+          Trust this device for 45 days
         </label>
 
         {error && (
