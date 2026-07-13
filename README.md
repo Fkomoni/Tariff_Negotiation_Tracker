@@ -86,8 +86,9 @@ npm run dev
   deliberate upgrade rather than doing it under this MVP.
 - Role changes made in Configuration apply on the affected user's *next* sign-in, not
   instantly — this keeps the middleware edge-runtime-safe (Prisma can't run there).
-- Sessions expire after 12 hours (or after 12h of inactivity — active use refreshes it
-  hourly); see `session.maxAge`/`updateAge` in `src/lib/auth.ts`.
+- Sessions time out after 15 minutes of inactivity (a rolling window — active use
+  refreshes it every 5 minutes, so it never expires mid-task); see `session.maxAge`/
+  `updateAge` in `src/lib/auth.ts`.
 - Auth.js is configured with `trustHost: true`, which is required on Render (and most
   non-Vercel platforms) — without it, every request fails with an `UntrustedHost` error,
   because Auth.js needs the incoming `Host`/`X-Forwarded-Host` header to construct its own
