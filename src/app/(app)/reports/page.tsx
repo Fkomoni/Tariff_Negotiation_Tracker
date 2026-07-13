@@ -15,11 +15,12 @@ import {
   pmCategoryCounts,
 } from "@/lib/reports";
 
-export default async function ReportsPage({
-  searchParams,
-}: {
-  searchParams: { from?: string; to?: string };
-}) {
+export default async function ReportsPage(
+  props: {
+    searchParams: Promise<{ from?: string; to?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const session = await auth();
   if (!session?.user) return null;
 

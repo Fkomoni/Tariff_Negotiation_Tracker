@@ -91,7 +91,7 @@ export async function verifyOtp(userId: string, purpose: MfaCodePurpose, code: s
 
 /** Checks the trusted-device cookie (if any) against TrustedDevice rows for this user. */
 export async function isDeviceTrusted(userId: string): Promise<boolean> {
-  const token = cookies().get(TRUST_COOKIE_NAME)?.value;
+  const token = (await cookies()).get(TRUST_COOKIE_NAME)?.value;
   if (!token) return false;
 
   const device = await prisma.trustedDevice.findUnique({ where: { tokenHash: sha256(token) } });
@@ -110,7 +110,7 @@ export async function trustThisDevice(userId: string): Promise<void> {
     data: { userId, tokenHash: sha256(token), expiresAt },
   });
 
-  cookies().set(TRUST_COOKIE_NAME, token, {
+  (await cookies()).set(TRUST_COOKIE_NAME, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",

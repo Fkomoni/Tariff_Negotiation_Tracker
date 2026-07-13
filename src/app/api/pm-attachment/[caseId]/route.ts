@@ -3,7 +3,8 @@ import { requireApiSession } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { sanitizeFilename } from "@/lib/file-validation";
 
-export async function GET(req: NextRequest, { params }: { params: { caseId: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ caseId: string }> }) {
+  const params = await props.params;
   const session = await requireApiSession(["ADMIN", "CONTACT_CENTER", "PROVIDER_TEAM"]);
   if (session instanceof NextResponse) return session;
 

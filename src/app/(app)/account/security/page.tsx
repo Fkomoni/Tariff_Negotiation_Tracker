@@ -12,11 +12,12 @@ import {
   revokeTrustedDevice,
 } from "@/app/actions/mfa-actions";
 
-export default async function AccountSecurityPage({
-  searchParams,
-}: {
-  searchParams: { error?: string; codeSent?: string; enabled?: string; disabled?: string };
-}) {
+export default async function AccountSecurityPage(
+  props: {
+    searchParams: Promise<{ error?: string; codeSent?: string; enabled?: string; disabled?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const session = await auth();
   if (!session?.user) return null;
 

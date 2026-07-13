@@ -17,9 +17,9 @@ const LOGIN_WINDOW_MS = 15 * 60 * 1000;
  * count against the same budget or an attacker gets double the attempts by
  * alternating between the two entry points.
  */
-export function checkLoginRateLimit(username: string): { allowed: boolean; retryAfterMs: number } {
+export async function checkLoginRateLimit(username: string): Promise<{ allowed: boolean; retryAfterMs: number }> {
   const byUser = checkRateLimit(`login:user:${username.toLowerCase()}`, LOGIN_MAX_PER_USERNAME, LOGIN_WINDOW_MS);
-  const byIp = checkRateLimit(`login:ip:${getClientIp()}`, LOGIN_MAX_PER_IP, LOGIN_WINDOW_MS);
+  const byIp = checkRateLimit(`login:ip:${await getClientIp()}`, LOGIN_MAX_PER_IP, LOGIN_WINDOW_MS);
   if (!byUser.allowed) return byUser;
   if (!byIp.allowed) return byIp;
   return { allowed: true, retryAfterMs: 0 };
@@ -149,7 +149,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const mfaCode = credentials?.mfaCode ? String(credentials.mfaCode).trim() : "";
         const trustDevice = credentials?.trustDevice === "true";
 
-        if (!checkLoginRateLimit(username).allowed) {
+        if (!(await checkLoginRateLimit(username)).allowed) {
           throw new RateLimitedSignin();
         }
 

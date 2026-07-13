@@ -2,8 +2,8 @@ import { headers } from "next/headers";
 
 /** Best-effort caller IP from proxy headers — Render sits in front of this
  * app, so the real client IP arrives via X-Forwarded-For, not the socket. */
-export function getClientIp(): string {
-  const h = headers();
+export async function getClientIp(): Promise<string> {
+  const h = await headers();
   const forwarded = h.get("x-forwarded-for");
   if (forwarded) return forwarded.split(",")[0].trim();
   return h.get("x-real-ip") ?? "unknown";

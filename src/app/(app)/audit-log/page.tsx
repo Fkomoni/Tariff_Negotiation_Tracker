@@ -26,11 +26,12 @@ interface UnifiedEntry {
   caseId?: string;
 }
 
-export default async function AuditLogPage({
-  searchParams,
-}: {
-  searchParams: { from?: string; to?: string; actor?: string; action?: string };
-}) {
+export default async function AuditLogPage(
+  props: {
+    searchParams: Promise<{ from?: string; to?: string; actor?: string; action?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const session = await auth();
   if (!session?.user) return null;
   if (session.user.role !== "ADMIN") redirect("/dashboard");

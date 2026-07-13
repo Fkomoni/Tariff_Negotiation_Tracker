@@ -38,6 +38,9 @@ signs in.
    and connect this repository.
 3. Configure:
    - **Environment:** Node
+   - **Node version:** 20.9 or later — required by Next.js 16 (`package.json`'s `engines.node`
+     documents this; if Render's default image is older, set `NODE_VERSION` under Environment
+     variables, or add a `.node-version` file pinning it).
    - **Build Command:** `npm install && npm run db:migrate:deploy`
    - **Start Command:** `npm run start`
    - **Instance Type:** Starter is fine to begin with.
@@ -80,10 +83,22 @@ npm run dev
 
 ## Notes / known follow-ups
 
-- `npm audit` flags several advisories against the `next@14.2.x` line (mostly around
-  `next/image`, i18n Pages Router, and WebSocket upgrades — none of which this app uses).
-  A move to Next 15/16 would clear them but is a breaking change; worth scheduling as a
-  deliberate upgrade rather than doing it under this MVP.
+- Upgraded to Next.js 16.2.10 + React 19 (from 14.2.35 / React 18) specifically to clear
+  a High-severity `npm audit` advisory on `next` that had no fix on the 14.x line — several
+  of the underlying CVEs (RSC DoS/cache-poisoning, middleware-redirect cache-poisoning) were
+  architecturally applicable to this app (App Router + middleware redirects), not just
+  theoretical. Also bumped `next-auth` to `5.0.0-beta.31`, clearing a separate low-severity
+  `cookie` advisory. The `middleware.ts` file was renamed to `proxy.ts` (Next 16 deprecated
+  the old convention). `npm audit` now reports one remaining moderate advisory: a `postcss`
+  version bundled *inside* `next`'s own `node_modules` (not this project's own Tailwind
+  pipeline, which is already on a patched postcss) — it's Next.js's own internal build
+  tooling dependency, not reachable by any runtime request this app handles, and not
+  something `npm overrides` can reach past Next's own nested resolution. Re-check on the
+  next `next` patch release.
+  Verified: clean `tsc --noEmit` and `next build` (all 19 routes). Not independently
+  smoke-tested end-to-end against live Prognosis/a real database from this environment —
+  do a full manual pass through login, case logging, and the provider-team queue after
+  deploying this before treating it as fully verified in production.
 - Role changes made in Configuration apply on the affected user's *next* sign-in, not
   instantly — this keeps the middleware edge-runtime-safe (Prisma can't run there).
 - Sessions time out after 15 minutes of inactivity (a rolling window — active use

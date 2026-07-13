@@ -18,11 +18,12 @@ const SORT_OPTIONS: Record<string, { label: string; orderBy: Prisma.NegotiationC
   pending: { label: "Longest Pending", orderBy: [{ loggedAt: "asc" }] },
 };
 
-export default async function OpenNegotiationsPage({
-  searchParams,
-}: {
-  searchParams: { sort?: string; status?: string; urgency?: string };
-}) {
+export default async function OpenNegotiationsPage(
+  props: {
+    searchParams: Promise<{ sort?: string; status?: string; urgency?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const session = await auth();
   if (!session?.user) return null;
 

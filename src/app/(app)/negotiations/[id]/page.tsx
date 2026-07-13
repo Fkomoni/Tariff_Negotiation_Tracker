@@ -27,13 +27,14 @@ import {
 import { updateCaseStatus, addNote } from "@/app/actions/case-actions";
 import type { CaseStatus } from "@prisma/client";
 
-export default async function CaseDetailsPage({
-  params,
-  searchParams,
-}: {
-  params: { id: string };
-  searchParams: { error?: string; tab?: string };
-}) {
+export default async function CaseDetailsPage(
+  props: {
+    params: Promise<{ id: string }>;
+    searchParams: Promise<{ error?: string; tab?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const session = await auth();
   if (!session?.user) return null;
 

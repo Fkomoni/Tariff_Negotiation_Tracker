@@ -10,11 +10,12 @@ import { RequestFields } from "@/components/RequestFields";
 import type { ProviderInitial } from "@/components/ProviderFields";
 import type { EnrolleeInitial } from "@/components/EnrolleeFields";
 
-export default async function LogNegotiationPage({
-  searchParams,
-}: {
-  searchParams: { error?: string; repeatFrom?: string };
-}) {
+export default async function LogNegotiationPage(
+  props: {
+    searchParams: Promise<{ error?: string; repeatFrom?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const session = await auth();
   if (!session?.user) return null;
 

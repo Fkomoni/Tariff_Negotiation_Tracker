@@ -7,11 +7,12 @@ import { ConfigIcon } from "@/components/icons";
 import { ROLE_LABELS, formatDateTime } from "@/lib/domain";
 import { assignRole, provisionUser, deleteUser, syncPrognosisLookups } from "@/app/actions/admin-actions";
 
-export default async function ConfigurationPage({
-  searchParams,
-}: {
-  searchParams: { error?: string; synced?: string };
-}) {
+export default async function ConfigurationPage(
+  props: {
+    searchParams: Promise<{ error?: string; synced?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const session = await auth();
   if (!session?.user) return null;
 

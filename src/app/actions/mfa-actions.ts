@@ -44,7 +44,7 @@ export type CredentialsCheckResult =
  * must count against the same attempt limit, not double it.
  */
 export async function checkCredentialsAndMaybeSendOtp(username: string, password: string): Promise<CredentialsCheckResult> {
-  if (!checkLoginRateLimit(username).allowed) {
+  if (!(await checkLoginRateLimit(username)).allowed) {
     return { status: "rate_limited" };
   }
 
