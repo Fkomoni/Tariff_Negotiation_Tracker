@@ -181,7 +181,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         try {
           user = await resolveStaffUser(username, password);
         } catch (err) {
-          console.error(`[auth] Prognosis staff login failed for username "${username}":`, err);
+          console.error(`[auth] Prognosis staff login failed for username:`, username, err);
           if (err instanceof PrognosisAuthError || err instanceof PrognosisUnavailableError) return null;
           throw err;
         }

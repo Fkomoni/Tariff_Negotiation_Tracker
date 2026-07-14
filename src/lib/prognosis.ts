@@ -726,7 +726,7 @@ async function fetchEnrolleeEndpoint(path: string): Promise<EnrolleeRecord[]> {
     const payload = await serviceRequest("GET", path, undefined, ENROLLEE_HEADERS);
     return extractEnrolleeRecords(payload);
   } catch (err) {
-    console.error(`[prognosis] enrollee lookup failed for ${path}:`, err);
+    console.error(`[prognosis] enrollee lookup failed for path:`, path, err);
     return [];
   }
 }
@@ -898,10 +898,10 @@ async function fetchProviderTariffFromPrognosis(providerCode: string): Promise<T
     // items.length, this needs the same "ask for everything" fix.
     const p = (payload && typeof payload === "object" ? payload : {}) as Record<string, unknown>;
     const meta = { pageSize: p.pageSize, totalRecord: p.totalRecord, totalPages: p.totalPages, currentPage: p.currentPage };
-    console.error(`[prognosis] provider ${providerCode} tariff item count: ${items.length}`, JSON.stringify(meta));
+    console.error(`[prognosis] tariff item count for provider:`, providerCode, items.length, JSON.stringify(meta));
     return items;
   } catch (err) {
-    console.error(`[prognosis] tariff lookup failed for provider ${providerCode}:`, err);
+    console.error(`[prognosis] tariff lookup failed for provider:`, providerCode, err);
     return [];
   }
 }
@@ -1009,7 +1009,7 @@ export async function fetchTreatmentsFromPrognosis(): Promise<TreatmentRecord[]>
   // "ask for everything" fix GetProviders got.
   const p = (payload && typeof payload === "object" ? payload : {}) as Record<string, unknown>;
   const meta = { pageSize: p.pageSize, totalRecord: p.totalRecord, totalPages: p.totalPages, currentPage: p.currentPage };
-  console.error(`[prognosis] loaded ${records.length} treatments`, JSON.stringify(meta));
+  console.error(`[prognosis] loaded treatments:`, records.length, JSON.stringify(meta));
   return records;
 }
 
