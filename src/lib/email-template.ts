@@ -61,7 +61,7 @@ export interface EmailShellParams {
   /** Substring of `title` to render with a yellow highlight, matching the reference template. */
   highlightedWord?: string;
   /** Switches the header to the light brand-bar + badge-tag treatment (logo/wordmark left, contextual note + bell right, then a cream card with a pill badge and dark title) instead of the solid-color block. */
-  badge?: { icon: string; label: string };
+  badge?: { label: string };
   /** Right-aligned text next to the bell icon in the brand bar (e.g. "Update on your care") — only used with `badge`. */
   contextLabel?: string;
   intro?: string;
@@ -172,13 +172,13 @@ export function buildEmailShell(params: EmailShellParams): string {
               <td style="padding:18px 28px;background:#ffffff;border-bottom:1px solid ${BORDER};">
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
                   <td><img src="${baseUrl}/leadway-logo.png" alt="Leadway Health" height="22" style="height:22px;width:auto;vertical-align:middle;" /></td>
-                  <td align="right" style="font-size:12px;color:${INK_500};vertical-align:middle;">${contextLabel ? escapeHtml(contextLabel) + " " : ""}&#128276;</td>
+                  <td align="right" style="font-size:12px;color:${INK_500};vertical-align:middle;">${contextLabel ? escapeHtml(contextLabel) : ""}</td>
                 </tr></table>
               </td>
             </tr>
             <tr>
               <td style="padding:24px 28px 20px 28px;background:#fdf3e7;">
-                <span style="display:inline-block;background:#fce3c2;color:#c8631b;font-size:10.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:6px 12px;border-radius:20px;">${escapeHtml(badge.icon)} ${escapeHtml(badge.label)}</span>
+                <span style="display:inline-block;background:#fce3c2;color:#c8631b;font-size:10.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:6px 12px;border-radius:20px;">${escapeHtml(badge.label)}</span>
                 <h1 style="margin:12px 0 0 0;font-size:21px;line-height:1.3;font-weight:800;color:${INK_900};">${highlightWord(title, highlightedWord)}</h1>
               </td>
             </tr>`
@@ -252,7 +252,7 @@ export function buildMemberNotificationEmailHtml(params: MemberNotificationEmail
 
   return buildEmailShell({
     baseUrl: params.baseUrl,
-    badge: { icon: "💬", label: params.urgency === "URGENT" ? "Important Update" : "Update" },
+    badge: { label: params.urgency === "URGENT" ? "Important Update" : "Update" },
     contextLabel: "Update on your care",
     title: params.title,
     intro: params.message,
@@ -282,7 +282,7 @@ export function buildMfaCodeEmailHtml(params: { baseUrl: string; code: string; p
     highlightedWord: "Sign-In",
     intro: `Use this code to ${params.purpose} the Provider Tariff Negotiation Tracker.`,
     codeBox: { label: "Verification Code", code: params.code },
-    notices: ["⏰ This code expires in 10 minutes.", "🔒 It's single-use and tied to your account only."],
+    notices: ["This code expires in 10 minutes.", "It's single-use and tied to your account only."],
     footerNote: "If you didn't request this, you can ignore this email — no changes were made to your account.",
   });
 }

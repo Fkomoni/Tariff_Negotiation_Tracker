@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { AlertIcon, CheckMarkIcon, CloseIcon } from "@/components/icons";
 
 type ToastState = { type: "success" | "error"; message: string } | null;
 
@@ -50,12 +51,12 @@ function ToastHostInner() {
         }`}
       >
         <span
-          className={`mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full text-[10px] ${
+          className={`mt-0.5 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full ${
             isSuccess ? "bg-emerald-600 text-white" : "bg-brand text-white"
           }`}
           aria-hidden
         >
-          {isSuccess ? "✓" : "!"}
+          {isSuccess ? <CheckMarkIcon className="h-2.5 w-2.5" /> : <AlertIcon className="h-2.5 w-2.5" />}
         </span>
         <p className={`flex-1 text-[12px] font-medium leading-snug ${isSuccess ? "text-emerald-800" : "text-red-800"}`}>
           {toast.message}
@@ -64,9 +65,9 @@ function ToastHostInner() {
           type="button"
           onClick={() => setToast(null)}
           aria-label="Dismiss"
-          className={`text-[13px] ${isSuccess ? "text-emerald-500 hover:text-emerald-700" : "text-red-500 hover:text-red-700"}`}
+          className={isSuccess ? "text-emerald-500 hover:text-emerald-700" : "text-red-500 hover:text-red-700"}
         >
-          ✕
+          <CloseIcon className="h-3.5 w-3.5" />
         </button>
       </div>
     </div>

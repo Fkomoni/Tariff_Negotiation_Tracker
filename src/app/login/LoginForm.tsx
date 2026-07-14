@@ -4,6 +4,7 @@ import { useState, type FormEvent } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { inputClass } from "@/components/ui";
+import { AlertIcon } from "@/components/icons";
 import { checkCredentialsAndMaybeSendOtp } from "@/app/actions/mfa-actions";
 
 type Step = "credentials" | "otp";
@@ -169,7 +170,7 @@ export function LoginForm() {
 
         {error && (
           <p className="flex items-center gap-1.5 text-[12.5px] font-medium text-brand-400">
-            <span aria-hidden>⚠</span> {error}
+            <AlertIcon className="h-3.5 w-3.5 flex-shrink-0" /> {error}
           </p>
         )}
 
@@ -242,7 +243,7 @@ export function LoginForm() {
 
       {error && (
         <p className="flex items-center gap-1.5 text-[12.5px] font-medium text-brand-400">
-          <span aria-hidden>⚠</span> {error}
+          <AlertIcon className="h-3.5 w-3.5 flex-shrink-0" /> {error}
         </p>
       )}
 
