@@ -252,7 +252,7 @@ const updateStatusSchema = z.object({
     "ESCALATED",
   ]),
   note: z.string().optional(),
-  finalAgreedAmount: z.coerce.number().optional(),
+  finalAgreedAmount: z.coerce.number().min(0, "Final agreed amount must be non-negative").optional(),
   effectiveDate: z.string().optional(),
   approvalReason: z.string().optional(),
 });
