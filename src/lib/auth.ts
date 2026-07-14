@@ -150,6 +150,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const trustDevice = credentials?.trustDevice === "true";
 
         if (!(await checkLoginRateLimit(username)).allowed) {
+          console.error(`[auth] rate_limited for username "${username}"`);
           throw new RateLimitedSignin();
         }
 
@@ -167,9 +168,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // completed MFA once on that device).
         const trusted = await isDeviceTrusted(user.id);
         if (!trusted) {
-          if (!mfaCode) throw new MfaRequiredSignin();
+          if (!mfaCode) {
+            console.error(`[auth] mfa_required for username "${username}" (no code submitted yet)`);
+            throw new MfaRequiredSignin();
+          }
           const ok = await verifyOtp(user.id, "LOGIN", mfaCode);
-          if (!ok) throw new MfaInvalidCodeSignin();
+          if (!ok) {
+            // Doesn't log the submitted code itself — only that this attempt
+            // didn't match, so this line can't be used to narrow down a live
+            // code by trial and error via log access.
+            console.error(`[auth] mfa_invalid for username "${username}" — code didn't match, was already used, or expired`);
+            throw new MfaInvalidCodeSignin();
+          }
           if (trustDevice) await trustThisDevice(user.id);
         }
 
