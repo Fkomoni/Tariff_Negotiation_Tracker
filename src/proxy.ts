@@ -46,5 +46,13 @@ export default auth((req) => {
 });
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  // Static files in public/ (logo, award-banner image, etc.) have no
+  // trailing prefix like _next/static to exclude by — without matching on
+  // file extension too, a request for e.g. /leadway-logo.png hits this
+  // middleware, gets treated as an unauthenticated page request, and
+  // 307-redirects to /login instead of serving the actual image. That
+  // redirect loop is exactly why the login page's own logo silently
+  // rendered as a broken image: the page and its own asset both go
+  // through this same auth check.
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|gif|svg|webp|ico)$).*)"],
 };

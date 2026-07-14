@@ -115,15 +115,15 @@ export default async function AuditLogPage(
         <Card className="flex flex-wrap items-end gap-3 px-5 py-4">
           <form className="flex flex-wrap items-end gap-3" action="/audit-log">
             <label className="block">
-              <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-ink-400">From</span>
+              <span className="mb-1.5 block text-[12.5px] font-semibold text-ink-700">From</span>
               <input type="date" name="from" defaultValue={from ?? ""} className="rounded-lg border border-ink-200 px-3 py-1.5 text-[12.5px]" />
             </label>
             <label className="block">
-              <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-ink-400">To</span>
+              <span className="mb-1.5 block text-[12.5px] font-semibold text-ink-700">To</span>
               <input type="date" name="to" defaultValue={to ?? ""} className="rounded-lg border border-ink-200 px-3 py-1.5 text-[12.5px]" />
             </label>
             <label className="block">
-              <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-ink-400">Actor</span>
+              <span className="mb-1.5 block text-[12.5px] font-semibold text-ink-700">Actor</span>
               <select name="actor" defaultValue={actorFilter ?? ""} className="rounded-lg border border-ink-200 px-3 py-1.5 text-[12.5px]">
                 <option value="">All staff</option>
                 {users.map((u) => (
@@ -134,7 +134,7 @@ export default async function AuditLogPage(
               </select>
             </label>
             <label className="block">
-              <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-ink-400">Action</span>
+              <span className="mb-1.5 block text-[12.5px] font-semibold text-ink-700">Action</span>
               <select name="action" defaultValue={actionFilter ?? ""} className="rounded-lg border border-ink-200 px-3 py-1.5 text-[12.5px]">
                 <option value="">All actions</option>
                 {Object.entries(ACTION_LABELS).map(([value, label]) => (

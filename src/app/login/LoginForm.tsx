@@ -176,7 +176,7 @@ export function LoginForm() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-lg bg-brand py-3 text-[14px] font-bold text-white shadow-glow transition-colors hover:bg-brand-600 disabled:opacity-60"
+          className="w-full rounded-lg bg-brand py-2.5 text-[13.5px] font-semibold text-white shadow-glow transition-colors hover:bg-brand-600 disabled:opacity-60"
         >
           {loading ? "Verifying…" : "Verify & Sign In"}
         </button>
@@ -249,7 +249,7 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded-lg bg-brand py-3 text-[14px] font-bold text-white shadow-glow transition-colors hover:bg-brand-600 disabled:opacity-60"
+        className="w-full rounded-lg bg-brand py-2.5 text-[13.5px] font-semibold text-white shadow-glow transition-colors hover:bg-brand-600 disabled:opacity-60"
       >
         {loading ? "Signing in…" : "Sign In"}
       </button>

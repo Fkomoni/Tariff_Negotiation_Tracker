@@ -12,7 +12,7 @@ export default async function PendingApprovalPage() {
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-brand text-white shadow-glow">
           <ShieldIcon className="h-6 w-6" />
         </div>
-        <h1 className="mt-5 text-lg font-bold text-white">Awaiting role assignment</h1>
+        <h1 className="mt-5 text-[18px] font-bold text-white">Awaiting role assignment</h1>
         <p className="mt-2 text-[13.5px] leading-relaxed text-ink-300">
           Your account (<span className="font-semibold text-white">{session?.user?.prognosisUsername}</span>) has
           signed in successfully but hasn&apos;t been assigned a role yet. Ask an Admin to assign you as

@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Header } from "@/components/Header";
-import { Card, CardHeader, inputClass } from "@/components/ui";
+import { Card, CardHeader, Field, inputClass } from "@/components/ui";
 import { SubmitButton } from "@/components/SubmitButton";
 import { ConfigIcon } from "@/components/icons";
 import { ROLE_LABELS, formatDateTime } from "@/lib/domain";
@@ -48,19 +48,15 @@ export default async function ConfigurationPage() {
         <Card>
           <CardHeader title="Add Staff Member" subtitle="Set a role before someone signs in for the first time" />
           <form action={provisionUser} className="flex items-end gap-3 px-5 py-4">
-            <label className="block flex-1">
-              <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-ink-400">
-                Prognosis Username / Email
-              </span>
+            <Field label="Prognosis Username / Email" className="flex-1">
               <input
                 name="prognosisUsername"
                 required
                 placeholder="e.g. f-komoni-mbaekwe"
                 className={inputClass}
               />
-            </label>
-            <label className="block">
-              <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-ink-400">Role</span>
+            </Field>
+            <Field label="Role">
               <select name="role" defaultValue="PENDING" className={`${inputClass} w-48`}>
                 {Object.entries(ROLE_LABELS).map(([value, label]) => (
                   <option key={value} value={value}>
@@ -68,7 +64,7 @@ export default async function ConfigurationPage() {
                   </option>
                 ))}
               </select>
-            </label>
+            </Field>
             <SubmitButton pendingLabel="Adding…">Add</SubmitButton>
           </form>
         </Card>

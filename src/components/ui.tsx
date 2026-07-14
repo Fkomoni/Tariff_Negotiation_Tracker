@@ -63,7 +63,7 @@ export function StatTile({ label, value, tone = "default", hint }: { label: stri
   };
   return (
     <Card className="px-5 py-4">
-      <p className="text-[11.5px] font-medium uppercase tracking-wide text-ink-400">{label}</p>
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">{label}</p>
       <p className={`mt-1.5 text-[26px] font-extrabold leading-none ${toneClass[tone]}`}>{value}</p>
       {hint && <p className="mt-1 text-[11.5px] text-ink-400">{hint}</p>}
     </Card>

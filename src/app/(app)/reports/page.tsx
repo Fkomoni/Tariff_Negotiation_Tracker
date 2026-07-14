@@ -68,11 +68,11 @@ export default async function ReportsPage(
         <Card className="flex flex-wrap items-end justify-between gap-4 px-5 py-4">
           <form className="flex flex-wrap items-end gap-3" action="/reports">
             <label className="block">
-              <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-ink-400">From</span>
+              <span className="mb-1.5 block text-[12.5px] font-semibold text-ink-700">From</span>
               <input type="date" name="from" defaultValue={from ?? ""} className="rounded-lg border border-ink-200 px-3 py-1.5 text-[12.5px]" />
             </label>
             <label className="block">
-              <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-ink-400">To</span>
+              <span className="mb-1.5 block text-[12.5px] font-semibold text-ink-700">To</span>
               <input type="date" name="to" defaultValue={to ?? ""} className="rounded-lg border border-ink-200 px-3 py-1.5 text-[12.5px]" />
             </label>
             <button type="submit" className="rounded-lg bg-ink-900 px-3.5 py-1.5 text-[12.5px] font-semibold text-white hover:bg-ink-800">

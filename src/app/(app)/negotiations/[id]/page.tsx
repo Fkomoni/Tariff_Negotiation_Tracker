@@ -139,7 +139,7 @@ export default async function CaseDetailsPage(
       {activeTab === "provider-team" ? (
         <div className="mx-auto w-full max-w-2xl flex-1 space-y-6 px-8 py-8">
           <Card className="px-5 py-4">
-            <p className="text-[11.5px] font-semibold uppercase tracking-wide text-ink-400">At a Glance</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">At a Glance</p>
             <dl className="mt-3 grid grid-cols-2 gap-4">
               <Detail label="Provider" value={negotiationCase.providerName} />
               <Detail label="Provider Code" value={negotiationCase.providerCode ?? "—"} />
@@ -218,7 +218,7 @@ export default async function CaseDetailsPage(
           </Card>
 
           <Card className="px-5 py-4">
-            <p className="text-[11.5px] font-semibold uppercase tracking-wide text-ink-400">Timing</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">Timing</p>
             <div className="mt-3 space-y-3">
               <TimingRow label="Log → First Provider Team Action" value={formatDuration(firstActionMs)} />
               <TimingRow label="Log → Now / Completion" value={formatDuration(totalMs)} />
@@ -423,7 +423,7 @@ export default async function CaseDetailsPage(
 
           <div className="space-y-6">
             <Card className="px-5 py-4">
-              <p className="text-[11.5px] font-semibold uppercase tracking-wide text-ink-400">Timing</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">Timing</p>
               <div className="mt-3 space-y-3">
                 <TimingRow label="Log → First Provider Team Action" value={formatDuration(firstActionMs)} />
                 <TimingRow label="Log → Now / Completion" value={formatDuration(totalMs)} />
@@ -439,7 +439,7 @@ export default async function CaseDetailsPage(
                       <Link href={`/negotiations/${c.id}`} className="text-[12.5px] font-semibold text-ink-900 hover:underline">
                         {c.caseNumber}
                       </Link>
-                      <p className="text-[11.5px] text-ink-500">{c.requestedItem}</p>
+                      <p className="text-[11px] text-ink-500">{c.requestedItem}</p>
                       <Badge className={`mt-1 ${CASE_STATUS_BADGE[c.status]}`}>{CASE_STATUS_LABELS[c.status]}</Badge>
                     </li>
                   ))}
@@ -475,7 +475,7 @@ export default async function CaseDetailsPage(
                             {n.status}
                           </Badge>
                         </div>
-                        <p className="mt-1 text-[11.5px] text-ink-500">
+                        <p className="mt-1 text-[11px] text-ink-500">
                           {n.recipientEmail ?? n.recipientPhone} · {formatDateTime(n.createdAt)}
                         </p>
                         <p className="mt-1 text-[11px] text-ink-400">by {n.sentBy.displayName ?? n.sentBy.prognosisUsername}</p>

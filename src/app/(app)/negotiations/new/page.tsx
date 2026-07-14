@@ -57,7 +57,7 @@ export default async function LogNegotiationPage(
 
       <div className="mx-auto w-full max-w-3xl px-8 py-8">
         <Card className="p-6">
-          <h2 className="text-[15px] font-bold text-ink-900">New Provider Tariff Negotiation</h2>
+          <h2 className="text-[13.5px] font-bold text-ink-900">New Provider Tariff Negotiation</h2>
           <p className="mt-1 text-[12.5px] text-ink-400">
             The timer starts the moment this request is logged. Your name and the current time are
             recorded automatically.

@@ -45,11 +45,11 @@ export function Sidebar({ role, openNegotiationsCount = 0 }: { role: Role; openN
         </div>
         <div>
           <p className="text-[15px] font-bold leading-tight text-white">Leadway Health</p>
-          <p className="text-[11px] font-medium uppercase tracking-wide text-ink-400">Tariff Negotiation</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">Tariff Negotiation</p>
         </div>
       </div>
 
-      <p className="mt-2 px-6 text-[10px] font-semibold uppercase tracking-widest text-ink-500">
+      <p className="mt-2 px-6 text-[11px] font-semibold uppercase tracking-wide text-ink-500">
         Main Menu
       </p>
 
