@@ -92,14 +92,35 @@ export async function provisionUser(formData: FormData) {
       );
     }
   } else {
-    await prisma.user.create({
-      data: { prognosisUsername: data.prognosisUsername.toLowerCase(), role: data.role },
-    });
-    await logAudit(
-      "ROLE_CHANGE",
-      `${session.user.name ?? session.user.prognosisUsername} pre-provisioned ${data.prognosisUsername} with role ${ROLE_LABELS[data.role]} (not yet signed in)`,
-      session.user.id
-    );
+    try {
+      await prisma.user.create({
+        data: { prognosisUsername: data.prognosisUsername.toLowerCase(), role: data.role },
+      });
+      await logAudit(
+        "ROLE_CHANGE",
+        `${session.user.name ?? session.user.prognosisUsername} pre-provisioned ${data.prognosisUsername} with role ${ROLE_LABELS[data.role]} (not yet signed in)`,
+        session.user.id
+      );
+    } catch (err) {
+      // A concurrent provisionUser call for the same (case-variant)
+      // username — e.g. a double-click, or two Admins adding the same
+      // person at once — can race between the findFirst above and this
+      // create. The database's case-insensitive unique index (see
+      // prisma/schema.prisma) rejects the second insert rather than
+      // creating a duplicate account; fall back to updating whichever row
+      // won the race instead of showing an error for something that isn't
+      // actually a failure.
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+        const winner = await prisma.user.findFirst({
+          where: { prognosisUsername: { equals: data.prognosisUsername, mode: "insensitive" } },
+        });
+        if (winner && winner.role !== data.role) {
+          await prisma.user.update({ where: { id: winner.id }, data: { role: data.role } });
+        }
+      } else {
+        throw err;
+      }
+    }
   }
 
   revalidatePath("/configuration");

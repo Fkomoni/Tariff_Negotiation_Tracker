@@ -5,7 +5,7 @@ import { prognosisStaffLogin, PrognosisAuthError, PrognosisUnavailableError } fr
 import { logAudit } from "@/lib/audit";
 import { isDeviceTrusted, trustThisDevice, verifyOtp } from "@/lib/mfa";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
-import type { Role, User as PrismaUser } from "@prisma/client";
+import { Prisma, type Role, type User as PrismaUser } from "@prisma/client";
 
 const LOGIN_MAX_PER_USERNAME = 8;
 const LOGIN_MAX_PER_IP = 20;
@@ -79,25 +79,48 @@ export async function resolveStaffUser(username: string, password: string): Prom
     where: { prognosisUsername: { equals: username, mode: "insensitive" } },
   });
 
-  return existing
-    ? prisma.user.update({
-        where: { id: existing.id },
-        data: {
-          lastLoginAt: new Date(),
-          role: isSeededAdmin && existing.role !== "ADMIN" ? "ADMIN" : existing.role,
-          displayName: existing.displayName ?? staff.displayName,
-          email: existing.email ?? staff.email,
-        },
-      })
-    : prisma.user.create({
-        data: {
-          prognosisUsername: username.toLowerCase(),
-          displayName: staff.displayName,
-          email: staff.email,
-          role: isSeededAdmin ? "ADMIN" : "PENDING",
-          lastLoginAt: new Date(),
-        },
+  if (existing) {
+    return prisma.user.update({
+      where: { id: existing.id },
+      data: {
+        lastLoginAt: new Date(),
+        role: isSeededAdmin && existing.role !== "ADMIN" ? "ADMIN" : existing.role,
+        displayName: existing.displayName ?? staff.displayName,
+        email: existing.email ?? staff.email,
+      },
+    });
+  }
+
+  try {
+    return await prisma.user.create({
+      data: {
+        prognosisUsername: username.toLowerCase(),
+        displayName: staff.displayName,
+        email: staff.email,
+        role: isSeededAdmin ? "ADMIN" : "PENDING",
+        lastLoginAt: new Date(),
+      },
+    });
+  } catch (err) {
+    // A concurrent first-time login/provision for the same (case-variant)
+    // username can race between the findFirst above and this create — the
+    // database's case-insensitive unique index (see prisma/schema.prisma)
+    // rejects the second insert instead of allowing a duplicate account.
+    // Re-fetch and use whichever row won the race rather than surfacing a
+    // 500 to a real user for something that isn't actually an error case.
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      const winner = await prisma.user.findFirst({
+        where: { prognosisUsername: { equals: username, mode: "insensitive" } },
       });
+      if (winner) {
+        return prisma.user.update({
+          where: { id: winner.id },
+          data: { lastLoginAt: new Date() },
+        });
+      }
+    }
+    throw err;
+  }
 }
 
 /** Thrown from authorize() when the user has MFA enabled, the device isn't

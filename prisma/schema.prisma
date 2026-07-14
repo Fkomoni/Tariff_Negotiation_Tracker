@@ -112,6 +112,11 @@ enum MfaCodePurpose {
 
 model User {
   id                String   @id @default(cuid())
+  /// Exact-string uniqueness only — a case-insensitive uniqueness guarantee
+  /// also exists in the database via a raw-SQL migration
+  /// (User_prognosisUsername_ci_key, on LOWER(prognosisUsername)), since
+  /// Prisma has no declarative way to express a functional/expression
+  /// index here. Do not remove that index without replacing it.
   prognosisUsername String   @unique
   displayName        String?
   email               String?
