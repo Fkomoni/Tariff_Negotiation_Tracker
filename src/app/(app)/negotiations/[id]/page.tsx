@@ -6,7 +6,7 @@ import { Header } from "@/components/Header";
 import { Card, CardHeader, Badge, Button, Field, inputClass } from "@/components/ui";
 import { Timeline } from "@/components/Timeline";
 import { SubmitButton } from "@/components/SubmitButton";
-import { LogIcon, BellIcon } from "@/components/icons";
+import { LogIcon, BellIcon, DownloadIcon } from "@/components/icons";
 import {
   CASE_STATUS_BADGE,
   CASE_STATUS_LABELS,
@@ -168,8 +168,13 @@ export default async function CaseDetailsPage(
                     <Detail
                       label="Attachment"
                       value={
-                        <a href={`/api/pm-attachment/${negotiationCase.id}`} className="text-brand-600 hover:underline">
-                          {negotiationCase.pmAttachmentName}
+                        <a
+                          href={`/api/pm-attachment/${negotiationCase.id}`}
+                          download
+                          className="inline-flex items-center gap-2 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2 text-[12.5px] font-semibold text-brand-700 transition-colors hover:border-brand-300 hover:bg-brand-100"
+                        >
+                          <DownloadIcon className="h-4 w-4 flex-shrink-0" />
+                          <span className="truncate">{negotiationCase.pmAttachmentName}</span>
                         </a>
                       }
                     />
