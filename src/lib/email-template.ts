@@ -55,12 +55,15 @@ function infoRow(label: string, value: string): string {
 
 export interface EmailShellParams {
   baseUrl: string;
-  /** Header block background — brand orange for routine notices, brand red for anything security- or urgency-flavored. */
+  /** Header block background — brand orange for routine notices, brand red for anything security- or urgency-flavored. Ignored when `badge` is set (that header style is always the light/cream treatment). */
   accentColor?: string;
-  eyebrow: string;
   title: string;
   /** Substring of `title` to render with a yellow highlight, matching the reference template. */
   highlightedWord?: string;
+  /** Switches the header to the light brand-bar + badge-tag treatment (logo/wordmark left, contextual note + bell right, then a cream card with a pill badge and dark title) instead of the solid-color block. */
+  badge?: { icon: string; label: string };
+  /** Right-aligned text next to the bell icon in the brand bar (e.g. "Update on your care") — only used with `badge`. */
+  contextLabel?: string;
   intro?: string;
   /** Large centered code display in a dashed, tinted box — used for OTPs, claim/reimbursement codes, etc. */
   codeBox?: { label: string; code: string };
@@ -87,9 +90,10 @@ export function buildEmailShell(params: EmailShellParams): string {
   const {
     baseUrl,
     accentColor = BRAND_ORANGE,
-    eyebrow,
     title,
     highlightedWord,
+    badge,
+    contextLabel,
     intro,
     codeBox,
     infoRows,
@@ -163,7 +167,27 @@ export function buildEmailShell(params: EmailShellParams): string {
        </td></tr>`
     : "";
 
-  const year = new Date().getFullYear();
+  const headerBlock = badge
+    ? `<tr>
+              <td style="padding:18px 28px;background:#ffffff;border-bottom:1px solid ${BORDER};">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+                  <td><img src="${baseUrl}/leadway-logo.png" alt="Leadway Health" height="22" style="height:22px;width:auto;vertical-align:middle;" /></td>
+                  <td align="right" style="font-size:12px;color:${INK_500};vertical-align:middle;">${contextLabel ? escapeHtml(contextLabel) + " " : ""}&#128276;</td>
+                </tr></table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:24px 28px 20px 28px;background:#fdf3e7;">
+                <span style="display:inline-block;background:#fce3c2;color:#c8631b;font-size:10.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;padding:6px 12px;border-radius:20px;">${escapeHtml(badge.icon)} ${escapeHtml(badge.label)}</span>
+                <h1 style="margin:12px 0 0 0;font-size:21px;line-height:1.3;font-weight:800;color:${INK_900};">${highlightWord(title, highlightedWord)}</h1>
+              </td>
+            </tr>`
+    : `<tr>
+              <td style="background:${accentColor};padding:26px 32px;">
+                <p style="margin:0 0 6px 0;font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#ffffffcc;">Leadway Health</p>
+                <h1 style="margin:0;font-size:23px;line-height:1.3;font-weight:800;color:#ffffff;">${highlightWord(title, highlightedWord)}</h1>
+              </td>
+            </tr>`;
 
   return `<!doctype html>
 <html>
@@ -172,12 +196,7 @@ export function buildEmailShell(params: EmailShellParams): string {
       <tr>
         <td align="center">
           <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:100%;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid ${BORDER};">
-            <tr>
-              <td style="background:${accentColor};padding:26px 32px;">
-                <p style="margin:0 0 6px 0;font-size:10.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:#ffffffcc;">${escapeHtml(eyebrow)}</p>
-                <h1 style="margin:0;font-size:23px;line-height:1.3;font-weight:800;color:#ffffff;">${highlightWord(title, highlightedWord)}</h1>
-              </td>
-            </tr>
+            ${headerBlock}
             ${introBlock}
             ${codeBoxBlock}
             ${infoRowsBlock}
@@ -186,23 +205,14 @@ export function buildEmailShell(params: EmailShellParams): string {
             ${noticesBlock}
             ${termsBlock}
             <tr>
-              <td style="padding:24px 32px 20px 32px;">
-                <p style="margin:0;font-size:12px;line-height:1.6;color:${INK_300};">${escapeHtml(footerNote)}</p>
+              <td align="center" style="padding:22px 32px;background:#f7f6f7;">
+                <p style="margin:0 0 4px 0;font-size:11.5px;color:${INK_300};">© Leadway Health. All rights reserved.</p>
+                <p style="margin:0;font-size:11.5px;color:${INK_300};">${escapeHtml(footerNote)}</p>
               </td>
             </tr>
             <tr>
               <td style="padding:0;">
                 <img src="${baseUrl}/email-footer-banner.png" alt="Leadway Health" width="600" style="width:100%;display:block;" />
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:18px 32px 26px 32px;background:#ffffff;">
-                <p style="margin:0 0 4px 0;font-size:11.5px;color:${INK_300};">
-                  © ${year} Leadway Health Limited &middot; <a href="mailto:healthcare@leadwayhealth.com" style="color:${INK_500};text-decoration:underline;">healthcare@leadwayhealth.com</a>
-                </p>
-                <p style="margin:0;font-size:11.5px;color:${INK_300};">
-                  121/123 Funsho Williams Avenue, Iponri, Surulere, Lagos
-                </p>
               </td>
             </tr>
           </table>
@@ -216,10 +226,8 @@ export function buildEmailShell(params: EmailShellParams): string {
 export interface MemberNotificationEmailParams {
   baseUrl: string;
   urgency: "ROUTINE" | "URGENT";
-  eyebrow: string;
   title: string;
-  intro: string;
-  calloutMessage: string;
+  message: string;
   caseNumber: string;
   enrolleeId?: string | null;
   memberName: string;
@@ -244,10 +252,10 @@ export function buildMemberNotificationEmailHtml(params: MemberNotificationEmail
 
   return buildEmailShell({
     baseUrl: params.baseUrl,
-    accentColor: params.urgency === "URGENT" ? BRAND_RED : BRAND_ORANGE,
-    eyebrow: params.urgency === "URGENT" ? "Urgent Update" : "Routine Update",
+    badge: { icon: "💬", label: params.urgency === "URGENT" ? "Important Update" : "Update" },
+    contextLabel: "Update on your care",
     title: params.title,
-    intro: `${params.intro} ${params.calloutMessage}`,
+    intro: params.message,
     infoRows: [
       { label: "Request ID", value: params.caseNumber },
       ...(params.enrolleeId ? [{ label: "Enrollee ID", value: params.enrolleeId }] : []),
@@ -270,7 +278,6 @@ export function buildMfaCodeEmailHtml(params: { baseUrl: string; code: string; p
   return buildEmailShell({
     baseUrl: params.baseUrl,
     accentColor: BRAND_RED,
-    eyebrow: "Security Verification",
     title: "Your Sign-In Code Is Ready",
     highlightedWord: "Sign-In",
     intro: `Use this code to ${params.purpose} the Provider Tariff Negotiation Tracker.`,

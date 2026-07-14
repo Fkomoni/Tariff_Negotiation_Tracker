@@ -465,13 +465,8 @@ async function dispatchMemberNotifications(params: DispatchNotificationsParams):
   const emailHtml = buildMemberNotificationEmailHtml({
     baseUrl: process.env.NEXTAUTH_URL ?? "https://tariff-negotiation-tracker.onrender.com",
     urgency: params.template,
-    eyebrow: params.template === "URGENT" ? "Urgent Update" : "Routine Update",
     title: params.template === "URGENT" ? "We're urgently resolving a delay in your care" : "Your requested service may be delayed",
-    intro:
-      params.template === "URGENT"
-        ? "Our Provider Team is actively engaging the hospital to resolve this as quickly as possible. We're treating this as a priority."
-        : "This request is currently being reviewed by our Provider Team — no action is needed from you right now.",
-    calloutMessage: emailMessage,
+    message: emailMessage,
     caseNumber: params.caseNumber,
     enrolleeId: params.enrolleeId,
     memberName: params.enrolleeName,
