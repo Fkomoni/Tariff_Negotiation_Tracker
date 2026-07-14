@@ -138,9 +138,9 @@ export default async function CaseDetailsPage(
 
       {activeTab === "provider-team" ? (
         <div className="mx-auto w-full max-w-2xl flex-1 space-y-6 px-8 py-8">
-          <Card className="px-5 py-4">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">At a Glance</p>
-            <dl className="mt-3 grid grid-cols-2 gap-4">
+          <Card>
+            <CardHeader title="At a Glance" />
+            <dl className="grid grid-cols-2 gap-4 px-5 py-4">
               <Detail label="Provider" value={negotiationCase.providerName} />
               <Detail label="Provider Code" value={negotiationCase.providerCode ?? "—"} />
               <Detail label="Provider ID" value={negotiationCase.providerId ?? "—"} />
@@ -207,7 +207,7 @@ export default async function CaseDetailsPage(
               <Detail label="Logged By" value={negotiationCase.loggedBy.displayName ?? negotiationCase.loggedBy.prognosisUsername} />
               <Detail label="Handled By" value={negotiationCase.owner?.displayName ?? negotiationCase.owner?.prognosisUsername ?? "Unclaimed"} />
             </dl>
-            <div className="mt-4 flex gap-2">
+            <div className="flex gap-2 px-5 pb-4">
               <Badge className={CASE_TYPE_BADGE[negotiationCase.caseType]}>{CASE_TYPE_BADGE_LABEL[negotiationCase.caseType]}</Badge>
               {negotiationCase.caseType === "TARIFF_UPDATE" && (
                 <Badge className={REQUEST_TYPE_BADGE[negotiationCase.requestType]}>{REQUEST_TYPE_LABELS[negotiationCase.requestType]}</Badge>
@@ -217,9 +217,9 @@ export default async function CaseDetailsPage(
             </div>
           </Card>
 
-          <Card className="px-5 py-4">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">Timing</p>
-            <div className="mt-3 space-y-3">
+          <Card>
+            <CardHeader title="Timing" />
+            <div className="space-y-3 px-5 py-4">
               <TimingRow label="Log → First Provider Team Action" value={formatDuration(firstActionMs)} />
               <TimingRow label="Log → Now / Completion" value={formatDuration(totalMs)} />
             </div>
@@ -422,9 +422,9 @@ export default async function CaseDetailsPage(
           </div>
 
           <div className="space-y-6">
-            <Card className="px-5 py-4">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">Timing</p>
-              <div className="mt-3 space-y-3">
+            <Card>
+              <CardHeader title="Timing" />
+              <div className="space-y-3 px-5 py-4">
                 <TimingRow label="Log → First Provider Team Action" value={formatDuration(firstActionMs)} />
                 <TimingRow label="Log → Now / Completion" value={formatDuration(totalMs)} />
               </div>
