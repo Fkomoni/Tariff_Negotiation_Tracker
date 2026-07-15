@@ -25,8 +25,14 @@ export interface EnrolleeInitial {
 }
 
 export function EnrolleeFields({ initial, required = true }: { initial?: EnrolleeInitial; required?: boolean }) {
-  const [query, setQuery] = useState(initial?.fullName ?? "");
-  const [hasSelection, setHasSelection] = useState(!!initial?.fullName);
+  // "N/A" is the "no enrollee present" sentinel (see toggleNoEnrolleePresent
+  // below) — a repeat-from-source case logged that way should reopen with
+  // the toggle already on, not with "N/A" sitting in the search box as if
+  // it were a real typed name.
+  const initialIsNoEnrollee = initial?.fullName === "N/A";
+  const [noEnrolleePresent, setNoEnrolleePresent] = useState(initialIsNoEnrollee);
+  const [query, setQuery] = useState(!initialIsNoEnrollee ? initial?.fullName ?? "" : "");
+  const [hasSelection, setHasSelection] = useState(!!initial?.fullName && !initialIsNoEnrollee);
   const [enrolleeId, setEnrolleeId] = useState(initial?.enrolleeId ?? "");
   const [email, setEmail] = useState(initial?.email ?? "");
   const [phone, setPhone] = useState(initial?.phone ?? "");
@@ -41,7 +47,7 @@ export function EnrolleeFields({ initial, required = true }: { initial?: Enrolle
   // Compares values rather than consuming a one-shot flag, so this stays
   // correct even if React re-runs the effect more than once (e.g. Strict
   // Mode double-invocation in dev).
-  const confirmedNameRef = useRef(initial?.fullName ?? "");
+  const confirmedNameRef = useRef(!initialIsNoEnrollee ? initial?.fullName ?? "" : "");
 
   useEffect(() => {
     if (query === confirmedNameRef.current) {
@@ -109,6 +115,55 @@ export function EnrolleeFields({ initial, required = true }: { initial?: Enrolle
     }
   }
 
+  function toggleNoEnrolleePresent() {
+    setNoEnrolleePresent((prev) => {
+      const next = !prev;
+      if (next) {
+        // Clear any partially-entered enrollee so it can't leak into the
+        // submission alongside the "no enrollee" sentinel below.
+        setQuery("");
+        setHasSelection(false);
+        setEnrolleeId("");
+        setEmail("");
+        setPhone("");
+        setCompany("");
+        setScheme("");
+        setAge("");
+        setResults([]);
+      }
+      return next;
+    });
+  }
+
+  // "N/A" is the same sentinel already used for Provider Management requests
+  // (which never have an enrollee) — the case-detail page and case list
+  // already know to hide enrollee mentions for that value, so a "no
+  // enrollee present" tariff case reads the same way with no extra display
+  // logic needed.
+  if (noEnrolleePresent) {
+    return (
+      <>
+        <div className="sm:col-span-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[12.5px] font-semibold text-ink-700">Enrollee</span>
+            <button
+              type="button"
+              onClick={toggleNoEnrolleePresent}
+              className="rounded-md bg-ink-900 px-2.5 py-1 text-[11.5px] font-semibold text-white"
+            >
+              No enrollee present
+            </button>
+          </div>
+          <p className="mt-1.5 text-[11px] text-ink-400">
+            This request will be logged without an enrollee attached — the provider wants pricing updated directly.
+          </p>
+        </div>
+        <input type="hidden" name="enrolleeName" value="N/A" />
+        <input type="hidden" name="enrolleeId" value="" />
+      </>
+    );
+  }
+
   return (
     <>
       <Field
@@ -117,6 +172,15 @@ export function EnrolleeFields({ initial, required = true }: { initial?: Enrolle
         hint={required ? "Search by name, phone, email, or enrollee ID" : "Optional — search by name, phone, email, or enrollee ID"}
         className="sm:col-span-2"
       >
+        <div className="mb-2 flex justify-end">
+          <button
+            type="button"
+            onClick={toggleNoEnrolleePresent}
+            className="rounded-md bg-ink-100 px-2.5 py-1 text-[11.5px] font-semibold text-ink-600 hover:bg-ink-200"
+          >
+            No enrollee present
+          </button>
+        </div>
         <div ref={containerRef} className="relative">
           <input
             name="enrolleeName"
