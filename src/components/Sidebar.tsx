@@ -26,7 +26,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: DashboardIcon },
   { href: "/negotiations/new", label: "Log Negotiation", icon: LogIcon, roles: ["CONTACT_CENTER", "ADMIN"] },
-  { href: "/negotiations/queue", label: "Open Negotiations", icon: QueueIcon, roles: ["PROVIDER_TEAM", "ADMIN"] },
+  { href: "/negotiations/queue", label: "Open Negotiations", icon: QueueIcon, roles: ["CONTACT_CENTER", "PROVIDER_TEAM", "ADMIN"] },
   { href: "/negotiations/completed", label: "Completed Negotiations", icon: CheckIcon },
   { href: "/reports", label: "Reports", icon: ReportIcon },
   { href: "/tariff-review", label: "Tariff Review Insights", icon: InsightIcon },

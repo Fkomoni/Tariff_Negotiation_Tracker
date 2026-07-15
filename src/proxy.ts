@@ -3,7 +3,11 @@ import { auth } from "@/lib/auth";
 
 const ADMIN_ONLY = ["/configuration"];
 const CONTACT_CENTER_OR_ADMIN = ["/negotiations/new"];
-const PROVIDER_TEAM_OR_ADMIN = ["/negotiations/queue"];
+// /negotiations/queue has no role restriction here on purpose — Contact
+// Centre needs to see case status too, and the page itself is read-only.
+// The actual write boundary (updateCaseStatus, the Provider Team tab) is
+// enforced independently, server-side, regardless of what this middleware
+// does — see negotiations/[id]/page.tsx and case-actions.ts.
 
 function matches(pathname: string, prefixes: string[]) {
   return prefixes.some((p) => pathname === p || pathname.startsWith(`${p}/`));
@@ -35,10 +39,6 @@ export default auth((req) => {
   }
 
   if (matches(pathname, CONTACT_CENTER_OR_ADMIN) && !["CONTACT_CENTER", "ADMIN"].includes(role ?? "")) {
-    return NextResponse.redirect(new URL("/dashboard", req.url));
-  }
-
-  if (matches(pathname, PROVIDER_TEAM_OR_ADMIN) && !["PROVIDER_TEAM", "ADMIN"].includes(role ?? "")) {
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 

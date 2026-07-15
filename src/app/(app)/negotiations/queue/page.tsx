@@ -56,7 +56,11 @@ export default async function OpenNegotiationsPage(
     <>
       <Header
         title="Open Negotiations"
-        subtitle="Provider Team Queue"
+        subtitle={
+          ["PROVIDER_TEAM", "ADMIN"].includes(session.user.role)
+            ? "Provider Team Queue"
+            : "Track the status of logged requests"
+        }
         icon={<QueueIcon />}
         user={{ name: session.user.name ?? session.user.prognosisUsername, role: session.user.role }}
       />
