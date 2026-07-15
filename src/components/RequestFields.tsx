@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Field, inputClass } from "@/components/ui";
 import { ProviderFields, type ProviderInitial } from "@/components/ProviderFields";
 import { ServiceTariffFields } from "@/components/ServiceTariffFields";
@@ -9,6 +9,39 @@ import { ProviderManagementCategoryFields } from "@/components/ProviderManagemen
 import { SERVICE_TYPE_LABELS, CASE_TYPE_LABELS } from "@/lib/domain";
 
 type CaseType = "TARIFF_UPDATE" | "PROVIDER_MANAGEMENT";
+
+/** One "Service N" box wrapping a ServiceTariffFields instance, with its own
+ * remove control. Every service line submits the same field names
+ * (requestedItem, serviceCode, currentTariff, etc.) — createCase zips them
+ * across lines by position via formData.getAll(), so this component only
+ * needs to control how many instances render, not how they're named. */
+function ServiceLine({
+  providerCode,
+  index,
+  canRemove,
+  onRemove,
+}: {
+  providerCode: string;
+  index: number;
+  canRemove: boolean;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="rounded-lg border border-ink-200 p-4 sm:col-span-2">
+      <div className="mb-3 flex items-center justify-between">
+        <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">Service {index + 1}</p>
+        {canRemove && (
+          <button type="button" onClick={onRemove} className="text-[11.5px] font-semibold text-brand-600 hover:text-brand-700">
+            Remove
+          </button>
+        )}
+      </div>
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+        <ServiceTariffFields providerCode={providerCode} />
+      </div>
+    </div>
+  );
+}
 
 export function RequestFields({
   initialProvider,
@@ -20,7 +53,16 @@ export function RequestFields({
   const [caseType, setCaseType] = useState<CaseType>("TARIFF_UPDATE");
   const [providerCode, setProviderCode] = useState(initialProvider?.code ?? "");
   const [pmCategories, setPmCategories] = useState<string[]>([]);
+  const [serviceLineIds, setServiceLineIds] = useState<number[]>([0]);
+  const nextServiceLineId = useRef(1);
   const isTariffUpdate = caseType === "TARIFF_UPDATE";
+
+  function addServiceLine() {
+    setServiceLineIds((ids) => [...ids, nextServiceLineId.current++]);
+  }
+  function removeServiceLine(id: number) {
+    setServiceLineIds((ids) => ids.filter((x) => x !== id));
+  }
   // A brand-new facility won't exist in Prognosis yet, so searching for it
   // there would never find anything — this is the one category where we
   // need a plain text facility name instead of the Prognosis provider
@@ -61,7 +103,24 @@ export function RequestFields({
             </select>
           </Field>
 
-          <ServiceTariffFields providerCode={providerCode} />
+          {serviceLineIds.map((id, idx) => (
+            <ServiceLine
+              key={id}
+              providerCode={providerCode}
+              index={idx}
+              canRemove={serviceLineIds.length > 1}
+              onRemove={() => removeServiceLine(id)}
+            />
+          ))}
+          <div className="sm:col-span-2">
+            <button
+              type="button"
+              onClick={addServiceLine}
+              className="rounded-lg border border-dashed border-ink-300 px-3.5 py-2 text-[12.5px] font-semibold text-ink-600 hover:border-ink-400 hover:bg-ink-100"
+            >
+              + Add Another Service
+            </button>
+          </div>
         </>
       ) : (
         <>

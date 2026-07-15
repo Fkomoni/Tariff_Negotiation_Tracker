@@ -320,6 +320,12 @@ export function ServiceTariffFields({ providerCode }: { providerCode: string }) 
                 placeholder="e.g. Elective caesarean section"
               />
               <input type="hidden" name="serviceCode" value={selectedTreatment?.procedureId ?? ""} />
+              {/* Kept in lock-step with "existing" mode's hidden field of the same
+                  name, even though it's always empty here — when several service
+                  lines are submitted together, the server zips same-named fields
+                  across lines by position, so every line must emit the exact same
+                  set of field names regardless of which mode it's in. */}
+              <input type="hidden" name="providerTariffCode" value="" />
               {treatmentLoading && (
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-ink-400">
                   Searching…

@@ -47,12 +47,6 @@ const createCaseSchema = z
     serviceType: z
       .enum(["CONSULTATION", "MEDICATIONS", "INVESTIGATIONS", "ADMISSION_RELATED_SERVICES", "PROCEDURES_AND_SERVICES", "SURGERIES"])
       .optional(),
-    requestType: z.enum(["EXISTING_TARIFF_UPDATE", "NEW_SERVICE"]).default("EXISTING_TARIFF_UPDATE"),
-    requestedItem: z.string().optional(),
-    serviceCode: z.string().optional(),
-    providerTariffCode: z.string().optional(),
-    currentTariff: z.preprocess((v) => (v === "" || v === undefined ? undefined : v), z.coerce.number().min(0).optional()),
-    providerRequestedAmount: z.preprocess((v) => (v === "" || v === undefined ? undefined : v), z.coerce.number().min(0).optional()),
     reason: z.string().min(3, "Reason is required"),
     urgency: z.enum(["ROUTINE", "URGENT", "EMERGENCY"]),
     notes: z.string().optional(),
@@ -67,21 +61,49 @@ const createCaseSchema = z
       if (!data.serviceType) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Service type is required", path: ["serviceType"] });
       }
-      if (!data.requestedItem || data.requestedItem.trim().length < 2) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Requested service/item is required", path: ["requestedItem"] });
-      }
-      if (data.currentTariff === undefined) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Current tariff is required", path: ["currentTariff"] });
-      }
-      if (data.providerRequestedAmount === undefined) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Provider requested amount is required", path: ["providerRequestedAmount"] });
-      }
     } else {
       if (data.pmCategories.length === 0) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Pick at least one category for this request", path: ["pmCategories"] });
       }
     }
   });
+
+/**
+ * One service line from the "Log Negotiation" form — the same provider,
+ * enrollee, urgency, and reason apply to every line in a submission
+ * (they're entered once, shared), but each line negotiates its own item
+ * at its own price. The client sends every line's fields under the same
+ * field names (see ServiceTariffFields.tsx), so createCase zips them back
+ * into per-line objects by array position via formData.getAll().
+ */
+const serviceLineSchema = z.object({
+  requestedItem: z.string().trim().min(2, "Requested service/item is required"),
+  serviceCode: z.string().optional(),
+  providerTariffCode: z.string().optional(),
+  requestType: z.enum(["EXISTING_TARIFF_UPDATE", "NEW_SERVICE"]),
+  currentTariff: z.coerce.number().min(0),
+  providerRequestedAmount: z.coerce.number().min(0, "Provider requested amount is required"),
+});
+
+/** Reads the repeated per-line fields off the form and zips them back into
+ * one object per service line, in the order they appear in the form. */
+function readServiceLines(formData: FormData): unknown[] {
+  const requestedItem = formData.getAll("requestedItem");
+  const serviceCode = formData.getAll("serviceCode");
+  const providerTariffCode = formData.getAll("providerTariffCode");
+  const requestType = formData.getAll("requestType");
+  const currentTariff = formData.getAll("currentTariff");
+  const providerRequestedAmount = formData.getAll("providerRequestedAmount");
+
+  return requestedItem.map((_, i) => ({
+    requestedItem: requestedItem[i],
+    serviceCode: serviceCode[i],
+    providerTariffCode: providerTariffCode[i],
+    requestType: requestType[i],
+    currentTariff: currentTariff[i],
+    providerRequestedAmount: providerRequestedAmount[i],
+  }));
+}
 
 /**
  * Finds an existing tariff case for the same provider + enrollee + service
@@ -142,25 +164,59 @@ export async function createCase(formData: FormData) {
 
   const data = parsed.data;
   const isProviderManagement = data.caseType === "PROVIDER_MANAGEMENT";
+  const enrolleeName = data.enrolleeName?.trim() || "N/A";
 
+  // Provider Management is still a single request (its "service" is really
+  // a set of categories, not a list of priced items) — only Tariff Update
+  // submits one or more service lines.
+  let serviceLines: z.infer<typeof serviceLineSchema>[] = [];
   if (!isProviderManagement) {
-    const duplicate = await findDuplicateTariffCase({
-      providerId: data.providerId ?? null,
-      providerName: data.providerName,
-      enrolleeId: data.enrolleeId || null,
-      enrolleeName: data.enrolleeName?.trim() || "N/A",
-      serviceCode: data.serviceCode || null,
-      requestedItem: data.requestedItem!,
-    });
-    if (duplicate) {
-      const guidance =
-        duplicate.status === "COMPLETED"
-          ? "Check its agreed tariff before logging a new request."
-          : "Continue that one instead of logging a new one.";
-      redirectWithToast(`/negotiations/${duplicate.id}`, {
-        type: "error",
-        message: `A case for this provider, enrollee, and service already exists — ${duplicate.caseNumber} (${CASE_STATUS_LABELS[duplicate.status]}). ${guidance}`,
+    const rawLines = readServiceLines(formData);
+    if (rawLines.length === 0) {
+      redirectWithToast("/negotiations/new", { type: "error", message: "At least one service is required" });
+    }
+    for (const rawLine of rawLines) {
+      const parsedLine = serviceLineSchema.safeParse(rawLine);
+      if (!parsedLine.success) {
+        redirectWithToast("/negotiations/new", { type: "error", message: parsedLine.error.issues[0]?.message ?? "Invalid service line" });
+      }
+      serviceLines.push(parsedLine.data);
+    }
+
+    // Catches an agent adding the same drug/service twice in the same
+    // submission (fat-fingering "+ Add Another Service") before it ever
+    // reaches the database, on top of the cross-case check below.
+    const seen = new Set<string>();
+    for (const line of serviceLines) {
+      const key = (line.serviceCode || line.requestedItem).trim().toLowerCase();
+      if (seen.has(key)) {
+        redirectWithToast("/negotiations/new", {
+          type: "error",
+          message: `"${line.requestedItem}" was added more than once in this submission.`,
+        });
+      }
+      seen.add(key);
+    }
+
+    for (const line of serviceLines) {
+      const duplicate = await findDuplicateTariffCase({
+        providerId: data.providerId ?? null,
+        providerName: data.providerName,
+        enrolleeId: data.enrolleeId || null,
+        enrolleeName,
+        serviceCode: line.serviceCode || null,
+        requestedItem: line.requestedItem,
       });
+      if (duplicate) {
+        const guidance =
+          duplicate.status === "COMPLETED"
+            ? "Check its agreed tariff before logging a new request."
+            : "Continue that one instead of logging a new one.";
+        redirectWithToast(`/negotiations/${duplicate.id}`, {
+          type: "error",
+          message: `A case for "${line.requestedItem}" with this provider and enrollee already exists — ${duplicate.caseNumber} (${CASE_STATUS_LABELS[duplicate.status]}). ${guidance}`,
+        });
+      }
     }
   }
 
@@ -198,111 +254,141 @@ export async function createCase(formData: FormData) {
     }
   }
 
-  const requestedItem = isProviderManagement
-    ? data.pmCategories.map((c) => PM_CATEGORY_LABELS[c]).join(", ")
-    : data.requestedItem!;
-
-  const created = await prisma.negotiationCase.create({
-    data: {
-      caseNumber: generateCaseNumber(),
-      caseType: data.caseType,
-      providerName: data.providerName,
-      providerCode: data.providerCode || null,
-      providerId: data.providerId ?? null,
-      providerEmail: data.providerEmail || null,
-      providerPhone: data.providerPhone || null,
-      enrolleeName: data.enrolleeName?.trim() || "N/A",
-      enrolleeId: data.enrolleeId || null,
-      enrolleeEmail: data.enrolleeEmail || null,
-      enrolleePhone: data.enrolleePhone || null,
-      enrolleeCompany: data.enrolleeCompany || null,
-      enrolleeScheme: data.enrolleeScheme || null,
-      enrolleeAge: data.enrolleeAge ?? null,
-      serviceType: data.serviceType ?? null,
-      requestType: data.requestType,
-      requestedItem,
-      serviceCode: data.serviceCode || null,
-      providerTariffCode: data.providerTariffCode || null,
-      currentTariff: data.currentTariff ?? 0,
-      providerRequestedAmount: data.providerRequestedAmount ?? 0,
-      reason: data.reason,
-      urgency: data.urgency,
-      notes: data.notes || null,
-      pmCategories: data.pmCategories,
-      pmAttachmentName,
-      pmAttachmentMimeType,
-      pmAttachmentData,
-      status: "NEW_REQUEST",
-      sessionGroupId: data.sessionGroupId || null,
-      loggedByUserId: session.user.id,
-      updates: {
-        create: {
-          userId: session.user.id,
-          type: "STATUS_CHANGE",
-          newStatus: "NEW_REQUEST",
-          note: "Case logged by contact centre",
+  // One notional "line" for Provider Management (its combined category
+  // list stands in for requestedItem), or the real service lines for a
+  // Tariff Update — either way, every entry in this array becomes exactly
+  // one NegotiationCase row, all sharing one sessionGroupId once there's
+  // more than one.
+  const linesToCreate = isProviderManagement
+    ? [
+        {
+          requestedItem: data.pmCategories.map((c) => PM_CATEGORY_LABELS[c]).join(", "),
+          serviceCode: undefined as string | undefined,
+          providerTariffCode: undefined as string | undefined,
+          requestType: "EXISTING_TARIFF_UPDATE" as const,
+          currentTariff: 0,
+          providerRequestedAmount: 0,
         },
-      },
-    },
-  });
+      ]
+    : serviceLines;
 
-  // Provider Management requests (portal access, bank info, complaints, etc.)
-  // aren't about a member's care being delayed, so the "your care may be
-  // delayed" auto-notification doesn't apply — skip it entirely for those.
-  if (isProviderManagement) {
-    await prisma.caseUpdate.create({
+  let groupSessionId: string | null = data.sessionGroupId || null;
+  const createdCases: Awaited<ReturnType<typeof prisma.negotiationCase.create>>[] = [];
+
+  for (const line of linesToCreate) {
+    const created = await prisma.negotiationCase.create({
       data: {
-        caseId: created.id,
-        userId: session.user.id,
-        type: "NOTE",
-        note: "Provider Management request — no member notification applicable.",
+        caseNumber: generateCaseNumber(),
+        caseType: data.caseType,
+        providerName: data.providerName,
+        providerCode: data.providerCode || null,
+        providerId: data.providerId ?? null,
+        providerEmail: data.providerEmail || null,
+        providerPhone: data.providerPhone || null,
+        enrolleeName,
+        enrolleeId: data.enrolleeId || null,
+        enrolleeEmail: data.enrolleeEmail || null,
+        enrolleePhone: data.enrolleePhone || null,
+        enrolleeCompany: data.enrolleeCompany || null,
+        enrolleeScheme: data.enrolleeScheme || null,
+        enrolleeAge: data.enrolleeAge ?? null,
+        serviceType: data.serviceType ?? null,
+        requestType: line.requestType,
+        requestedItem: line.requestedItem,
+        serviceCode: line.serviceCode || null,
+        providerTariffCode: line.providerTariffCode || null,
+        currentTariff: line.currentTariff,
+        providerRequestedAmount: line.providerRequestedAmount,
+        reason: data.reason,
+        urgency: data.urgency,
+        notes: data.notes || null,
+        pmCategories: data.pmCategories,
+        pmAttachmentName,
+        pmAttachmentMimeType,
+        pmAttachmentData,
+        status: "NEW_REQUEST",
+        sessionGroupId: groupSessionId,
+        loggedByUserId: session.user.id,
+        updates: {
+          create: {
+            userId: session.user.id,
+            type: "STATUS_CHANGE",
+            newStatus: "NEW_REQUEST",
+            note: "Case logged by contact centre",
+          },
+        },
       },
     });
-  } else {
-    const wantsEmail = !!created.enrolleeEmail;
-    const wantsSms = !!created.enrolleePhone;
-    const autoTemplate: "ROUTINE" | "URGENT" = created.urgency === "ROUTINE" ? "ROUTINE" : "URGENT";
+    createdCases.push(created);
+    // Every case after the first in a multi-service batch points at the
+    // first one as its group root, the same convention "Log Another
+    // Service" already uses (see negotiations/[id]/page.tsx).
+    if (!groupSessionId) groupSessionId = created.id;
 
-    if (wantsEmail || wantsSms) {
-      const results = await dispatchMemberNotifications({
-        caseId: created.id,
-        caseNumber: created.caseNumber,
-        providerName: created.providerName,
-        enrolleeName: created.enrolleeName,
-        enrolleeId: created.enrolleeId,
-        requestedItem: created.requestedItem,
-        serviceType: created.serviceType as ServiceType,
-        loggedAt: created.loggedAt,
-        template: autoTemplate,
-        wantsEmail,
-        wantsSms,
-        email: created.enrolleeEmail,
-        phone: created.enrolleePhone,
-        sentByUserId: session.user.id,
-      });
-      await prisma.caseUpdate.create({
-        data: {
-          caseId: created.id,
-          userId: session.user.id,
-          type: "NOTIFICATION",
-          note: `Member auto-notified at logging (${autoTemplate.toLowerCase()} template): ${results.join(", ")}`,
-        },
-      });
-    } else {
+    // Provider Management requests (portal access, bank info, complaints,
+    // etc.) aren't about a member's care being delayed, so the "your care
+    // may be delayed" auto-notification doesn't apply — skip it entirely
+    // for those.
+    if (isProviderManagement) {
       await prisma.caseUpdate.create({
         data: {
           caseId: created.id,
           userId: session.user.id,
           type: "NOTE",
-          note: "Member not auto-notified: no email or phone number on file.",
+          note: "Provider Management request — no member notification applicable.",
         },
       });
+    } else {
+      const wantsEmail = !!created.enrolleeEmail;
+      const wantsSms = !!created.enrolleePhone;
+      const autoTemplate: "ROUTINE" | "URGENT" = created.urgency === "ROUTINE" ? "ROUTINE" : "URGENT";
+
+      if (wantsEmail || wantsSms) {
+        const results = await dispatchMemberNotifications({
+          caseId: created.id,
+          caseNumber: created.caseNumber,
+          providerName: created.providerName,
+          enrolleeName: created.enrolleeName,
+          enrolleeId: created.enrolleeId,
+          requestedItem: created.requestedItem,
+          serviceType: created.serviceType as ServiceType,
+          loggedAt: created.loggedAt,
+          template: autoTemplate,
+          wantsEmail,
+          wantsSms,
+          email: created.enrolleeEmail,
+          phone: created.enrolleePhone,
+          sentByUserId: session.user.id,
+        });
+        await prisma.caseUpdate.create({
+          data: {
+            caseId: created.id,
+            userId: session.user.id,
+            type: "NOTIFICATION",
+            note: `Member auto-notified at logging (${autoTemplate.toLowerCase()} template): ${results.join(", ")}`,
+          },
+        });
+      } else {
+        await prisma.caseUpdate.create({
+          data: {
+            caseId: created.id,
+            userId: session.user.id,
+            type: "NOTE",
+            note: "Member not auto-notified: no email or phone number on file.",
+          },
+        });
+      }
     }
   }
 
   revalidatePath("/negotiations/queue");
   revalidatePath("/dashboard");
-  redirectWithToast(`/negotiations/${created.id}`, { type: "success", message: `Case ${created.caseNumber} logged successfully.` });
+  const first = createdCases[0];
+  const message =
+    createdCases.length > 1
+      ? `${createdCases.length} cases logged successfully (${createdCases.map((c) => c.caseNumber).join(", ")}).`
+      : `Case ${first.caseNumber} logged successfully.`;
+  redirectWithToast(`/negotiations/${first.id}`, { type: "success", message });
 }
 
 const updateStatusSchema = z.object({
