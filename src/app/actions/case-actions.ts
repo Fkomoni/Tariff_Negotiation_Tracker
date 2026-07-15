@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendEmailAlert, sendSms, addTariffReviews, getActiveTariffScheduleName } from "@/lib/prognosis";
-import { generateCaseNumber, CASE_STATUS_LABELS, SERVICE_TYPE_LABELS, PM_CATEGORY_LABELS, PM_CATEGORIES_REQUIRING_ATTACHMENT } from "@/lib/domain";
+import { generateCaseNumber, CASE_STATUS_LABELS, SERVICE_TYPE_LABELS, PM_CATEGORY_LABELS, PM_CATEGORIES_REQUIRING_ATTACHMENT, OPEN_STATUSES } from "@/lib/domain";
 import type { CaseStatus, ProviderManagementCategory, ServiceType } from "@prisma/client";
 import { STATUS_TRANSITIONS } from "@/lib/domain";
 import { buildMemberNotificationEmailHtml } from "@/lib/email-template";
@@ -83,6 +83,46 @@ const createCaseSchema = z
     }
   });
 
+/**
+ * Finds an already-open (not completed/declined) tariff case for the same
+ * provider + enrollee + service, if one exists — nothing in createCase
+ * previously checked this, so the same request logged twice (a second call
+ * about the same delay, two agents picking up related contacts) silently
+ * created two independent cases with no link between them. Matches on the
+ * Prognosis-confirmed identifiers (providerId/enrolleeId/serviceCode) when
+ * available, falling back to name/requestedItem text for free-typed
+ * entries that never matched a Prognosis record.
+ */
+async function findOpenDuplicateTariffCase(data: {
+  providerId: number | null;
+  providerName: string;
+  enrolleeId: string | null;
+  enrolleeName: string;
+  serviceCode: string | null;
+  requestedItem: string;
+}) {
+  const candidates = await prisma.negotiationCase.findMany({
+    where: {
+      caseType: "TARIFF_UPDATE",
+      status: { in: OPEN_STATUSES },
+      ...(data.providerId
+        ? { providerId: data.providerId }
+        : { providerName: { equals: data.providerName, mode: "insensitive" } }),
+    },
+  });
+
+  return candidates.find((c) => {
+    const sameEnrollee = data.enrolleeId
+      ? c.enrolleeId === data.enrolleeId
+      : c.enrolleeName.trim().toLowerCase() === data.enrolleeName.trim().toLowerCase();
+    const sameService =
+      data.serviceCode && c.serviceCode
+        ? c.serviceCode === data.serviceCode
+        : c.requestedItem.trim().toLowerCase() === data.requestedItem.trim().toLowerCase();
+    return sameEnrollee && sameService;
+  });
+}
+
 export async function createCase(formData: FormData) {
   const session = await requireSession();
 
@@ -97,6 +137,23 @@ export async function createCase(formData: FormData) {
 
   const data = parsed.data;
   const isProviderManagement = data.caseType === "PROVIDER_MANAGEMENT";
+
+  if (!isProviderManagement) {
+    const duplicate = await findOpenDuplicateTariffCase({
+      providerId: data.providerId ?? null,
+      providerName: data.providerName,
+      enrolleeId: data.enrolleeId || null,
+      enrolleeName: data.enrolleeName?.trim() || "N/A",
+      serviceCode: data.serviceCode || null,
+      requestedItem: data.requestedItem!,
+    });
+    if (duplicate) {
+      redirectWithToast(`/negotiations/${duplicate.id}`, {
+        type: "error",
+        message: `An open case already exists for this provider, enrollee, and service — ${duplicate.caseNumber} (${CASE_STATUS_LABELS[duplicate.status]}). Continue that one instead of logging a new one.`,
+      });
+    }
+  }
 
   let pmAttachmentName: string | null = null;
   let pmAttachmentMimeType: string | null = null;
