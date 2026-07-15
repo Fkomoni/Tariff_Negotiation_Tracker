@@ -521,48 +521,55 @@ export async function updateCaseStatus(formData: FormData) {
         console.error("[case-actions] tariff schedule lookup failed:", err);
       }
 
-      let failureNote: string | null = null;
-      try {
-        await addTariffReviews(
-          pushable.map((c) => ({
-            procedureId: c.serviceCode!,
-            procedureName: c.requestedItem,
-            newPrice: Number(c.finalAgreedAmount),
-            providerId: c.providerId!,
-            tariffScheduleName,
-            userEmail,
-            requestorMobile: "",
-            action: "Insert",
-            providerTariffCode: c.providerTariffCode ?? "",
-            providerTariffName: "",
-            zeroRate: false,
-            effectiveDate: c.tariffEffectiveDate ?? new Date(),
-          }))
-        );
-        await prisma.negotiationCase.updateMany({
-          where: { id: { in: pushable.map((c) => c.id) } },
-          data: { tariffPushedAt: new Date() },
-        });
-        console.error(`[case-actions] tariff review push succeeded for provider ${existing.providerId}: ${pushable.map((c) => c.serviceCode).join(", ")}`);
-      } catch (err) {
-        failureNote = `Failed to submit tariff review to Prognosis: ${err instanceof Error ? err.message : "Unknown error"}`;
-        console.error("[case-actions] tariff review push failed:", err);
-      }
-
-      await Promise.all(
-        pushable.map((c) =>
-          prisma.caseUpdate.create({
+      // Sent one at a time rather than as a single batched call — Prognosis
+      // gives one pass/fail result for the whole TarifList, so a bad line
+      // (e.g. a stale procedure code) would otherwise sink every other
+      // service in the same visit. Pushing individually lets each service
+      // succeed or fail on its own.
+      for (const c of pushable) {
+        try {
+          await addTariffReviews([
+            {
+              procedureId: c.serviceCode!,
+              procedureName: c.requestedItem,
+              newPrice: Number(c.finalAgreedAmount),
+              providerId: c.providerId!,
+              tariffScheduleName,
+              userEmail,
+              requestorMobile: "",
+              action: "Insert",
+              providerTariffCode: c.providerTariffCode ?? "",
+              providerTariffName: "",
+              zeroRate: false,
+              effectiveDate: c.tariffEffectiveDate ?? new Date(),
+            },
+          ]);
+          await prisma.negotiationCase.update({
+            where: { id: c.id },
+            data: { tariffPushedAt: new Date() },
+          });
+          await prisma.caseUpdate.create({
             data: {
               caseId: c.id,
               userId: session.user.id,
               type: "NOTE",
-              note:
-                failureNote ??
-                `Tariff review submitted to Prognosis${pushable.length > 1 ? ` (batch of ${pushable.length})` : ""}: ${c.serviceCode} → ${c.finalAgreedAmount}. Tariff schedule: ${tariffScheduleName || "none found — sent blank"}.`,
+              note: `Tariff review submitted to Prognosis: ${c.serviceCode} → ${c.finalAgreedAmount}. Tariff schedule: ${tariffScheduleName || "none found — sent blank"}.`,
             },
-          })
-        )
-      );
+          });
+          console.error(`[case-actions] tariff review push succeeded for provider ${existing.providerId}: ${c.serviceCode}`);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "Unknown error";
+          await prisma.caseUpdate.create({
+            data: {
+              caseId: c.id,
+              userId: session.user.id,
+              type: "NOTE",
+              note: `Failed to submit tariff review to Prognosis: ${message}`,
+            },
+          });
+          console.error(`[case-actions] tariff review push failed for ${c.serviceCode}:`, err);
+        }
+      }
     }
   }
 
