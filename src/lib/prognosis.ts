@@ -883,6 +883,17 @@ function extractTariffItems(payload: unknown): TariffItem[] {
   return items;
 }
 
+/**
+ * Returns the untouched GetProviderTariff response for one provider, bypassing
+ * both the cache and extractTariffItems's field mapping — for inspecting the
+ * real shape of a tariff line (e.g. confirming the actual end-date field
+ * name) rather than only whatever fields extractTariffItems already knows to
+ * pull out.
+ */
+export async function debugFetchProviderTariff(providerCode: string): Promise<unknown> {
+  return serviceRequest("GET", `/api/WellnessBenefit/GetProviderTariff?code=${encodeURIComponent(providerCode)}`);
+}
+
 const cachedTariffsByProvider = new Map<string, { data: TariffItem[]; expiresAt: number }>();
 const inFlightTariffFetches = new Map<string, Promise<TariffItem[]>>();
 
