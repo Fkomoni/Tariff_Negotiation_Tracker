@@ -84,16 +84,21 @@ const createCaseSchema = z
   });
 
 /**
- * Finds an already-open (not completed/declined) tariff case for the same
- * provider + enrollee + service, if one exists — nothing in createCase
- * previously checked this, so the same request logged twice (a second call
- * about the same delay, two agents picking up related contacts) silently
- * created two independent cases with no link between them. Matches on the
+ * Finds an existing tariff case for the same provider + enrollee + service
+ * that isn't Declined, if one exists — nothing in createCase previously
+ * checked this, so the same request logged twice (a second call about the
+ * same delay, two agents picking up related contacts, or one already
+ * completed with an agreed tariff) silently created two independent cases
+ * with no link between them. Completed cases count as a duplicate too —
+ * the tariff was already agreed and pushed to Prognosis, so a fresh
+ * request for the identical service is almost always a mistake, not a new
+ * negotiation. Declined cases don't block a resubmission, since a
+ * rejected attempt is a legitimate reason to try again. Matches on the
  * Prognosis-confirmed identifiers (providerId/enrolleeId/serviceCode) when
  * available, falling back to name/requestedItem text for free-typed
  * entries that never matched a Prognosis record.
  */
-async function findOpenDuplicateTariffCase(data: {
+async function findDuplicateTariffCase(data: {
   providerId: number | null;
   providerName: string;
   enrolleeId: string | null;
@@ -104,7 +109,7 @@ async function findOpenDuplicateTariffCase(data: {
   const candidates = await prisma.negotiationCase.findMany({
     where: {
       caseType: "TARIFF_UPDATE",
-      status: { in: OPEN_STATUSES },
+      status: { in: [...OPEN_STATUSES, "COMPLETED"] },
       ...(data.providerId
         ? { providerId: data.providerId }
         : { providerName: { equals: data.providerName, mode: "insensitive" } }),
@@ -139,7 +144,7 @@ export async function createCase(formData: FormData) {
   const isProviderManagement = data.caseType === "PROVIDER_MANAGEMENT";
 
   if (!isProviderManagement) {
-    const duplicate = await findOpenDuplicateTariffCase({
+    const duplicate = await findDuplicateTariffCase({
       providerId: data.providerId ?? null,
       providerName: data.providerName,
       enrolleeId: data.enrolleeId || null,
@@ -148,9 +153,13 @@ export async function createCase(formData: FormData) {
       requestedItem: data.requestedItem!,
     });
     if (duplicate) {
+      const guidance =
+        duplicate.status === "COMPLETED"
+          ? "Check its agreed tariff before logging a new request."
+          : "Continue that one instead of logging a new one.";
       redirectWithToast(`/negotiations/${duplicate.id}`, {
         type: "error",
-        message: `An open case already exists for this provider, enrollee, and service — ${duplicate.caseNumber} (${CASE_STATUS_LABELS[duplicate.status]}). Continue that one instead of logging a new one.`,
+        message: `A case for this provider, enrollee, and service already exists — ${duplicate.caseNumber} (${CASE_STATUS_LABELS[duplicate.status]}). ${guidance}`,
       });
     }
   }
