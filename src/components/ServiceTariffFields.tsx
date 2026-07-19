@@ -255,11 +255,11 @@ export function ServiceTariffFields({ providerCode }: { providerCode: string }) 
                         {[t.serviceCode, t.tariffName].filter(Boolean).join(" · ") || " "}
                       </p>
                       <p className="text-[11px] text-ink-400">
-                        {t.minCost !== null || t.maxCost !== null
-                          ? `${t.minCost !== null ? formatCurrency(t.minCost) : "—"} – ${
-                              t.maxCost !== null ? formatCurrency(t.maxCost) : "—"
-                            }`
-                          : " "}
+                        {t.minCost === null && t.maxCost === null
+                          ? " "
+                          : t.minCost === t.maxCost || t.minCost === null || t.maxCost === null
+                            ? formatCurrency((t.maxCost ?? t.minCost) as number)
+                            : `${formatCurrency(t.minCost)} – ${formatCurrency(t.maxCost)}`}
                       </p>
                     </button>
                   ))}
