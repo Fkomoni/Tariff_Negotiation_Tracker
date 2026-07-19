@@ -840,6 +840,19 @@ function toNumberOrNull(v: unknown): number | null {
   return Number.isNaN(n) ? null : n;
 }
 
+/** Prognosis dates on this endpoint are "DD/MM/YYYY" (confirmed against
+ * real production traffic — e.g. a Startdate of "13/07/2026" logged the
+ * week of 19 July 2026), not the "MM/DD/YYYY" that JS's own Date parsing
+ * would otherwise guess for a slash-separated string. */
+function parseDmyDate(value: string | null): Date | null {
+  if (!value) return null;
+  const match = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(value.trim());
+  if (!match) return null;
+  const [, d, m, y] = match;
+  const date = new Date(Date.UTC(Number(y), Number(m) - 1, Number(d)));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 const TARIFF_ENVELOPE_KEYS = ["tariff", "Tariff", "items", "Items", "data", "Data", "result", "Result"];
 
 function extractTariffItems(payload: unknown): TariffItem[] {
@@ -857,7 +870,18 @@ function extractTariffItems(payload: unknown): TariffItem[] {
   }
   if (!Array.isArray(raw)) raw = raw && typeof raw === "object" ? [raw] : [];
 
-  const items: TariffItem[] = [];
+  const todayUtc = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()));
+
+  // Prognosis keeps every historical price for a procedure on this
+  // provider, not just the current one — the same ProcedureCode shows up
+  // more than once with different Startdate/EndDate ranges. A blank EndDate
+  // means "still in effect"; a populated one that's already passed means
+  // that price lapsed. Among whatever's still in effect for a given
+  // procedure, only the one with the latest Startdate is the actual
+  // current price — Prognosis doesn't delete a line the day a newer one
+  // starts, so both can briefly coexist as "no end date yet".
+  const latestByCode = new Map<string, { item: TariffItem; startDate: Date | null }>();
+
   for (const entry of raw as unknown[]) {
     if (!entry || typeof entry !== "object") continue;
     const r = entry as Record<string, unknown>;
@@ -866,10 +890,14 @@ function extractTariffItems(payload: unknown): TariffItem[] {
     const description = firstString(r, ["ProcedureDescr"]);
     if (!serviceCode && !description) continue;
 
+    const endDate = parseDmyDate(firstString(r, ["EndDate", "Enddate"]));
+    if (endDate && endDate.getTime() < todayUtc.getTime()) continue;
+
     const minCost = toNumberOrNull(r.MinCost);
     const maxCost = toNumberOrNull(r.MaxCost);
+    const startDate = parseDmyDate(firstString(r, ["Startdate", "StartDate"]));
 
-    items.push({
+    const item: TariffItem = {
       serviceCode: serviceCode ?? "",
       description: description ?? serviceCode ?? "",
       providerTariffCode: firstString(r, ["ProviderTarrifCode", "ProviderTariffCode"]),
@@ -878,9 +906,16 @@ function extractTariffItems(payload: unknown): TariffItem[] {
       minCost,
       maxCost,
       unitPrice: maxCost ?? minCost,
-    });
+    };
+
+    const key = item.serviceCode || item.description;
+    const existing = latestByCode.get(key);
+    if (!existing || (startDate?.getTime() ?? 0) > (existing.startDate?.getTime() ?? 0)) {
+      latestByCode.set(key, { item, startDate });
+    }
   }
-  return items;
+
+  return Array.from(latestByCode.values()).map((v) => v.item);
 }
 
 /**
