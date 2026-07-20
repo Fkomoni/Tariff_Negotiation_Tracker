@@ -22,9 +22,13 @@ function getAllowedOrigins(): string[] {
  * what tells the browser to withhold the response from that page's script.
  */
 function applyCors(response: NextResponse, requestOrigin: string | null): NextResponse {
+  // Set unconditionally, not just on the allowed branch — the response
+  // genuinely varies by Origin either way (this app's origin gets the
+  // header, everyone else doesn't), so a cache sitting in front of this
+  // needs Origin in its cache key regardless of which branch was taken.
+  response.headers.set("Vary", "Origin");
   if (requestOrigin && getAllowedOrigins().includes(requestOrigin)) {
     response.headers.set("Access-Control-Allow-Origin", requestOrigin);
-    response.headers.set("Vary", "Origin");
   }
   return response;
 }

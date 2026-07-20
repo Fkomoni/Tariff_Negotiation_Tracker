@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import NextAuth, { CredentialsSignin, type DefaultSession } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
@@ -44,8 +45,19 @@ declare module "@auth/core/jwt" {
     id?: string;
     role?: Role;
     prognosisUsername?: string;
+    /** Identifies this login's ActiveSession row (a "session lineage") —
+     * stable for the life of the login, unlike jti below. */
+    sid?: string;
+    /** The one token id ActiveSession.currentJti must match for this
+     * lineage's row — swapped out on every sliding-window refresh so a
+     * captured older token stops verifying immediately, not just once its
+     * own maxAge lapses. See the jwt callback below. */
+    jti?: string;
   }
 }
+
+const SESSION_MAX_AGE_SECONDS = 15 * 60;
+const SESSION_UPDATE_AGE_SECONDS = 5 * 60;
 
 function getAdminUsernames(): string[] {
   return (process.env.ADMIN_USERNAMES ?? "")
@@ -149,8 +161,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     // request more than 5 minutes since the last refresh, so continuous
     // activity never logs someone out — only >15 minutes of zero requests
     // does.
-    maxAge: 15 * 60,
-    updateAge: 5 * 60,
+    maxAge: SESSION_MAX_AGE_SECONDS,
+    updateAge: SESSION_UPDATE_AGE_SECONDS,
   },
   trustHost: true,
   pages: {
@@ -223,6 +235,28 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.id = user.id;
         token.role = user.role;
         token.prognosisUsername = user.prognosisUsername;
+
+        // Starts this login's ActiveSession row — see the model comment in
+        // schema.prisma for why this exists alongside sessionInvalidatedAt.
+        // Skipped in the Edge proxy (no Prisma there); a first request that
+        // happens to hit an Edge-only path would just get a token with no
+        // sid, which the check below treats as unenforced rather than
+        // erroring — the very next request through the Node.js runtime
+        // creates it instead.
+        if (process.env.NEXT_RUNTIME !== "edge") {
+          const sid = crypto.randomUUID();
+          const jti = crypto.randomUUID();
+          await prisma.activeSession.create({
+            data: {
+              id: sid,
+              userId: user.id as string,
+              currentJti: jti,
+              expiresAt: new Date(Date.now() + SESSION_MAX_AGE_SECONDS * 1000),
+            },
+          });
+          token.sid = sid;
+          token.jti = jti;
+        }
         return token;
       }
 
@@ -242,6 +276,32 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         });
         if (dbUser?.sessionInvalidatedAt && dbUser.sessionInvalidatedAt.getTime() > token.iat * 1000) {
           return null;
+        }
+
+        // Single-active-token enforcement for this login lineage: Auth.js's
+        // own sliding-window refresh (updateAge) mints a fresh iat/exp for
+        // this cookie without invalidating whatever cookie value the
+        // browser (or an attacker holding a captured copy) already has —
+        // that old value keeps verifying independently until its own
+        // maxAge lapses. Swapping the ActiveSession row's jti in lockstep
+        // with that same refresh means a token presenting last cycle's jti
+        // is rejected immediately, not just once it naturally expires.
+        if (token.sid && token.jti) {
+          const activeSession = await prisma.activeSession.findUnique({ where: { id: token.sid } });
+          if (!activeSession || activeSession.currentJti !== token.jti || activeSession.expiresAt.getTime() < Date.now()) {
+            if (activeSession) await prisma.activeSession.delete({ where: { id: token.sid } }).catch(() => {});
+            return null;
+          }
+
+          const secondsSinceIssued = Date.now() / 1000 - token.iat;
+          if (secondsSinceIssued > SESSION_UPDATE_AGE_SECONDS) {
+            const newJti = crypto.randomUUID();
+            await prisma.activeSession.update({
+              where: { id: token.sid },
+              data: { currentJti: newJti, expiresAt: new Date(Date.now() + SESSION_MAX_AGE_SECONDS * 1000) },
+            });
+            token.jti = newJti;
+          }
         }
       }
 

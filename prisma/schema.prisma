@@ -138,6 +138,28 @@ model User {
   auditLogs      AuditLog[]
   mfaCodes       MfaCode[]
   trustedDevices TrustedDevice[]
+  activeSessions ActiveSession[]
+}
+
+/// One row per login (a "session lineage"), separate from sessionInvalidatedAt
+/// above. That column force-invalidates *every* token a user holds (logout,
+/// forced sign-out); this table instead tracks, per lineage, the single
+/// token id (jti) that's currently valid — sliding-window token refresh
+/// (updateAge in src/lib/auth.ts) mints a new jti and overwrites this row's
+/// currentJti rather than leaving the previous jti independently valid
+/// until its own expiry. A token presenting a stale jti is rejected even
+/// though it hasn't technically expired yet. Different devices/logins each
+/// get their own row, so this doesn't limit concurrent sessions — only
+/// collapses the overlap window within one.
+model ActiveSession {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currentJti String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
 }
 
 /// Single-use, hashed email OTPs for the mandatory login MFA challenge.
