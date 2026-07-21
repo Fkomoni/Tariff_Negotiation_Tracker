@@ -696,9 +696,9 @@ async function dispatchMemberNotifications(params: DispatchNotificationsParams):
 
 function buildEmailMessage(template: "ROUTINE" | "URGENT", memberName: string, hospitalName: string): string {
   if (template === "URGENT") {
-    return `Dear ${memberName}, we know how important it is for your care to move forward without delay, and we want you to know that Leadway Health is ready to approve it right away. The holdup is on ${hospitalName}'s side — they are currently renegotiating tariff rates that were already pre-agreed with us for this service, and that is what's causing this delay, not any decision on our part. We are treating this as a priority, engaging the hospital directly, and following up continuously until it is resolved. Thank you for your patience and trust — we are doing everything possible to close this out quickly.`;
+    return `Dear ${memberName}, Leadway Health has approved your request. The delay is on ${hospitalName}'s side: they are renegotiating a tariff rate that was already agreed with us for this service. This is not a decision on our part. We are contacting the hospital directly and pushing for a quick resolution, and will update you as soon as it's settled.`;
   }
-  return `Dear ${memberName}, please be assured that Leadway Health would like nothing more than to approve your requested care immediately. The short delay you may experience is because ${hospitalName} is currently renegotiating tariff rates that were already pre-agreed with us for this service — this is not a delay on our end. Our team is actively engaging the hospital and following up to close this out as quickly as possible so your care isn't held up any longer than necessary. Thank you for your patience and understanding.`;
+  return `Dear ${memberName}, Leadway Health is ready to approve your requested care. The short delay is because ${hospitalName} is renegotiating a tariff rate that was already agreed with us for this service. This is not a delay on our end. We are following up with the hospital to resolve it quickly.`;
 }
 
 function buildSmsMessage(template: "ROUTINE" | "URGENT", hospitalName: string): string {
