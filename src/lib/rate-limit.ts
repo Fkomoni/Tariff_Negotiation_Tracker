@@ -14,14 +14,21 @@ import { headers } from "next/headers";
  * front of this app; if another proxy/CDN is ever added in front of Render,
  * re-check which entry is actually trustworthy.
  */
-export async function getClientIp(): Promise<string> {
+/**
+ * Returns null when no real client IP can be determined, rather than a
+ * placeholder like "unknown" — a placeholder would put every request that
+ * hits this gap into the *same* rate-limit bucket, so unrelated users could
+ * lock each other out of a shared bucket instead of each getting their own.
+ * Callers should skip IP-based limiting entirely when this returns null.
+ */
+export async function getClientIp(): Promise<string | null> {
   const h = await headers();
   const forwarded = h.get("x-forwarded-for");
   if (forwarded) {
     const hops = forwarded.split(",").map((p) => p.trim()).filter(Boolean);
     if (hops.length > 0) return hops[hops.length - 1];
   }
-  return h.get("x-real-ip") ?? "unknown";
+  return h.get("x-real-ip") ?? null;
 }
 
 /**

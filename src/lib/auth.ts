@@ -20,9 +20,18 @@ const LOGIN_WINDOW_MS = 15 * 60 * 1000;
  */
 export async function checkLoginRateLimit(username: string): Promise<{ allowed: boolean; retryAfterMs: number }> {
   const byUser = checkRateLimit(`login:user:${username.toLowerCase()}`, LOGIN_MAX_PER_USERNAME, LOGIN_WINDOW_MS);
-  const byIp = checkRateLimit(`login:ip:${await getClientIp()}`, LOGIN_MAX_PER_IP, LOGIN_WINDOW_MS);
   if (!byUser.allowed) return byUser;
-  if (!byIp.allowed) return byIp;
+
+  // Skipped entirely when the client IP can't be determined, rather than
+  // falling back to a shared placeholder bucket — that previously locked
+  // out every user hitting the same fallback at once instead of just the
+  // one actually making repeated attempts. The per-username check above is
+  // what actually protects a given account either way.
+  const ip = await getClientIp();
+  if (ip) {
+    const byIp = checkRateLimit(`login:ip:${ip}`, LOGIN_MAX_PER_IP, LOGIN_WINDOW_MS);
+    if (!byIp.allowed) return byIp;
+  }
   return { allowed: true, retryAfterMs: 0 };
 }
 

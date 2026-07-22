@@ -100,6 +100,12 @@ export function LoginForm() {
       }
       // no_mfa_needed — this device already completed MFA and is trusted
       await completeSignIn();
+    } catch {
+      // An unexpected server-side error (as opposed to a normal typed
+      // CredentialsCheckResult) previously left the button silently
+      // reverting to "Sign In" with no feedback at all — the finally below
+      // always ran, but nothing here ever called setError for a throw.
+      setError("Something went wrong signing in. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -117,6 +123,8 @@ export function LoginForm() {
     setLoading(true);
     try {
       await completeSignIn(code.trim());
+    } catch {
+      setError("Something went wrong verifying that code. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -132,6 +140,8 @@ export function LoginForm() {
         return;
       }
       setNotice(check.status === "otp_sent" ? "We sent a new code to your email." : "Enter the 6-digit code we emailed you.");
+    } catch {
+      setError("Something went wrong requesting a new code. Please try again.");
     } finally {
       setLoading(false);
     }
