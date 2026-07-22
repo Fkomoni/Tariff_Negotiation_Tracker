@@ -300,36 +300,33 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        // Single-active-token enforcement for this login lineage: Auth.js's
-        // own sliding-window refresh (updateAge) mints a fresh iat/exp for
-        // this cookie without invalidating whatever cookie value the
-        // browser (or an attacker holding a captured copy) already has —
-        // that old value keeps verifying independently until its own
-        // maxAge lapses. Swapping the ActiveSession row's jti in lockstep
-        // with that same refresh means a token presenting last cycle's jti
-        // is rejected immediately, not just once it naturally expires.
-        //
-        // Also fails open on an infrastructure error (see the comment on
-        // ActiveSession creation above) — a lookup/update failure here
-        // means "can't verify this cycle," not "reject a real user," so it
-        // logs and lets the token through rather than signing everyone out
-        // the moment this table has a problem.
+        // Single-active-token enforcement for this login lineage — DISABLED
+        // (log-only) as of 2026-07-22. Enabling the `return null` below took
+        // down login three times in production: it rejected freshly-created
+        // sessions on their very next read (confirmed via a HAR capture —
+        // the credentials callback itself came back pointing at /login with
+        // no error code, which is exactly Auth.js's behavior when this
+        // callback returns null), and did so completely silently, since a
+        // legitimate rejection here was never logged, only an infra error
+        // was. Rather than keep patching this live, it's neutered to
+        // observation-only until it can be re-verified end-to-end outside
+        // of production. See git history on this block for the intended
+        // design (swap the row's jti on each refresh, reject a stale one).
         if (token.sid && token.jti) {
           try {
             const activeSession = await prisma.activeSession.findUnique({ where: { id: token.sid } });
             if (!activeSession || activeSession.currentJti !== token.jti || activeSession.expiresAt.getTime() < Date.now()) {
-              if (activeSession) await prisma.activeSession.delete({ where: { id: token.sid } }).catch(() => {});
-              return null;
-            }
-
-            const secondsSinceIssued = Date.now() / 1000 - token.iat;
-            if (secondsSinceIssued > SESSION_UPDATE_AGE_SECONDS) {
-              const newJti = crypto.randomUUID();
-              await prisma.activeSession.update({
-                where: { id: token.sid },
-                data: { currentJti: newJti, expiresAt: new Date(Date.now() + SESSION_MAX_AGE_SECONDS * 1000) },
-              });
-              token.jti = newJti;
+              console.error(`[auth] ActiveSession mismatch for sid ${token.sid} — would have rejected, currently disabled`);
+            } else {
+              const secondsSinceIssued = Date.now() / 1000 - token.iat;
+              if (secondsSinceIssued > SESSION_UPDATE_AGE_SECONDS) {
+                const newJti = crypto.randomUUID();
+                await prisma.activeSession.update({
+                  where: { id: token.sid },
+                  data: { currentJti: newJti, expiresAt: new Date(Date.now() + SESSION_MAX_AGE_SECONDS * 1000) },
+                });
+                token.jti = newJti;
+              }
             }
           } catch (err) {
             console.error("[auth] ActiveSession check/rotation failed, letting this request through:", err);
