@@ -243,19 +243,32 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // sid, which the check below treats as unenforced rather than
         // erroring — the very next request through the Node.js runtime
         // creates it instead.
+        //
+        // Deliberately fails open: this runs after authorize() has already
+        // consumed the one-time MFA code, so an error here (e.g. a DB hiccup,
+        // or this table not existing yet on a fresh deploy before its
+        // migration has run) must not blow up the whole sign-in — that would
+        // burn the user's only valid code with no way to recover except
+        // requesting a new one. Worst case here is just skipping this
+        // login's single-active-token enforcement, not losing the ability
+        // to sign in at all.
         if (process.env.NEXT_RUNTIME !== "edge") {
-          const sid = crypto.randomUUID();
-          const jti = crypto.randomUUID();
-          await prisma.activeSession.create({
-            data: {
-              id: sid,
-              userId: user.id as string,
-              currentJti: jti,
-              expiresAt: new Date(Date.now() + SESSION_MAX_AGE_SECONDS * 1000),
-            },
-          });
-          token.sid = sid;
-          token.jti = jti;
+          try {
+            const sid = crypto.randomUUID();
+            const jti = crypto.randomUUID();
+            await prisma.activeSession.create({
+              data: {
+                id: sid,
+                userId: user.id as string,
+                currentJti: jti,
+                expiresAt: new Date(Date.now() + SESSION_MAX_AGE_SECONDS * 1000),
+              },
+            });
+            token.sid = sid;
+            token.jti = jti;
+          } catch (err) {
+            console.error("[auth] failed to create ActiveSession row, continuing without it:", err);
+          }
         }
         return token;
       }
@@ -286,21 +299,31 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // maxAge lapses. Swapping the ActiveSession row's jti in lockstep
         // with that same refresh means a token presenting last cycle's jti
         // is rejected immediately, not just once it naturally expires.
+        //
+        // Also fails open on an infrastructure error (see the comment on
+        // ActiveSession creation above) — a lookup/update failure here
+        // means "can't verify this cycle," not "reject a real user," so it
+        // logs and lets the token through rather than signing everyone out
+        // the moment this table has a problem.
         if (token.sid && token.jti) {
-          const activeSession = await prisma.activeSession.findUnique({ where: { id: token.sid } });
-          if (!activeSession || activeSession.currentJti !== token.jti || activeSession.expiresAt.getTime() < Date.now()) {
-            if (activeSession) await prisma.activeSession.delete({ where: { id: token.sid } }).catch(() => {});
-            return null;
-          }
+          try {
+            const activeSession = await prisma.activeSession.findUnique({ where: { id: token.sid } });
+            if (!activeSession || activeSession.currentJti !== token.jti || activeSession.expiresAt.getTime() < Date.now()) {
+              if (activeSession) await prisma.activeSession.delete({ where: { id: token.sid } }).catch(() => {});
+              return null;
+            }
 
-          const secondsSinceIssued = Date.now() / 1000 - token.iat;
-          if (secondsSinceIssued > SESSION_UPDATE_AGE_SECONDS) {
-            const newJti = crypto.randomUUID();
-            await prisma.activeSession.update({
-              where: { id: token.sid },
-              data: { currentJti: newJti, expiresAt: new Date(Date.now() + SESSION_MAX_AGE_SECONDS * 1000) },
-            });
-            token.jti = newJti;
+            const secondsSinceIssued = Date.now() / 1000 - token.iat;
+            if (secondsSinceIssued > SESSION_UPDATE_AGE_SECONDS) {
+              const newJti = crypto.randomUUID();
+              await prisma.activeSession.update({
+                where: { id: token.sid },
+                data: { currentJti: newJti, expiresAt: new Date(Date.now() + SESSION_MAX_AGE_SECONDS * 1000) },
+              });
+              token.jti = newJti;
+            }
+          } catch (err) {
+            console.error("[auth] ActiveSession check/rotation failed, letting this request through:", err);
           }
         }
       }
