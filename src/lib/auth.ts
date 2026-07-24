@@ -6,6 +6,7 @@ import { prognosisStaffLogin, PrognosisAuthError, PrognosisUnavailableError } fr
 import { logAudit } from "@/lib/audit";
 import { isDeviceTrusted, trustThisDevice, verifyOtp } from "@/lib/mfa";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { evaluateActiveSession } from "@/lib/active-session";
 import { Prisma, type Role, type User as PrismaUser } from "@prisma/client";
 
 const LOGIN_MAX_PER_USERNAME = 8;
@@ -67,6 +68,11 @@ declare module "@auth/core/jwt" {
 
 const SESSION_MAX_AGE_SECONDS = 15 * 60;
 const SESSION_UPDATE_AGE_SECONDS = 5 * 60;
+/** A token this fresh is never rejected for an ActiveSession mismatch, only
+ * for the separate sessionInvalidatedAt check — see evaluateActiveSession's
+ * own comment for why. 60s is generous next to the 5-minute updateAge a
+ * genuinely stale token would need to have missed. */
+const SESSION_CREATION_GRACE_SECONDS = 60;
 
 function getAdminUsernames(): string[] {
   return (process.env.ADMIN_USERNAMES ?? "")
@@ -300,33 +306,43 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        // Single-active-token enforcement for this login lineage — DISABLED
-        // (log-only) as of 2026-07-22. Enabling the `return null` below took
-        // down login three times in production: it rejected freshly-created
-        // sessions on their very next read (confirmed via a HAR capture —
-        // the credentials callback itself came back pointing at /login with
-        // no error code, which is exactly Auth.js's behavior when this
-        // callback returns null), and did so completely silently, since a
-        // legitimate rejection here was never logged, only an infra error
-        // was. Rather than keep patching this live, it's neutered to
-        // observation-only until it can be re-verified end-to-end outside
-        // of production. See git history on this block for the intended
-        // design (swap the row's jti on each refresh, reject a stale one).
+        // Single-active-token enforcement for this login lineage. A prior
+        // version of this rejected outright on any mismatch and took down
+        // login three times in production — it turned out the very first
+        // read right after sign-in could see no row yet (or a jti that
+        // hadn't visibly settled), indistinguishable at the time from a
+        // genuinely stale token. evaluateActiveSession (src/lib/active-
+        // session.ts, unit-tested) now gives a fresh token a short grace
+        // window where a mismatch is never fatal — a truly stale token
+        // can't exist within that window anyway, since it would require a
+        // *later* refresh to have already minted a newer jti.
         if (token.sid && token.jti) {
           try {
             const activeSession = await prisma.activeSession.findUnique({ where: { id: token.sid } });
-            if (!activeSession || activeSession.currentJti !== token.jti || activeSession.expiresAt.getTime() < Date.now()) {
-              console.error(`[auth] ActiveSession mismatch for sid ${token.sid} — would have rejected, currently disabled`);
-            } else {
-              const secondsSinceIssued = Date.now() / 1000 - token.iat;
-              if (secondsSinceIssued > SESSION_UPDATE_AGE_SECONDS) {
-                const newJti = crypto.randomUUID();
-                await prisma.activeSession.update({
-                  where: { id: token.sid },
-                  data: { currentJti: newJti, expiresAt: new Date(Date.now() + SESSION_MAX_AGE_SECONDS * 1000) },
-                });
-                token.jti = newJti;
-              }
+            const { accept, shouldRotate } = evaluateActiveSession({
+              activeSession: activeSession
+                ? { currentJti: activeSession.currentJti, expiresAt: activeSession.expiresAt }
+                : null,
+              tokenJti: token.jti,
+              tokenIat: token.iat,
+              nowMs: Date.now(),
+              updateAgeSeconds: SESSION_UPDATE_AGE_SECONDS,
+              creationGraceSeconds: SESSION_CREATION_GRACE_SECONDS,
+            });
+
+            if (!accept) {
+              console.error(`[auth] ActiveSession rejected for sid ${token.sid} (past creation grace, jti mismatch or expired)`);
+              if (activeSession) await prisma.activeSession.delete({ where: { id: token.sid } }).catch(() => {});
+              return null;
+            }
+
+            if (shouldRotate) {
+              const newJti = crypto.randomUUID();
+              await prisma.activeSession.update({
+                where: { id: token.sid },
+                data: { currentJti: newJti, expiresAt: new Date(Date.now() + SESSION_MAX_AGE_SECONDS * 1000) },
+              });
+              token.jti = newJti;
             }
           } catch (err) {
             console.error("[auth] ActiveSession check/rotation failed, letting this request through:", err);
