@@ -1,4 +1,3 @@
-import crypto from "crypto";
 import NextAuth, { CredentialsSignin, type DefaultSession } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
@@ -6,7 +5,6 @@ import { prognosisStaffLogin, PrognosisAuthError, PrognosisUnavailableError } fr
 import { logAudit } from "@/lib/audit";
 import { isDeviceTrusted, trustThisDevice, verifyOtp } from "@/lib/mfa";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
-import { evaluateActiveSession } from "@/lib/active-session";
 import { Prisma, type Role, type User as PrismaUser } from "@prisma/client";
 
 const LOGIN_MAX_PER_USERNAME = 8;
@@ -55,38 +53,11 @@ declare module "@auth/core/jwt" {
     id?: string;
     role?: Role;
     prognosisUsername?: string;
-    /** Identifies this login's ActiveSession row (a "session lineage") —
-     * stable for the life of the login, unlike tokenVersion below. */
-    sid?: string;
-    /**
-     * The one value ActiveSession.currentJti must match for this lineage's
-     * row — swapped out on every sliding-window refresh so a captured
-     * older token stops verifying immediately, not just once its own
-     * maxAge lapses. See the jwt callback below.
-     *
-     * Deliberately NOT named `jti` — that's a reserved JWT claim, and
-     * Auth.js's own encode() unconditionally overwrites it with a random
-     * value on every single call (confirmed against @auth/core's actual
-     * source: `.setJti(crypto.randomUUID())`, called regardless of
-     * whatever the token object already carries under that key). A
-     * previous version of this used `jti` for this exact purpose, which
-     * silently discarded every value this code tried to persist — the
-     * stored ActiveSession row would never match what came back out of a
-     * real decode(), independent of any timing/race consideration. Any
-     * custom claim here must avoid the RFC 7519 registered names (iss,
-     * sub, aud, exp, nbf, iat, jti) that jose's JWT builders special-case.
-     */
-    tokenVersion?: string;
   }
 }
 
 const SESSION_MAX_AGE_SECONDS = 15 * 60;
 const SESSION_UPDATE_AGE_SECONDS = 5 * 60;
-/** A token this fresh is never rejected for an ActiveSession mismatch, only
- * for the separate sessionInvalidatedAt check — see evaluateActiveSession's
- * own comment for why. 60s is generous next to the 5-minute updateAge a
- * genuinely stale token would need to have missed. */
-const SESSION_CREATION_GRACE_SECONDS = 60;
 
 function getAdminUsernames(): string[] {
   return (process.env.ADMIN_USERNAMES ?? "")
@@ -264,41 +235,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.id = user.id;
         token.role = user.role;
         token.prognosisUsername = user.prognosisUsername;
-
-        // Starts this login's ActiveSession row — see the model comment in
-        // schema.prisma for why this exists alongside sessionInvalidatedAt.
-        // Skipped in the Edge proxy (no Prisma there); a first request that
-        // happens to hit an Edge-only path would just get a token with no
-        // sid, which the check below treats as unenforced rather than
-        // erroring — the very next request through the Node.js runtime
-        // creates it instead.
-        //
-        // Deliberately fails open: this runs after authorize() has already
-        // consumed the one-time MFA code, so an error here (e.g. a DB hiccup,
-        // or this table not existing yet on a fresh deploy before its
-        // migration has run) must not blow up the whole sign-in — that would
-        // burn the user's only valid code with no way to recover except
-        // requesting a new one. Worst case here is just skipping this
-        // login's single-active-token enforcement, not losing the ability
-        // to sign in at all.
-        if (process.env.NEXT_RUNTIME !== "edge") {
-          try {
-            const sid = crypto.randomUUID();
-            const tokenVersion = crypto.randomUUID();
-            await prisma.activeSession.create({
-              data: {
-                id: sid,
-                userId: user.id as string,
-                currentJti: tokenVersion,
-                expiresAt: new Date(Date.now() + SESSION_MAX_AGE_SECONDS * 1000),
-              },
-            });
-            token.sid = sid;
-            token.tokenVersion = tokenVersion;
-          } catch (err) {
-            console.error("[auth] failed to create ActiveSession row, continuing without it:", err);
-          }
-        }
         return token;
       }
 
@@ -318,59 +254,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         });
         if (dbUser?.sessionInvalidatedAt && dbUser.sessionInvalidatedAt.getTime() > token.iat * 1000) {
           return null;
-        }
-
-        // Single-active-token enforcement for this login lineage. Two
-        // distinct bugs hit this before it could ship safely:
-        //
-        // 1. The very first read right after sign-in could see no row yet
-        //    (or a value that hadn't visibly settled) — indistinguishable
-        //    at the time from a genuinely stale token. evaluateActiveSession
-        //    (src/lib/active-session.ts, unit-tested) gives a fresh token a
-        //    short grace window where a mismatch is never fatal, since a
-        //    truly stale token can't exist that early anyway.
-        //
-        // 2. This custom value was originally stored under `token.jti` —
-        //    which collides with the RFC 7519 registered "jti" claim that
-        //    Auth.js's own encode() unconditionally overwrites with a
-        //    fresh crypto.randomUUID() on every single call, regardless of
-        //    what the token object already carries there. So it never
-        //    round-tripped correctly at all, independent of the grace
-        //    window or any timing race — confirmed by reproducing the full
-        //    encode/decode cycle for real (not just this pure function)
-        //    against a local Postgres running the actual migration.
-        //    Renamed to `tokenVersion` to avoid the collision entirely.
-        if (token.sid && token.tokenVersion) {
-          try {
-            const activeSession = await prisma.activeSession.findUnique({ where: { id: token.sid } });
-            const { accept, shouldRotate } = evaluateActiveSession({
-              activeSession: activeSession
-                ? { currentJti: activeSession.currentJti, expiresAt: activeSession.expiresAt }
-                : null,
-              tokenVersion: token.tokenVersion,
-              tokenIat: token.iat,
-              nowMs: Date.now(),
-              updateAgeSeconds: SESSION_UPDATE_AGE_SECONDS,
-              creationGraceSeconds: SESSION_CREATION_GRACE_SECONDS,
-            });
-
-            if (!accept) {
-              console.error(`[auth] ActiveSession rejected for sid ${token.sid} (past creation grace, version mismatch or expired)`);
-              if (activeSession) await prisma.activeSession.delete({ where: { id: token.sid } }).catch(() => {});
-              return null;
-            }
-
-            if (shouldRotate) {
-              const newTokenVersion = crypto.randomUUID();
-              await prisma.activeSession.update({
-                where: { id: token.sid },
-                data: { currentJti: newTokenVersion, expiresAt: new Date(Date.now() + SESSION_MAX_AGE_SECONDS * 1000) },
-              });
-              token.tokenVersion = newTokenVersion;
-            }
-          } catch (err) {
-            console.error("[auth] ActiveSession check/rotation failed, letting this request through:", err);
-          }
         }
       }
 
