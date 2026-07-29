@@ -1,5 +1,7 @@
 import { Suspense } from "react";
 import Image from "next/image";
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
 import { LoginForm } from "./LoginForm";
 
 const FEATURES = [
@@ -9,7 +11,13 @@ const FEATURES = [
   "Full audit trail & reporting",
 ];
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  // Real check against the database, not just the middleware's cookie-
+  // presence check — a stale cookie from an already-expired session must
+  // still land here, not bounce to /dashboard and back.
+  const session = await auth();
+  if (session?.user) redirect("/dashboard");
+
   return (
     <div className="flex min-h-screen bg-ink-950">
       <div className="hidden w-[46%] flex-col justify-between px-14 py-14 lg:flex">

@@ -138,6 +138,25 @@ model User {
   auditLogs      AuditLog[]
   mfaCodes       MfaCode[]
   trustedDevices TrustedDevice[]
+  sessions       Session[]
+}
+
+/// A signed-in session: the cookie holds only tokenHash's raw pre-image (see
+/// src/lib/session.ts), never anything that encodes state itself. Idle
+/// expiry slides forward by updating expiresAt in place on activity — the
+/// cookie is written once at login and never rewritten again for the life
+/// of the session, unlike the previous JWT-cookie approach where every
+/// refresh re-signed (and therefore changed) the cookie value.
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }
 
 /// Single-use, hashed email OTPs for the mandatory login MFA challenge.

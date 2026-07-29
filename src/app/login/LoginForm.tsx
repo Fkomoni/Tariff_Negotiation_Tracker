@@ -1,11 +1,10 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { inputClass } from "@/components/ui";
 import { AlertIcon } from "@/components/icons";
-import { checkCredentialsAndMaybeSendOtp } from "@/app/actions/mfa-actions";
+import { checkCredentialsAndMaybeSendOtp, completeLoginAction } from "@/app/actions/mfa-actions";
 
 type Step = "credentials" | "otp";
 
@@ -34,28 +33,27 @@ export function LoginForm() {
   const [notice, setNotice] = useState<string | null>(null);
 
   async function completeSignIn(mfaCode?: string) {
-    const result = await signIn("credentials", {
+    const result = await completeLoginAction({
       username: username.trim(),
       password,
       mfaCode: mfaCode ?? "",
-      trustDevice: mfaCode ? String(trustDevice) : "false",
-      redirect: false,
+      trustDevice: mfaCode ? trustDevice : false,
     });
 
-    if (result?.code === "mfa_required") {
+    if (result.status === "mfa_required") {
       setStep("otp");
       setNotice("Enter the 6-digit code we emailed you.");
       return;
     }
-    if (result?.code === "mfa_invalid") {
+    if (result.status === "mfa_invalid") {
       setError("That code is invalid or has expired.");
       return;
     }
-    if (result?.code === "rate_limited") {
+    if (result.status === "rate_limited") {
       setError("Too many attempts. Wait a few minutes and try again.");
       return;
     }
-    if (result?.error) {
+    if (result.status === "invalid_credentials") {
       setError("Invalid Prognosis username or password.");
       return;
     }

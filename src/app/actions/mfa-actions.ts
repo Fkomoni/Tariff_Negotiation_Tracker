@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { auth, resolveStaffUser, checkLoginRateLimit } from "@/lib/auth";
+import { auth, resolveStaffUser, checkLoginRateLimit, completeLogin, type CompleteLoginResult } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PrognosisAuthError, PrognosisUnavailableError, sendEmailAlert } from "@/lib/prognosis";
 import { issueOtp, isDeviceTrusted, OtpRateLimitedError } from "@/lib/mfa";
@@ -63,6 +63,23 @@ export async function checkCredentialsAndMaybeSendOtp(username: string, password
   }
 
   return { status: "otp_sent" };
+}
+
+/**
+ * Step 2 of login: called once credentials are verified (and an OTP sent,
+ * if needed) — re-verifies everything and, on success, mints the session.
+ * A thin Server Action wrapper around completeLogin() in auth.ts, which is
+ * a plain module the (app) layout and pages also import for unrelated
+ * reasons; keeping the "use server" boundary here instead of on that whole
+ * file keeps this the one and only client-callable entry point for it.
+ */
+export async function completeLoginAction(input: {
+  username: string;
+  password: string;
+  mfaCode?: string;
+  trustDevice?: boolean;
+}): Promise<CompleteLoginResult> {
+  return completeLogin(input);
 }
 
 async function requireSession() {

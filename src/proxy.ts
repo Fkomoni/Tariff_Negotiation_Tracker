@@ -1,51 +1,24 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getToken } from "next-auth/jwt";
-import type { Role } from "@prisma/client";
-
-const ADMIN_ONLY = ["/configuration"];
-const CONTACT_CENTER_OR_ADMIN = ["/negotiations/new"];
-// /negotiations/queue has no role restriction here on purpose — Contact
-// Centre needs to see case status too, and the page itself is read-only.
-// The actual write boundary (updateCaseStatus, the Provider Team tab) is
-// enforced independently, server-side, regardless of what this middleware
-// does — see negotiations/[id]/page.tsx and case-actions.ts.
-
-function matches(pathname: string, prefixes: string[]) {
-  return prefixes.some((p) => pathname === p || pathname.startsWith(`${p}/`));
-}
+import { SESSION_COOKIE_NAME } from "@/lib/session-cookie";
 
 /**
- * Reads the session with getToken() rather than the auth() middleware
- * wrapper this used before. auth() routes through Auth.js's full session
- * machinery, which unconditionally re-signs and re-issues the session
- * cookie on every single call for JWT-strategy sessions (confirmed in
- * @auth/core's own source — there's no throttle on that path, unlike the
- * database-session strategy, which does throttle). Since this file runs on
- * nearly every request via the matcher below, that meant a fresh Set-Cookie
- * on every single page load, which repeatedly read as suspicious in
- * security review even though it was never itself a vulnerability.
- * getToken() only decodes the existing cookie — a pure read, no re-signing,
- * no Set-Cookie side effect — which is all this middleware ever actually
- * needed: this is coarse UX routing, not the authorization boundary (every
- * real page/Server Action/API route independently calls auth() in the
- * Node.js runtime and enforces its own check there, sessionInvalidatedAt
- * included). The session still refreshes normally through those real
- * auth() calls during actual use; it just no longer also refreshes on
- * every passive middleware pass.
+ * Cookie-presence-only check. The session cookie is now an opaque token —
+ * validating it for real (checking it against a database row, reading the
+ * role for the redirects this file used to do) needs Prisma, which can't
+ * run in the Edge runtime this middleware executes in. That's fine: this
+ * is coarse UX routing, not the authorization boundary. Every real
+ * page/Server Action/API route independently calls auth() in the Node.js
+ * runtime and enforces its own check there — see (app)/layout.tsx for the
+ * real signed-in and PENDING-role checks, and configuration/page.tsx and
+ * negotiations/new/page.tsx for the real role checks this file used to do.
+ *
+ * A stale cookie whose session already expired server-side will pass this
+ * check and only get caught by the real one a layout render later — an
+ * extra redirect hop, not a security gap.
  */
-export default async function middleware(req: NextRequest) {
+export default function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  const secret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
-  // Prefer the already-configured NEXTAUTH_URL over trusting this request's
-  // own perceived protocol — Render/Cloudflare terminate TLS upstream, so
-  // relying on a per-request header here would depend on proxy forwarding
-  // behaving exactly as expected. NEXTAUTH_URL is a known-correct static
-  // fact of this deployment (same reasoning already used in cors.ts's
-  // getAllowedOrigins()), so there's nothing to get wrong at request time.
-  const configuredUrl = process.env.AUTH_URL ?? process.env.NEXTAUTH_URL;
-  const secureCookie = configuredUrl ? configuredUrl.startsWith("https:") : req.nextUrl.protocol === "https:";
-  const token = await getToken({ req, secret, secureCookie });
-  const isLoggedIn = !!token;
+  const isLoggedIn = !!req.cookies.get(SESSION_COOKIE_NAME)?.value;
 
   if (pathname.startsWith("/login")) {
     if (isLoggedIn) return NextResponse.redirect(new URL("/dashboard", req.url));
@@ -56,20 +29,6 @@ export default async function middleware(req: NextRequest) {
     const loginUrl = new URL("/login", req.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(loginUrl);
-  }
-
-  const role = token?.role as Role | undefined;
-
-  if (role === "PENDING" && pathname !== "/pending-approval") {
-    return NextResponse.redirect(new URL("/pending-approval", req.url));
-  }
-
-  if (matches(pathname, ADMIN_ONLY) && role !== "ADMIN") {
-    return NextResponse.redirect(new URL("/dashboard", req.url));
-  }
-
-  if (matches(pathname, CONTACT_CENTER_OR_ADMIN) && !["CONTACT_CENTER", "ADMIN"].includes(role ?? "")) {
-    return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
   return NextResponse.next();

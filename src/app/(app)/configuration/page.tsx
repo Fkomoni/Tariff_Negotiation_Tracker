@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Header } from "@/components/Header";
@@ -10,6 +11,10 @@ import { assignRole, provisionUser, deleteUser, syncPrognosisLookups } from "@/a
 export default async function ConfigurationPage() {
   const session = await auth();
   if (!session?.user) return null;
+  // The Edge middleware used to gate this route to ADMIN only; it can no
+  // longer read the role behind the opaque session cookie without Prisma,
+  // so this page enforces it directly instead.
+  if (session.user.role !== "ADMIN") redirect("/dashboard");
 
   const users = await prisma.user.findMany({ orderBy: { createdAt: "asc" } });
 

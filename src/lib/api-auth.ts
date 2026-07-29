@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import type { Role } from "@prisma/client";
-import type { Session } from "next-auth";
+import type { SessionUser } from "@/lib/session";
 
 /**
  * API routes sit outside middleware.ts's matcher (it excludes "/api"
@@ -10,11 +10,11 @@ import type { Session } from "next-auth";
  * gating the UI enforces. Every data-returning API route must call this
  * instead of just checking `session?.user`.
  *
- * Returns the Session on success, or a NextResponse to return as-is on
+ * Returns the session on success, or a NextResponse to return as-is on
  * failure — callers check `instanceof NextResponse` (a discriminated-union
  * return here doesn't narrow cleanly through destructuring).
  */
-export async function requireApiSession(allowedRoles: Role[]): Promise<Session | NextResponse> {
+export async function requireApiSession(allowedRoles: Role[]): Promise<{ user: SessionUser } | NextResponse> {
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Header } from "@/components/Header";
@@ -18,6 +19,10 @@ export default async function LogNegotiationPage(
   const searchParams = await props.searchParams;
   const session = await auth();
   if (!session?.user) return null;
+  // The Edge middleware used to gate this route to Contact Centre/Admin; it
+  // can no longer read the role behind the opaque session cookie without
+  // Prisma, so this page enforces it directly instead.
+  if (!["CONTACT_CENTER", "ADMIN"].includes(session.user.role)) redirect("/dashboard");
 
   let initialProvider: ProviderInitial | undefined;
   let initialEnrollee: EnrolleeInitial | undefined;
