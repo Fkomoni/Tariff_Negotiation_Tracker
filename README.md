@@ -53,8 +53,7 @@ signs in.
 | Variable | Value |
 |---|---|
 | `DATABASE_URL` | The Neon/Supabase connection string from step 1. If it's a pooled connection (e.g. Supabase's session pooler) with a small `pool_size`, add `?connection_limit=5` (or lower) to the URL so this app doesn't consume the whole pool by itself |
-| `NEXTAUTH_SECRET` | A random secret — generate with `openssl rand -base64 32` |
-| `NEXTAUTH_URL` | Your Render service URL, e.g. `https://tariff-negotiation-tracker.onrender.com` |
+| `NEXTAUTH_URL` | Your Render service URL, e.g. `https://tariff-negotiation-tracker.onrender.com` — used to build links in emails and to validate the CORS allow-list, not for session auth (sessions are a database-backed opaque token now, not a signed/encrypted cookie, so there's no secret to configure for them) |
 | `PROGNOSIS_BASE` | `https://prognosis-api.leadwayhealth.com` (default, only override if it changes) |
 | `PROGNOSIS_SERVICE_USERNAME` | A Prognosis username dedicated to sending member notifications |
 | `PROGNOSIS_SERVICE_PASSWORD` | That account's password |
@@ -100,17 +99,14 @@ npm run dev
   do a full manual pass through login, case logging, and the provider-team queue after
   deploying this before treating it as fully verified in production.
 - Role changes made in Configuration apply on the affected user's *next* sign-in, not
-  instantly — this keeps the middleware edge-runtime-safe (Prisma can't run there).
-- Sessions time out after 15 minutes of inactivity (a rolling window — active use
-  refreshes it every 5 minutes, so it never expires mid-task); see `session.maxAge`/
-  `updateAge` in `src/lib/auth.ts`.
-- Auth.js is configured with `trustHost: true`, which is required on Render (and most
-  non-Vercel platforms) — without it, every request fails with an `UntrustedHost` error,
-  because Auth.js needs the incoming `Host`/`X-Forwarded-Host` header to construct its own
-  callback URLs even when `NEXTAUTH_URL` is set. This app never derives trust decisions or
-  absolute URLs from the request Host itself (notification emails use the explicit
-  `NEXTAUTH_URL` env var, not a request-derived host), so the residual risk is scoped to
-  whatever Auth.js does internally with that header. Render's own edge routes by the
-  service's assigned hostname rather than trusting an arbitrary client-supplied `Host`, but
-  if this ever moves behind a different reverse proxy, confirm that proxy validates/strips
-  inbound `Host`/`X-Forwarded-Host` from external clients before forwarding.
+  instantly — this keeps the middleware edge-runtime-safe (Prisma can't run there); the
+  same constraint is why `configuration/page.tsx` and `negotiations/new/page.tsx` enforce
+  their own role checks directly rather than relying on the middleware for it.
+- Sessions are database-backed: the cookie holds only an opaque, unchanging token (see
+  `src/lib/session.ts`), hashed and looked up against a `Session` row. Idle timeout is 15
+  minutes, as a rolling window entirely server-side — active use extends `expiresAt` in
+  place (throttled to at most once every 5 minutes), so the cookie itself is written once
+  at login and never rewritten again for the life of the session. The middleware
+  (`src/proxy.ts`) only checks for the cookie's presence, not its validity — that's the
+  real authorization boundary, enforced by every page/Server Action/API route calling
+  `auth()` in the Node.js runtime.
