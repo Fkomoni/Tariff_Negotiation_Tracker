@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { NextResponse, type NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
+import type { Role } from "@prisma/client";
 
 const ADMIN_ONLY = ["/configuration"];
 const CONTACT_CENTER_OR_ADMIN = ["/negotiations/new"];
@@ -13,9 +14,38 @@ function matches(pathname: string, prefixes: string[]) {
   return prefixes.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
-export default auth((req) => {
+/**
+ * Reads the session with getToken() rather than the auth() middleware
+ * wrapper this used before. auth() routes through Auth.js's full session
+ * machinery, which unconditionally re-signs and re-issues the session
+ * cookie on every single call for JWT-strategy sessions (confirmed in
+ * @auth/core's own source — there's no throttle on that path, unlike the
+ * database-session strategy, which does throttle). Since this file runs on
+ * nearly every request via the matcher below, that meant a fresh Set-Cookie
+ * on every single page load, which repeatedly read as suspicious in
+ * security review even though it was never itself a vulnerability.
+ * getToken() only decodes the existing cookie — a pure read, no re-signing,
+ * no Set-Cookie side effect — which is all this middleware ever actually
+ * needed: this is coarse UX routing, not the authorization boundary (every
+ * real page/Server Action/API route independently calls auth() in the
+ * Node.js runtime and enforces its own check there, sessionInvalidatedAt
+ * included). The session still refreshes normally through those real
+ * auth() calls during actual use; it just no longer also refreshes on
+ * every passive middleware pass.
+ */
+export default async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  const isLoggedIn = !!req.auth;
+  const secret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
+  // Prefer the already-configured NEXTAUTH_URL over trusting this request's
+  // own perceived protocol — Render/Cloudflare terminate TLS upstream, so
+  // relying on a per-request header here would depend on proxy forwarding
+  // behaving exactly as expected. NEXTAUTH_URL is a known-correct static
+  // fact of this deployment (same reasoning already used in cors.ts's
+  // getAllowedOrigins()), so there's nothing to get wrong at request time.
+  const configuredUrl = process.env.AUTH_URL ?? process.env.NEXTAUTH_URL;
+  const secureCookie = configuredUrl ? configuredUrl.startsWith("https:") : req.nextUrl.protocol === "https:";
+  const token = await getToken({ req, secret, secureCookie });
+  const isLoggedIn = !!token;
 
   if (pathname.startsWith("/login")) {
     if (isLoggedIn) return NextResponse.redirect(new URL("/dashboard", req.url));
@@ -28,7 +58,7 @@ export default auth((req) => {
     return NextResponse.redirect(loginUrl);
   }
 
-  const role = req.auth?.user?.role;
+  const role = token?.role as Role | undefined;
 
   if (role === "PENDING" && pathname !== "/pending-approval") {
     return NextResponse.redirect(new URL("/pending-approval", req.url));
@@ -43,7 +73,7 @@ export default auth((req) => {
   }
 
   return NextResponse.next();
-});
+}
 
 export const config = {
   // Static files in public/ (logo, award-banner image, etc.) have no
