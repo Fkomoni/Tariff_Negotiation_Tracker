@@ -1,5 +1,7 @@
 const BRAND_ORANGE = "#F2661B";
 const BRAND_RED = "#E31837";
+const BRAND_GREEN = "#16a34a";
+const BRAND_BLUE = "#2563eb";
 const INK_900 = "#171316";
 const INK_500 = "#6b6470";
 const INK_300 = "#9a94a1";
@@ -270,19 +272,134 @@ export function buildMemberNotificationEmailHtml(params: MemberNotificationEmail
   });
 }
 
-/** Builds the MFA sign-in code email on the shared shell, matching the
- * layout used for every other Leadway Health email (logo header, code
- * box, footer banner, copyright) instead of the bare-bones version this
- * used to be. */
-export function buildMfaCodeEmailHtml(params: { baseUrl: string; code: string; purpose: "sign in to" }): string {
-  return buildEmailShell({
-    baseUrl: params.baseUrl,
-    accentColor: BRAND_RED,
-    title: "Your Sign-In Code Is Ready",
-    highlightedWord: "Sign-In",
-    intro: `Use this code to ${params.purpose} the Provider Tariff Negotiation Tracker.`,
-    codeBox: { label: "Verification Code", code: params.code },
-    notices: ["This code expires in 10 minutes.", "It's single-use and tied to your account only."],
-    footerNote: "If you didn't request this, you can ignore this email — no changes were made to your account.",
-  });
+/** A colored circle containing a single emoji glyph, built with the
+ * standard bulletproof-email centering trick (a one-cell table, not a div
+ * with margin:auto) so it centers reliably in Outlook as well as webmail. */
+function iconCircle(icon: string, size: number, bg: string): string {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;"><tr><td style="width:${size}px;height:${size}px;border-radius:50%;background:${bg};text-align:center;font-size:${Math.round(size * 0.45)}px;line-height:${size}px;">${icon}</td></tr></table>`;
+}
+
+function mfaInfoTile(icon: string, iconBg: string, label: string, lines: string[]): string {
+  return `
+    <td width="25%" valign="top" style="padding:16px 10px;background:#ffffff;border:1px solid ${BORDER};border-radius:10px;text-align:center;">
+      ${iconCircle(icon, 32, iconBg)}
+      <p style="margin:10px 0 3px 0;font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:${INK_300};">${escapeHtml(label)}</p>
+      ${lines.map((l) => `<p style="margin:0;font-size:12.5px;font-weight:800;color:${INK_900};">${escapeHtml(l)}</p>`).join("")}
+    </td>`;
+}
+
+function mfaNoticeRow(icon: string, iconBg: string, html: string, withTopBorder: boolean): string {
+  return `
+    <tr><td style="padding:16px 32px;${withTopBorder ? `border-top:1px solid ${BORDER};` : ""}">
+      <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+        <td valign="top" style="padding-right:12px;">${iconCircle(icon, 26, iconBg)}</td>
+        <td valign="top" style="font-size:12.5px;line-height:1.6;color:${INK_500};padding-top:2px;">${html}</td>
+      </tr></table>
+    </td></tr>`;
+}
+
+export interface MfaCodeEmailParams {
+  baseUrl: string;
+  code: string;
+  purpose: "sign in to";
+  requestedAt: Date;
+}
+
+/**
+ * Builds the MFA sign-in code email as its own bespoke layout (logo header
+ * + "LOGIN VERIFICATION" label, code card with a shield icon, a 4-tile
+ * request-detail grid, and two status notices) rather than the generic
+ * buildEmailShell — that shell's badge/codeBox primitives don't stretch to
+ * this design's icon tiles and colored notice rows. Footer still reuses the
+ * shared NHEA award banner image so it stays visually consistent with
+ * every other email this app sends.
+ */
+export function buildMfaCodeEmailHtml(params: MfaCodeEmailParams): string {
+  const { baseUrl, code, requestedAt } = params;
+  const codeDisplay = /^\d{6}$/.test(code) ? `${code.slice(0, 3)} ${code.slice(3)}` : code;
+  const requestDate = requestedAt.toLocaleDateString("en-NG", { day: "numeric", month: "long", year: "numeric" });
+  const requestTime = requestedAt
+    .toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit", hour12: true })
+    .toUpperCase();
+
+  return `<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background:#f4f2f3;font-family:Arial,Helvetica,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f2f3;padding:28px 0;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:100%;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid ${BORDER};">
+            <tr>
+              <td style="padding:20px 32px 16px 32px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
+                  <td><img src="${baseUrl}/leadway-logo.png" alt="Leadway Health" height="34" style="height:34px;width:auto;vertical-align:middle;" /></td>
+                  <td align="right" style="font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:${INK_300};vertical-align:middle;">Login Verification</td>
+                </tr></table>
+              </td>
+            </tr>
+            <tr><td style="height:3px;background:${BRAND_ORANGE};font-size:0;line-height:0;">&nbsp;</td></tr>
+
+            <tr><td style="padding:26px 32px 0 32px;">
+              <h1 style="margin:0;font-size:22px;line-height:1.3;font-weight:800;color:${INK_900};">Your Leadway Health sign-in code</h1>
+              <p style="margin:8px 0 0 0;font-size:13.5px;line-height:1.6;color:${INK_500};">Use the verification code below to securely sign in to your <strong style="color:${BRAND_ORANGE};">Leadway Health</strong> Member Portal.</p>
+            </td></tr>
+
+            <tr><td style="padding:22px 32px 0 32px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fdf6ec;border-radius:12px;">
+                <tr><td align="center" style="padding:26px 24px 22px 24px;">
+                  ${iconCircle("🛡️", 44, "#fce3c2")}
+                  <p style="margin:14px 0 12px 0;font-size:12.5px;color:${INK_500};">Your verification code</p>
+                  <p style="margin:0 0 18px 0;font-size:32px;font-weight:800;letter-spacing:.1em;color:${BRAND_ORANGE};font-family:'Courier New',monospace;">${escapeHtml(codeDisplay)}</p>
+                  <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto;text-align:left;">
+                    <tr><td style="padding:4px 0;font-size:12px;line-height:1.6;color:${INK_500};">⏰&nbsp; This code is valid for <strong style="color:${INK_900};">10 minutes</strong> and can only be used <strong style="color:${INK_900};">once</strong>.</td></tr>
+                    <tr><td style="padding:4px 0;font-size:12px;line-height:1.6;color:${INK_500};">🔒&nbsp; Please do not share this code with anyone, including Leadway Health staff.</td></tr>
+                  </table>
+                </td></tr>
+              </table>
+            </td></tr>
+
+            <tr><td style="padding:20px 32px 0 32px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="8">
+                <tr>
+                  ${mfaInfoTile("📅", "#fce3c2", "Request Time", [requestDate, requestTime])}
+                  ${mfaInfoTile("⏳", "#fce3c2", "Validity", ["10 Minutes"])}
+                  ${mfaInfoTile("✅", "#dcfce7", "Usage", ["Single Use"])}
+                  ${mfaInfoTile("📱", "#dbeafe", "Channel", ["Member Portal", "Login"])}
+                </tr>
+              </table>
+            </td></tr>
+
+            <tr><td style="padding-top:6px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                ${mfaNoticeRow(
+                  "✅",
+                  "#dcfce7",
+                  `If you requested this code, simply return to the <strong style="color:${BRAND_ORANGE};">sign-in page</strong> and enter the six-digit code to continue.`,
+                  false
+                )}
+                ${mfaNoticeRow(
+                  "🛡️",
+                  "#fee2e2",
+                  `If you <strong style="color:${BRAND_RED};">did not</strong> request this code, you can safely ignore this email. Your account remains secure and no changes have been made.`,
+                  true
+                )}
+              </table>
+            </td></tr>
+
+            <tr>
+              <td align="center" style="padding:22px 32px 22px 32px;">
+                <p style="margin:0;font-size:11px;color:${INK_300};">This is an automated security message from Leadway Health. Please do not reply to this email.</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0;">
+                <img src="${baseUrl}/email-footer-banner.png" alt="Leadway Health" width="600" style="width:100%;display:block;" />
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
 }

@@ -54,7 +54,7 @@ export async function checkCredentialsAndMaybeSendOtp(username: string, password
     await sendEmailAlert({
       emailAddress: user.email,
       subject: "Your Tariff Negotiation Tracker sign-in code",
-      messageBody: buildMfaCodeEmailHtml({ baseUrl: BASE_URL, code, purpose: "sign in to" }),
+      messageBody: buildMfaCodeEmailHtml({ baseUrl: BASE_URL, code, purpose: "sign in to", requestedAt: new Date() }),
       reference: "MFA-LOGIN",
     });
   } catch (err) {
