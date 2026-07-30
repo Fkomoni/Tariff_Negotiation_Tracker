@@ -12,19 +12,23 @@ import { SESSION_COOKIE_NAME } from "@/lib/session-cookie";
  * real signed-in and PENDING-role checks, and configuration/page.tsx and
  * negotiations/new/page.tsx for the real role checks this file used to do.
  *
- * A stale cookie whose session already expired server-side will pass this
- * check and only get caught by the real one a layout render later — an
- * extra redirect hop, not a security gap.
+ * /login is always let through here rather than bounced to /dashboard on
+ * cookie presence: a stale cookie (naturally idle-expired, or left behind
+ * after a failed logout) is "present" but not valid, and login/page.tsx
+ * already does the real, database-backed check for "already signed in" —
+ * redirecting here too, on presence alone, created a real bug: an invalid-
+ * but-present cookie made /dashboard bounce to /login (real check fails)
+ * and /login immediately bounce back to /dashboard (this file only checks
+ * presence) — an infinite redirect loop, confirmed with curl. Letting
+ * /login through unconditionally and leaving that check to the real one
+ * removes the loop entirely.
  */
 export default function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  if (pathname.startsWith("/login")) return NextResponse.next();
+
   const isLoggedIn = !!req.cookies.get(SESSION_COOKIE_NAME)?.value;
-
-  if (pathname.startsWith("/login")) {
-    if (isLoggedIn) return NextResponse.redirect(new URL("/dashboard", req.url));
-    return NextResponse.next();
-  }
-
   if (!isLoggedIn) {
     const loginUrl = new URL("/login", req.url);
     loginUrl.searchParams.set("callbackUrl", pathname);
