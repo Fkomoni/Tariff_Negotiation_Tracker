@@ -28,6 +28,13 @@ function sha256(value: string): string {
   return crypto.createHash("sha256").update(value).digest("hex");
 }
 
+/** First 12 hex chars of a token's hash — enough to correlate log lines
+ * across create/read/destroy for the same session, without logging
+ * anything that could itself be replayed as a credential. */
+function logId(hash: string): string {
+  return hash.slice(0, 12);
+}
+
 /**
  * Creates a session row and sets the cookie exactly once. The raw token in
  * the cookie never changes again for the life of this session — getSession()
@@ -40,14 +47,16 @@ function sha256(value: string): string {
  */
 export async function createSession(userId: string): Promise<void> {
   const token = crypto.randomBytes(32).toString("hex");
+  const tokenHash = sha256(token);
 
   await prisma.session.create({
     data: {
       userId,
-      tokenHash: sha256(token),
+      tokenHash,
       expiresAt: new Date(Date.now() + IDLE_TIMEOUT_MS),
     },
   });
+  console.error(`[session] created ${logId(tokenHash)} for user ${userId}`);
 
   (await cookies()).set(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
@@ -68,12 +77,21 @@ export async function createSession(userId: string): Promise<void> {
 export async function getSession(): Promise<{ user: SessionUser } | null> {
   const token = (await cookies()).get(SESSION_COOKIE_NAME)?.value;
   if (!token) return null;
+  const tokenHash = sha256(token);
+  const id = logId(tokenHash);
 
   const session = await prisma.session.findUnique({
-    where: { tokenHash: sha256(token) },
+    where: { tokenHash },
     include: { user: true },
   });
-  if (!session || session.expiresAt.getTime() <= Date.now()) return null;
+  if (!session) {
+    console.error(`[session] read ${id}: no matching row -> rejected`);
+    return null;
+  }
+  if (session.expiresAt.getTime() <= Date.now()) {
+    console.error(`[session] read ${id}: expired at ${session.expiresAt.toISOString()} -> rejected`);
+    return null;
+  }
 
   const now = Date.now();
   const dueToBeExtended = session.expiresAt.getTime() - IDLE_TIMEOUT_MS + UPDATE_THROTTLE_MS <= now;
@@ -82,6 +100,7 @@ export async function getSession(): Promise<{ user: SessionUser } | null> {
       where: { id: session.id },
       data: { expiresAt: new Date(now + IDLE_TIMEOUT_MS) },
     });
+    console.error(`[session] read ${id}: valid for user ${session.userId}, extended expiresAt`);
   }
 
   return {
@@ -101,7 +120,11 @@ export async function destroySession(): Promise<void> {
   const jar = await cookies();
   const token = jar.get(SESSION_COOKIE_NAME)?.value;
   if (token) {
-    await prisma.session.deleteMany({ where: { tokenHash: sha256(token) } });
+    const tokenHash = sha256(token);
+    const { count } = await prisma.session.deleteMany({ where: { tokenHash } });
+    console.error(`[session] destroy ${logId(tokenHash)}: deleted ${count} row(s)`);
+  } else {
+    console.error("[session] destroy: no cookie present on this request");
   }
   jar.delete(SESSION_COOKIE_NAME);
 }
