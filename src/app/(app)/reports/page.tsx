@@ -1,9 +1,9 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Header } from "@/components/Header";
-import { Card, CardHeader, StatTile } from "@/components/ui";
+import { Card, CardHeader, StatTile, inputClass } from "@/components/ui";
 import { ReportIcon } from "@/components/icons";
-import { formatCurrency, formatDuration } from "@/lib/domain";
+import { formatCurrency, formatDuration, CASE_TYPE_LABELS, URGENCY_LABELS, CASE_STATUS_LABELS } from "@/lib/domain";
 import {
   groupByProvider,
   groupByItem,
@@ -13,6 +13,7 @@ import {
   tariffAgreedVsOriginal,
   urgentCasesTable,
   pmCategoryCounts,
+  CASE_EXPORT_COLUMNS,
 } from "@/lib/reports";
 
 export default async function ReportsPage(
@@ -35,11 +36,6 @@ export default async function ReportsPage(
     include: { loggedBy: true, owner: true },
     orderBy: { loggedAt: "desc" },
   });
-
-  const exportParams = new URLSearchParams();
-  if (from) exportParams.set("from", from);
-  if (to) exportParams.set("to", to);
-  const exportHref = `/api/reports/export${exportParams.toString() ? `?${exportParams.toString()}` : ""}`;
 
   const byProvider = groupByProvider(cases);
   const byItem = groupByItem(cases).slice(0, 10);
@@ -84,12 +80,85 @@ export default async function ReportsPage(
               </a>
             )}
           </form>
-          <a
-            href={exportHref}
-            className="whitespace-nowrap rounded-lg bg-brand px-4 py-2 text-[12.5px] font-semibold text-white shadow-glow hover:bg-brand-600"
-          >
-            Download CSV
-          </a>
+        </Card>
+
+        <Card>
+          <CardHeader title="Export to CSV" subtitle="Choose which cases and columns to include" />
+          <form action="/api/reports/export" method="GET" className="space-y-4 px-5 py-4">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              <label className="block">
+                <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-ink-400">From</span>
+                <input type="date" name="from" defaultValue={from ?? ""} className={inputClass} />
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-ink-400">To</span>
+                <input type="date" name="to" defaultValue={to ?? ""} className={inputClass} />
+              </label>
+              <label className="block sm:col-span-2">
+                <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-ink-400">
+                  Provider Name Contains
+                </span>
+                <input type="text" name="provider" placeholder="e.g. Pharmacy Benefit" className={inputClass} />
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div>
+                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-400">Case Type</p>
+                <div className="space-y-1.5">
+                  {Object.entries(CASE_TYPE_LABELS).map(([value, label]) => (
+                    <label key={value} className="flex items-center gap-2 text-[12.5px] text-ink-700">
+                      <input type="checkbox" name="caseType" value={value} className="h-3.5 w-3.5 rounded border-ink-300" />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-400">Urgency</p>
+                <div className="space-y-1.5">
+                  {Object.entries(URGENCY_LABELS).map(([value, label]) => (
+                    <label key={value} className="flex items-center gap-2 text-[12.5px] text-ink-700">
+                      <input type="checkbox" name="urgency" value={value} className="h-3.5 w-3.5 rounded border-ink-300" />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-400">Status</p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {Object.entries(CASE_STATUS_LABELS).map(([value, label]) => (
+                    <label key={value} className="flex items-center gap-2 text-[12.5px] text-ink-700">
+                      <input type="checkbox" name="status" value={value} className="h-3.5 w-3.5 rounded border-ink-300" />
+                      {label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-400">Columns to Include</p>
+              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                {CASE_EXPORT_COLUMNS.map((col) => (
+                  <label key={col.key} className="flex items-center gap-2 text-[12.5px] text-ink-700">
+                    <input type="checkbox" name="columns" value={col.key} defaultChecked className="h-3.5 w-3.5 rounded border-ink-300" />
+                    {col.label}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                className="whitespace-nowrap rounded-lg bg-brand px-4 py-2 text-[12.5px] font-semibold text-white shadow-glow hover:bg-brand-600"
+              >
+                Download CSV
+              </button>
+            </div>
+          </form>
         </Card>
 
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

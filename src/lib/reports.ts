@@ -1,5 +1,5 @@
 import type { CaseStatus, NegotiationCase, ProviderManagementCategory, RequestType, Urgency, User } from "@prisma/client";
-import { REQUEST_TYPE_LABELS, CASE_TYPE_LABELS, PM_CATEGORY_LABELS } from "@/lib/domain";
+import { REQUEST_TYPE_LABELS, CASE_TYPE_LABELS, PM_CATEGORY_LABELS, URGENCY_LABELS, CASE_STATUS_LABELS } from "@/lib/domain";
 
 export type ReportCase = NegotiationCase & { loggedBy: User; owner: User | null };
 
@@ -176,50 +176,50 @@ export function tariffReviewCandidates(cases: ReportCase[]): TariffReviewCandida
 
 export const CLOSED: CaseStatus[] = ["COMPLETED", "DECLINED"];
 
-export const CASE_EXPORT_HEADER = [
-  "Case Number",
-  "Case Type",
-  "Provider ID",
-  "Provider Code",
-  "Provider Name",
-  "Date of Request",
-  "Request Type",
-  "Service Type",
-  "Service Requested",
-  "Existing Price",
-  "Requested Price",
-  "New Price",
-  "PM Categories",
-  "Status",
-  "Agent That Logged",
-  "Agent That Handled",
-  "TAT Minutes (Log to Completion)",
-  "Feedback from Provider Management",
+export interface CaseExportColumn {
+  key: string;
+  label: string;
+  value: (c: ReportCase) => string | number;
+}
+
+/** Registry driving the Reports page's column-picker checkboxes and the
+ * CSV export route — each column here is one checkbox, in this order, and
+ * `key` is the query-param value the checkbox submits. Add a column here
+ * and it shows up in both places automatically. */
+export const CASE_EXPORT_COLUMNS: CaseExportColumn[] = [
+  { key: "caseNumber", label: "Case Number", value: (c) => c.caseNumber },
+  { key: "caseType", label: "Case Type", value: (c) => CASE_TYPE_LABELS[c.caseType] },
+  { key: "providerId", label: "Provider ID", value: (c) => c.providerId ?? "" },
+  { key: "providerCode", label: "Provider Code", value: (c) => c.providerCode ?? "" },
+  { key: "providerName", label: "Provider Name", value: (c) => c.providerName },
+  { key: "loggedAt", label: "Date of Request", value: (c) => c.loggedAt.toISOString() },
+  {
+    key: "requestType",
+    label: "Request Type",
+    value: (c) => (c.caseType === "TARIFF_UPDATE" ? REQUEST_TYPE_LABELS[c.requestType as RequestType] : ""),
+  },
+  { key: "serviceType", label: "Service Type", value: (c) => c.serviceType ?? "" },
+  { key: "requestedItem", label: "Service Requested", value: (c) => c.requestedItem },
+  { key: "currentTariff", label: "Existing Price", value: (c) => (c.caseType === "TARIFF_UPDATE" ? toNum(c.currentTariff) : "") },
+  {
+    key: "providerRequestedAmount",
+    label: "Requested Price",
+    value: (c) => (c.caseType === "TARIFF_UPDATE" ? toNum(c.providerRequestedAmount) : ""),
+  },
+  { key: "finalAgreedAmount", label: "New Price", value: (c) => (c.finalAgreedAmount ? toNum(c.finalAgreedAmount) : "") },
+  { key: "pmCategories", label: "PM Categories", value: (c) => c.pmCategories.map((cat) => PM_CATEGORY_LABELS[cat]).join("; ") },
+  { key: "status", label: "Status", value: (c) => CASE_STATUS_LABELS[c.status] },
+  { key: "urgency", label: "Urgency", value: (c) => URGENCY_LABELS[c.urgency] },
+  { key: "loggedBy", label: "Agent That Logged", value: (c) => c.loggedBy.displayName ?? c.loggedBy.prognosisUsername },
+  { key: "owner", label: "Agent That Handled", value: (c) => c.owner?.displayName ?? c.owner?.prognosisUsername ?? "" },
+  {
+    key: "tatMinutes",
+    label: "TAT Minutes (Log to Completion)",
+    value: (c) => (c.completedAt ? Math.round((c.completedAt.getTime() - c.loggedAt.getTime()) / 60000) : ""),
+  },
+  { key: "approvalReason", label: "Feedback from Provider Management", value: (c) => c.approvalReason ?? "" },
 ];
 
-export function buildCaseExportRows(cases: ReportCase[]): (string | number)[][] {
-  return cases.map((c) => {
-    const tatMs = c.completedAt ? c.completedAt.getTime() - c.loggedAt.getTime() : null;
-    const isTariff = c.caseType === "TARIFF_UPDATE";
-    return [
-      c.caseNumber,
-      CASE_TYPE_LABELS[c.caseType],
-      c.providerId ?? "",
-      c.providerCode ?? "",
-      c.providerName,
-      c.loggedAt.toISOString(),
-      isTariff ? REQUEST_TYPE_LABELS[c.requestType as RequestType] : "",
-      c.serviceType ?? "",
-      c.requestedItem,
-      isTariff ? toNum(c.currentTariff) : "",
-      isTariff ? toNum(c.providerRequestedAmount) : "",
-      c.finalAgreedAmount ? toNum(c.finalAgreedAmount) : "",
-      c.pmCategories.map((cat) => PM_CATEGORY_LABELS[cat]).join("; "),
-      c.status,
-      c.loggedBy.displayName ?? c.loggedBy.prognosisUsername,
-      c.owner?.displayName ?? c.owner?.prognosisUsername ?? "",
-      tatMs !== null ? Math.round(tatMs / 60000) : "",
-      c.approvalReason ?? "",
-    ];
-  });
+export function buildExportRows(cases: ReportCase[], columns: CaseExportColumn[]): (string | number)[][] {
+  return cases.map((c) => columns.map((col) => col.value(c)));
 }
