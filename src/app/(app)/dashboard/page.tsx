@@ -2,9 +2,12 @@ import { auth } from "@/lib/auth";
 import { Header } from "@/components/Header";
 import { Card, CardHeader, Badge } from "@/components/ui";
 import { StatCard } from "@/components/StatCard";
-import { getDashboardData } from "@/lib/dashboard";
+import { getDashboardData, type RankRow } from "@/lib/dashboard";
 import {
   DashboardIcon,
+  BellIcon,
+  CheckIcon,
+  UserIcon,
   ReportIcon,
   DownloadIcon,
   RefreshIcon,
@@ -27,6 +30,98 @@ import {
   formatDateTime,
   formatDuration,
 } from "@/lib/domain";
+import type { CaseStatus } from "@prisma/client";
+
+function ViewAll({ href }: { href: string }) {
+  return (
+    <Link
+      href={href}
+      className="rounded-lg border border-line px-2.5 py-1.5 text-[11.5px] font-semibold text-navy-600 hover:bg-surface-muted"
+    >
+      View all
+    </Link>
+  );
+}
+
+/** Ranked list with a share-of-total bar, used for providers and services. */
+function RankCard({
+  title,
+  rows,
+  viewAllHref,
+  columnLabel,
+}: {
+  title: string;
+  rows: RankRow[];
+  viewAllHref: string;
+  columnLabel: string;
+}) {
+  return (
+    <Card className="overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-4">
+        <h2 className="text-[14px] font-bold text-navy-900">{title}</h2>
+        <ViewAll href={viewAllHref} />
+      </div>
+
+      {rows.length === 0 ? (
+        <p className="px-5 pb-6 text-[12.5px] text-navy-400">Nothing negotiated yet.</p>
+      ) : (
+        <table className="w-full text-left text-[12.5px]">
+          <thead className="border-y border-line-subtle bg-surface-muted text-[10px] font-bold uppercase tracking-wide text-navy-400">
+            <tr>
+              <th className="w-10 px-5 py-2.5">#</th>
+              <th className="px-2 py-2.5">{columnLabel}</th>
+              <th className="w-16 px-2 py-2.5 text-right">Cases</th>
+              <th className="w-[180px] px-5 py-2.5">Trend</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-line-subtle">
+            {rows.map((row, i) => (
+              <tr key={row.label}>
+                <td className="px-5 py-3 font-semibold text-navy-400">#{i + 1}</td>
+                <td className="px-2 py-3 text-navy-800">{row.label}</td>
+                <td className="px-2 py-3 text-right font-semibold text-navy-900">{row.count}</td>
+                <td className="px-5 py-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-muted">
+                      <span
+                        className="block h-full rounded-full bg-accent"
+                        // Floored at 2% so a single case still shows a mark
+                        // rather than an apparently empty track.
+                        style={{ width: `${Math.max(row.percent, 2)}%` }}
+                      />
+                    </span>
+                    <span className="w-9 text-right text-[11px] font-semibold text-navy-500">{row.percent}%</span>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </Card>
+  );
+}
+
+const ACTIVITY_STYLE: Record<string, { icon: React.ReactNode; dot: string; tile: string }> = {
+  STATUS_CHANGE: { icon: <CheckIcon className="h-4 w-4" />, dot: "bg-emerald-500", tile: "bg-emerald-50 text-emerald-600" },
+  NOTE: { icon: <LogIcon className="h-4 w-4" />, dot: "bg-violet-500", tile: "bg-violet-50 text-violet-600" },
+  NOTIFICATION: { icon: <BellIcon className="h-4 w-4" />, dot: "bg-accent", tile: "bg-accent-50 text-accent" },
+  OWNER_CHANGE: { icon: <UserIcon className="h-4 w-4" />, dot: "bg-sky-500", tile: "bg-sky-50 text-sky-600" },
+};
+
+const ACTIVITY_VERB: Record<string, string> = {
+  STATUS_CHANGE: "updated the status",
+  NOTE: "added a note",
+  NOTIFICATION: "sent a member notification",
+  OWNER_CHANGE: "claimed the case",
+};
+
+const timeOnly = new Intl.DateTimeFormat("en-GB", {
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+  timeZone: DISPLAY_TIME_ZONE,
+});
 
 /** Toolbar button. `primary` is the one action that creates something. */
 function ToolButton({
@@ -102,7 +197,7 @@ export default async function DashboardPage() {
         }
       />
 
-      <div className="flex-1 space-y-6 px-8 py-8">
+      <div className="flex-1 space-y-5 px-8 py-6">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard
             id="logged"
@@ -208,65 +303,104 @@ export default async function DashboardPage() {
           />
         </div>
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <Card>
-            <CardHeader title="Top Negotiated Providers" />
-            <ul className="divide-y divide-ink-100">
-              {d.topProviders.length === 0 && <li className="px-5 py-6 text-[12.5px] text-ink-400">No data yet.</li>}
-              {d.topProviders.map((g, idx) => (
-                <li key={g.label} className="flex items-center justify-between px-5 py-3">
-                  <span className="text-[13px] text-ink-800">
-                    <span className="mr-2 text-ink-400">#{idx + 1}</span>
-                    {g.label}
-                  </span>
-                  <span className="text-[12.5px] font-bold text-ink-900">{g.count}</span>
-                </li>
-              ))}
-            </ul>
-          </Card>
-
-          <Card>
-            <CardHeader title="Top Negotiated Services / Items" />
-            <ul className="divide-y divide-ink-100">
-              {d.topItems.length === 0 && <li className="px-5 py-6 text-[12.5px] text-ink-400">No data yet.</li>}
-              {d.topItems.map((g, idx) => (
-                <li key={g.label} className="flex items-center justify-between px-5 py-3">
-                  <span className="text-[13px] text-ink-800">
-                    <span className="mr-2 text-ink-400">#{idx + 1}</span>
-                    {g.label}
-                  </span>
-                  <span className="text-[12.5px] font-bold text-ink-900">{g.count}</span>
-                </li>
-              ))}
-            </ul>
-          </Card>
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+          <RankCard title="Top Negotiated Providers" rows={d.topProviders} viewAllHref="/reports" columnLabel="Provider" />
+          <RankCard
+            title="Top Negotiated Services / Items"
+            rows={d.topItems}
+            viewAllHref="/tariff-review"
+            columnLabel="Service / Item"
+          />
         </div>
 
-        <Card>
-          <CardHeader title="Urgent Unresolved Cases" subtitle="Needs immediate attention" />
-          {d.urgentOpen.length === 0 ? (
-            <p className="px-5 py-6 text-[12.5px] text-ink-400">No urgent cases currently open.</p>
-          ) : (
-            <ul className="divide-y divide-ink-100">
-              {d.urgentOpen.map((c) => (
-                <li key={c.id} className="flex items-center justify-between px-5 py-3">
-                  <div>
-                    <Link href={`/negotiations/${c.id}`} className="text-[13px] font-semibold text-ink-900 hover:underline">
-                      {c.caseNumber} · {c.providerName}
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+          <Card className="overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4">
+              <h2 className="text-[14px] font-bold text-navy-900">Urgent Unresolved Cases</h2>
+              <ViewAll href="/negotiations/queue?urgency=PRIORITY" />
+            </div>
+
+            {d.urgentOpen.length === 0 ? (
+              <p className="px-5 pb-6 text-[12.5px] text-navy-400">Nothing urgent is outstanding.</p>
+            ) : (
+              <ul className="divide-y divide-line-subtle border-t border-line-subtle">
+                {d.urgentOpen.map((c) => (
+                  <li key={c.id} className="border-l-[3px] border-accent">
+                    <Link
+                      href={`/negotiations/${c.id}`}
+                      className="flex items-start gap-3 px-5 py-3 hover:bg-surface-muted/60"
+                    >
+                      <span className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-accent-50 text-accent">
+                        <BuildingIcon className="h-4 w-4" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[12.5px] font-semibold text-navy-900">
+                          {c.caseNumber} · {c.providerName}
+                        </p>
+                        <p className="mt-0.5 truncate text-[11px] text-navy-500">
+                          {c.loggedBy.displayName ?? c.loggedBy.prognosisUsername} · Logged {formatDateTime(c.loggedAt)}
+                        </p>
+                      </div>
+                      <div className="flex flex-shrink-0 gap-1.5">
+                        <Badge className={URGENCY_BADGE[c.urgency]}>{URGENCY_LABELS[c.urgency]}</Badge>
+                        <Badge className={CASE_STATUS_BADGE[c.status]}>{CASE_STATUS_LABELS[c.status]}</Badge>
+                      </div>
                     </Link>
-                    <p className="text-[11.5px] text-ink-400">
-                      {c.enrolleeName} · logged {formatDateTime(c.loggedAt)}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge className={URGENCY_BADGE[c.urgency]}>{URGENCY_LABELS[c.urgency]}</Badge>
-                    <Badge className={CASE_STATUS_BADGE[c.status]}>{CASE_STATUS_LABELS[c.status]}</Badge>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+
+          <Card className="overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4">
+              <h2 className="text-[14px] font-bold text-navy-900">Recent Activity</h2>
+              <ViewAll href="/audit-log" />
+            </div>
+
+            {d.recentActivity.length === 0 ? (
+              <p className="px-5 pb-6 text-[12.5px] text-navy-400">No activity recorded yet.</p>
+            ) : (
+              <ul className="divide-y divide-line-subtle border-t border-line-subtle">
+                {d.recentActivity.map((u) => {
+                  const style = ACTIVITY_STYLE[u.type] ?? ACTIVITY_STYLE.NOTE;
+                  const actor = u.user.displayName ?? u.user.prognosisUsername;
+                  return (
+                    <li key={u.id}>
+                      <Link
+                        href={`/negotiations/${u.case.id}`}
+                        className="flex items-start gap-3 px-5 py-3 hover:bg-surface-muted/60"
+                      >
+                        <span className="mt-1.5 w-10 flex-shrink-0 text-[11px] font-semibold text-navy-400">
+                          {timeOnly.format(u.createdAt)}
+                        </span>
+                        <span className="relative mt-0.5 flex-shrink-0">
+                          <span className={`flex h-8 w-8 items-center justify-center rounded-full ${style.tile}`}>
+                            {style.icon}
+                          </span>
+                          <span
+                            className={`absolute -left-0.5 -top-0.5 h-2.5 w-2.5 rounded-full ring-2 ring-white ${style.dot}`}
+                          />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[12.5px] text-navy-800">
+                            <span className="font-semibold">{actor}</span>{" "}
+                            {u.newStatus
+                              ? `set ${CASE_STATUS_LABELS[u.newStatus as CaseStatus]}`
+                              : ACTIVITY_VERB[u.type] ?? "updated the case"}
+                          </p>
+                          <p className="mt-0.5 truncate text-[11px] text-navy-500">
+                            {u.case.caseNumber} · {u.case.providerName}
+                          </p>
+                        </div>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </Card>
+        </div>
       </div>
     </>
   );
