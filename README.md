@@ -41,8 +41,14 @@ signs in.
    - **Node version:** 20.9 or later — required by Next.js 16 (`package.json`'s `engines.node`
      documents this; if Render's default image is older, set `NODE_VERSION` under Environment
      variables, or add a `.node-version` file pinning it).
-   - **Build Command:** `npm install && npm run db:migrate:deploy`
+   - **Build Command:** `npm install && npm run build`
    - **Start Command:** `npm run start`
+
+   `npm run start` applies any pending Prisma migrations before booting, so a
+   deploy can never serve code whose columns don't exist yet. (This previously
+   listed a build command that ran the migrations but never built the app; the
+   two drifted, migrations stopped running, and every page that reads a full
+   case row started 500ing.)
    - **Instance Type:** Starter is fine to begin with.
 4. Add the environment variables below under **Environment**.
 5. Click **Create Web Service**. Render will install dependencies, run the Prisma migration
