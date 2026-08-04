@@ -28,8 +28,13 @@ export default async function ReportsPage(
   const from = searchParams.from;
   const to = searchParams.to;
   const loggedAt: { gte?: Date; lte?: Date } = {};
-  if (from) loggedAt.gte = new Date(`${from}T00:00:00.000Z`);
-  if (to) loggedAt.lte = new Date(`${to}T23:59:59.999Z`);
+  // Lagos is UTC+1, so a Lagos calendar day starts at 23:00 UTC the day before.
+  // Parsing these as UTC midnight put the first hour of each day in the wrong
+  // bucket and made these totals disagree with the dashboard cards that link
+  // here with a date range.
+  const LAGOS_OFFSET_MS = 60 * 60 * 1000;
+  if (from) loggedAt.gte = new Date(new Date(`${from}T00:00:00.000Z`).getTime() - LAGOS_OFFSET_MS);
+  if (to) loggedAt.lte = new Date(new Date(`${to}T23:59:59.999Z`).getTime() - LAGOS_OFFSET_MS);
 
   const cases = await prisma.negotiationCase.findMany({
     where: Object.keys(loggedAt).length > 0 ? { loggedAt } : undefined,

@@ -56,10 +56,16 @@ export default async function OpenNegotiationsPage(props: {
   const sortKey = searchParams.sort && SORT_OPTIONS[searchParams.sort] ? searchParams.sort : "newest";
   const statusFilter =
     searchParams.status && OPEN_STATUSES.includes(searchParams.status as never) ? searchParams.status : undefined;
-  const urgencyFilter =
-    searchParams.urgency && Object.keys(URGENCY_LABELS).includes(searchParams.urgency)
-      ? (searchParams.urgency as Urgency)
-      : undefined;
+  // "PRIORITY" covers Urgent + Emergency together. The dashboard's Urgent
+  // Unresolved card counts both, so without this its link landed on a list
+  // showing fewer cases than the number that was clicked.
+  const urgencyParam = searchParams.urgency;
+  const urgencyFilter: Prisma.NegotiationCaseWhereInput["urgency"] =
+    urgencyParam === "PRIORITY"
+      ? { in: ["URGENT", "EMERGENCY"] }
+      : urgencyParam && Object.keys(URGENCY_LABELS).includes(urgencyParam)
+        ? (urgencyParam as Urgency)
+        : undefined;
   const perPage = PER_PAGE_OPTIONS.includes(Number(searchParams.perPage) as never)
     ? Number(searchParams.perPage)
     : DEFAULT_PER_PAGE;
@@ -102,7 +108,7 @@ export default async function OpenNegotiationsPage(props: {
     const params = new URLSearchParams();
     params.set("sort", overrides.sort !== undefined ? overrides.sort : sortKey);
     const status = overrides.status !== undefined ? overrides.status : statusFilter ?? "";
-    const urgency = overrides.urgency !== undefined ? overrides.urgency : urgencyFilter ?? "";
+    const urgency = overrides.urgency !== undefined ? overrides.urgency : urgencyParam ?? "";
     if (status) params.set("status", status);
     if (urgency) params.set("urgency", urgency);
     const nextPerPage = overrides.perPage ?? perPage;
@@ -195,11 +201,14 @@ export default async function OpenNegotiationsPage(props: {
 
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="mr-1 w-[58px] text-[10.5px] font-bold uppercase tracking-wide text-navy-400">Urgency</span>
-              <Link href={buildHref({ urgency: "" })} className={pill(!urgencyFilter)}>
+              <Link href={buildHref({ urgency: "" })} className={pill(!urgencyParam)}>
                 All
               </Link>
+              <Link href={buildHref({ urgency: "PRIORITY" })} className={pill(urgencyParam === "PRIORITY")}>
+                Urgent + Emergency
+              </Link>
               {Object.entries(URGENCY_LABELS).map(([value, label]) => (
-                <Link key={value} href={buildHref({ urgency: value })} className={pill(urgencyFilter === value)}>
+                <Link key={value} href={buildHref({ urgency: value })} className={pill(urgencyParam === value)}>
                   {label}
                 </Link>
               ))}

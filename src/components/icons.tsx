@@ -355,3 +355,40 @@ export function NairaIcon({ className = base }: IconProps) {
     </svg>
   );
 }
+
+export function RefreshIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path d="M20.5 12a8.5 8.5 0 01-14.6 5.9M3.5 12a8.5 8.5 0 0114.6-5.9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M18.1 2.6v3.5h-3.5M5.9 21.4v-3.5h3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function HourglassIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path d="M7 3h10M7 21h10" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M8 3v3.2c0 1.1.5 2.1 1.3 2.8L12 11.4l2.7-2.4c.8-.7 1.3-1.7 1.3-2.8V3" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M8 21v-3.2c0-1.1.5-2.1 1.3-2.8L12 12.6l2.7 2.4c.8.7 1.3 1.7 1.3 2.8V21" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function TrendUpIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path d="M4 17l6-6 4 4 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M15 9h5v5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function TrendDownIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path d="M4 7l6 6 4-4 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M20 10v5h-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
