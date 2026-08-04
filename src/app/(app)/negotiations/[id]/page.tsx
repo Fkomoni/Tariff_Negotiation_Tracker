@@ -6,7 +6,23 @@ import { Header } from "@/components/Header";
 import { Card, CardHeader, Badge, Button, Field, inputClass } from "@/components/ui";
 import { Timeline } from "@/components/Timeline";
 import { SubmitButton } from "@/components/SubmitButton";
-import { LogIcon, BellIcon, DownloadIcon, CloseIcon, AlertIcon } from "@/components/icons";
+import {
+  LogIcon,
+  BellIcon,
+  DownloadIcon,
+  CloseIcon,
+  InfoIcon,
+  ClockIcon,
+  BuildingIcon,
+  UserIcon,
+  UsersIcon,
+  TagIcon,
+  FlagIcon,
+  CheckMarkIcon,
+  MailIcon,
+  PhoneIcon,
+  NairaIcon,
+} from "@/components/icons";
 import {
   CASE_STATUS_BADGE,
   CASE_STATUS_LABELS,
@@ -118,17 +134,23 @@ export default async function CaseDetailsPage(
         }
         icon={<LogIcon />}
         user={{ name: session.user.name ?? session.user.prognosisUsername, role: session.user.role }}
+        backHref={isProviderTeam ? "/negotiations/queue" : "/dashboard"}
+        badge={
+          <Badge className={CASE_STATUS_BADGE[negotiationCase.status]}>
+            {CASE_STATUS_LABELS[negotiationCase.status]}
+          </Badge>
+        }
       />
 
       <div className="px-8 pt-6">
         {isProviderTeam && (
-          <div className="flex gap-1 border-b border-ink-100">
+          <div className="flex gap-1 border-b border-line-subtle">
             <Link
               href={`/negotiations/${negotiationCase.id}`}
               className={`px-4 py-2.5 text-[13px] font-semibold ${
                 activeTab === "overview"
-                  ? "border-b-2 border-brand text-ink-900"
-                  : "text-ink-400 hover:text-ink-700"
+                  ? "border-b-2 border-navy-900 text-navy-900"
+                  : "border-b-2 border-transparent text-navy-400 hover:text-navy-700"
               }`}
             >
               Overview
@@ -137,8 +159,8 @@ export default async function CaseDetailsPage(
               href={`/negotiations/${negotiationCase.id}?tab=provider-team`}
               className={`px-4 py-2.5 text-[13px] font-semibold ${
                 activeTab === "provider-team"
-                  ? "border-b-2 border-brand text-ink-900"
-                  : "text-ink-400 hover:text-ink-700"
+                  ? "border-b-2 border-navy-900 text-navy-900"
+                  : "border-b-2 border-transparent text-navy-400 hover:text-navy-700"
               }`}
             >
               Provider Team
@@ -148,10 +170,10 @@ export default async function CaseDetailsPage(
       </div>
 
       {negotiationCase.status === "CANCELLED" && negotiationCase.cancellationReason && (
-        <div className="mx-auto w-full max-w-4xl px-8 pt-6">
-          <div className="flex items-start gap-3 rounded-xl border border-line bg-surface-muted px-4 py-3.5">
-            <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-navy-400 text-white">
-              <AlertIcon className="h-3 w-3" />
+        <div className="px-8 pt-6">
+          <div className="flex items-start gap-3.5 rounded-xl border border-line-subtle bg-surface-muted px-4 py-4">
+            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-white text-navy-400 shadow-sm">
+              <InfoIcon className="h-[18px] w-[18px]" />
             </span>
             <div>
               <p className="text-[13px] font-bold text-navy-900">This request was cancelled</p>
@@ -169,8 +191,8 @@ export default async function CaseDetailsPage(
               <Detail label="Provider" value={negotiationCase.providerName} />
               <Detail label="Provider Code" value={negotiationCase.providerCode ?? "—"} />
               <Detail label="Provider ID" value={negotiationCase.providerId ?? "—"} />
-              <Detail label="Provider Email" value={negotiationCase.providerEmail ?? "—"} />
-              <Detail label="Provider Phone" value={negotiationCase.providerPhone ?? "—"} />
+              <Detail label="Provider Email" icon={<MailIcon className="h-4 w-4" />} value={negotiationCase.providerEmail ?? "—"} />
+              <Detail label="Provider Phone" icon={<PhoneIcon className="h-4 w-4" />} value={negotiationCase.providerPhone ?? "—"} />
               {negotiationCase.enrolleeName !== "N/A" && <Detail label="Member Full Name" value={negotiationCase.enrolleeName} />}
               <Detail label="Company" value={negotiationCase.enrolleeCompany ?? "—"} />
               <Detail label="Scheme / Plan" value={negotiationCase.enrolleeScheme ?? "—"} />
@@ -229,8 +251,8 @@ export default async function CaseDetailsPage(
                 </>
               )}
               {negotiationCase.notes && <Detail label="Notes from Contact Centre" value={negotiationCase.notes} full />}
-              <Detail label="Logged By" value={negotiationCase.loggedBy.displayName ?? negotiationCase.loggedBy.prognosisUsername} />
-              <Detail label="Handled By" value={negotiationCase.owner?.displayName ?? negotiationCase.owner?.prognosisUsername ?? "Unclaimed"} />
+              <Detail label="Logged By" icon={<UserIcon className="h-4 w-4" />} value={negotiationCase.loggedBy.displayName ?? negotiationCase.loggedBy.prognosisUsername} />
+              <Detail label="Handled By" icon={<UsersIcon className="h-4 w-4" />} value={negotiationCase.owner?.displayName ?? negotiationCase.owner?.prognosisUsername ?? "Unclaimed"} />
             </dl>
             <div className="flex gap-2 px-5 pb-4">
               <Badge className={CASE_TYPE_BADGE[negotiationCase.caseType]}>{CASE_TYPE_BADGE_LABEL[negotiationCase.caseType]}</Badge>
@@ -434,15 +456,15 @@ export default async function CaseDetailsPage(
                   </div>
                 }
               />
-              <dl className="grid grid-cols-1 gap-5 px-5 py-5 sm:grid-cols-2">
-                <Detail label="Provider / Hospital" value={negotiationCase.providerName} />
+              <dl className="grid grid-cols-1 gap-x-8 gap-y-5 px-5 py-5 sm:grid-cols-2">
+                <Detail label="Provider / Hospital" icon={<BuildingIcon className="h-4 w-4" />} value={negotiationCase.providerName} />
                 {negotiationCase.enrolleeName !== "N/A" && (
-                  <Detail label="Enrollee" value={`${negotiationCase.enrolleeName}${negotiationCase.enrolleeId ? ` (${negotiationCase.enrolleeId})` : ""}`} />
+                  <Detail label="Enrollee" icon={<UserIcon className="h-4 w-4" />} value={`${negotiationCase.enrolleeName}${negotiationCase.enrolleeId ? ` (${negotiationCase.enrolleeId})` : ""}`} />
                 )}
-                <Detail label="Provider Email" value={negotiationCase.providerEmail ?? "—"} />
-                <Detail label="Provider Phone" value={negotiationCase.providerPhone ?? "—"} />
-                <Detail label="Company / Scheme" value={[negotiationCase.enrolleeCompany, negotiationCase.enrolleeScheme].filter(Boolean).join(" · ") || "—"} />
-                <Detail label="Age" value={negotiationCase.enrolleeAge ?? "—"} />
+                <Detail label="Provider Email" icon={<MailIcon className="h-4 w-4" />} value={negotiationCase.providerEmail ?? "—"} />
+                <Detail label="Provider Phone" icon={<PhoneIcon className="h-4 w-4" />} value={negotiationCase.providerPhone ?? "—"} />
+                <Detail label="Company / Scheme" icon={<BuildingIcon className="h-4 w-4" />} value={[negotiationCase.enrolleeCompany, negotiationCase.enrolleeScheme].filter(Boolean).join(" · ") || "—"} />
+                <Detail label="Age" icon={<UserIcon className="h-4 w-4" />} value={negotiationCase.enrolleeAge ?? "—"} />
                 {negotiationCase.caseType === "PROVIDER_MANAGEMENT" ? (
                   <>
                     <Detail
@@ -471,8 +493,9 @@ export default async function CaseDetailsPage(
                   </>
                 ) : (
                   <>
-                    {negotiationCase.serviceType && <Detail label="Service Type" value={SERVICE_TYPE_LABELS[negotiationCase.serviceType]} />}
+                    {negotiationCase.serviceType && <Detail label="Service Type" icon={<TagIcon className="h-4 w-4" />} value={SERVICE_TYPE_LABELS[negotiationCase.serviceType]} />}
                     <Detail
+                      icon={<TagIcon className="h-4 w-4" />}
                       label="Requested Item"
                       value={
                         negotiationCase.serviceCode
@@ -481,10 +504,12 @@ export default async function CaseDetailsPage(
                       }
                     />
                     <Detail
+                      icon={<NairaIcon className="h-4 w-4" />}
                       label={negotiationCase.requestType === "NEW_SERVICE" ? "Current Tariff (not priced on this provider)" : "Current Tariff"}
                       value={negotiationCase.requestType === "NEW_SERVICE" ? "—" : formatCurrency(negotiationCase.currentTariff.toString())}
                     />
                     <Detail
+                      icon={<NairaIcon className="h-4 w-4" />}
                       label="Provider Requested Amount"
                       value={
                         <>
@@ -498,29 +523,30 @@ export default async function CaseDetailsPage(
                     />
                   </>
                 )}
-                <Detail label="Enrollee Email" value={negotiationCase.enrolleeEmail ?? "—"} />
-                <Detail label="Enrollee Phone" value={negotiationCase.enrolleePhone ?? "—"} />
-                <Detail label="Logged By" value={negotiationCase.loggedBy.displayName ?? negotiationCase.loggedBy.prognosisUsername} />
-                <Detail label="Handled By" value={negotiationCase.owner?.displayName ?? negotiationCase.owner?.prognosisUsername ?? "Unclaimed"} />
+                <Detail label="Enrollee Email" icon={<MailIcon className="h-4 w-4" />} value={negotiationCase.enrolleeEmail ?? "—"} />
+                <Detail label="Enrollee Phone" icon={<PhoneIcon className="h-4 w-4" />} value={negotiationCase.enrolleePhone ?? "—"} />
+                <Detail label="Logged By" icon={<UserIcon className="h-4 w-4" />} value={negotiationCase.loggedBy.displayName ?? negotiationCase.loggedBy.prognosisUsername} />
+                <Detail label="Handled By" icon={<UsersIcon className="h-4 w-4" />} value={negotiationCase.owner?.displayName ?? negotiationCase.owner?.prognosisUsername ?? "Unclaimed"} />
                 <Detail
+                  icon={<FlagIcon className="h-4 w-4" />}
                   label={negotiationCase.caseType === "PROVIDER_MANAGEMENT" ? "Details for Provider Management" : "Reason Provider Is Negotiating"}
                   value={negotiationCase.reason}
                   full
                 />
-                {negotiationCase.notes && <Detail label="Notes" value={negotiationCase.notes} full />}
+                {negotiationCase.notes && <Detail label="Notes" icon={<LogIcon className="h-4 w-4" />} value={negotiationCase.notes} full />}
                 {negotiationCase.finalAgreedAmount && (
-                  <Detail label="Final Agreed Amount" value={formatCurrency(negotiationCase.finalAgreedAmount.toString())} />
+                  <Detail icon={<CheckMarkIcon className="h-4 w-4" />} label="Final Agreed Amount" value={formatCurrency(negotiationCase.finalAgreedAmount.toString())} />
                 )}
                 {negotiationCase.tariffEffectiveDate && (
-                  <Detail label="Tariff Effective Date" value={negotiationCase.tariffEffectiveDate.toISOString().slice(0, 10)} />
+                  <Detail label="Tariff Effective Date" icon={<ClockIcon className="h-4 w-4" />} value={negotiationCase.tariffEffectiveDate.toISOString().slice(0, 10)} />
                 )}
-                {negotiationCase.approvalReason && <Detail label="Approval / Decline Reason" value={negotiationCase.approvalReason} full />}
+                {negotiationCase.approvalReason && <Detail label="Approval / Decline Reason" icon={<FlagIcon className="h-4 w-4" />} value={negotiationCase.approvalReason} full />}
               </dl>
             </Card>
 
             <Card>
-              <CardHeader title="Timeline" subtitle="Every update, in order" />
-              <Timeline updates={negotiationCase.updates} />
+              <CardHeader title="Timeline" subtitle="Most recent activity" />
+              <Timeline updates={negotiationCase.updates} limit={4} />
             </Card>
 
             <Card>
@@ -537,24 +563,41 @@ export default async function CaseDetailsPage(
 
           <div className="space-y-6">
             <Card>
-              <CardHeader title="Timing" />
+              <CardHeader title="Timing" icon={<ClockIcon className="h-[18px] w-[18px]" />} />
               <div className="space-y-3 px-5 py-4">
-                <TimingRow label="Log → First Provider Team Action" value={formatDuration(firstActionMs)} />
-                <TimingRow label="Log → Now / Completion" value={formatDuration(totalMs)} />
+                <TimingRow
+                  label="Log → First Provider Team Action"
+                  value={formatDuration(firstActionMs)}
+                  at={negotiationCase.firstActionAt}
+                />
+                <TimingRow
+                  label={negotiationCase.completedAt ? "Log → Completion" : "Log → Now"}
+                  value={formatDuration(totalMs)}
+                  at={negotiationCase.completedAt ?? new Date()}
+                />
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-[12.5px] font-semibold text-navy-900">Total Time</span>
+                  <span className="rounded-[10px] bg-accent-50 px-2 py-0.5 text-[11.5px] font-bold text-accent-600">
+                    {formatDuration(totalMs)}
+                  </span>
+                </div>
               </div>
             </Card>
 
             {relatedCases.length > 0 && (
               <Card>
                 <CardHeader title="Related Services" subtitle="Same visit, logged separately" />
-                <ul className="divide-y divide-ink-100">
+                <ul className="divide-y divide-line-subtle">
                   {relatedCases.map((c) => (
-                    <li key={c.id} className="px-5 py-3">
-                      <Link href={`/negotiations/${c.id}`} className="text-[12.5px] font-semibold text-ink-900 hover:underline">
+                    <li key={c.id} className="px-5 py-3.5">
+                      <Link
+                        href={`/negotiations/${c.id}`}
+                        className="text-[13px] font-semibold text-navy-900 hover:text-accent-600 hover:underline"
+                      >
                         {c.caseNumber}
                       </Link>
-                      <p className="text-[11px] text-ink-500">{c.requestedItem}</p>
-                      <Badge className={`mt-1 ${CASE_STATUS_BADGE[c.status]}`}>{CASE_STATUS_LABELS[c.status]}</Badge>
+                      <p className="mt-0.5 text-[11.5px] text-navy-500">{c.requestedItem}</p>
+                      <Badge className={`mt-1.5 ${CASE_STATUS_BADGE[c.status]}`}>{CASE_STATUS_LABELS[c.status]}</Badge>
                     </li>
                   ))}
                 </ul>
@@ -562,13 +605,20 @@ export default async function CaseDetailsPage(
             )}
 
             {isProviderTeam && (
-              <Card className="flex items-center justify-between gap-4 border-ink-200 bg-ink-100/60 px-5 py-4">
-                <p className="text-[12.5px] text-ink-600">Claim or update this case's status from the Provider Team tab.</p>
-                <Link href={`/negotiations/${negotiationCase.id}?tab=provider-team`}>
-                  <Button variant="secondary" className="whitespace-nowrap bg-white">
-                    Go to Provider Team
-                  </Button>
-                </Link>
+              <Card className="flex items-start gap-3.5 border-line-subtle bg-surface-muted px-5 py-4">
+                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-white text-navy-400 shadow-sm">
+                  <UsersIcon className="h-[18px] w-[18px]" />
+                </span>
+                <div>
+                  <p className="text-[12.5px] leading-relaxed text-navy-600">
+                    Claim or update this case&apos;s status from the Provider Team tab.
+                  </p>
+                  <Link href={`/negotiations/${negotiationCase.id}?tab=provider-team`} className="mt-2.5 inline-block">
+                    <Button variant="secondary" className="whitespace-nowrap bg-white">
+                      Go to Provider Team
+                    </Button>
+                  </Link>
+                </div>
               </Card>
             )}
 
@@ -617,20 +667,38 @@ export default async function CaseDetailsPage(
   );
 }
 
-function Detail({ label, value, full = false }: { label: string; value: React.ReactNode; full?: boolean }) {
+function Detail({
+  label,
+  value,
+  full = false,
+  icon,
+}: {
+  label: string;
+  value: React.ReactNode;
+  full?: boolean;
+  icon?: React.ReactNode;
+}) {
   return (
-    <div className={full ? "col-span-2" : ""}>
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">{label}</p>
-      <p className="mt-0.5 text-[13.5px] text-ink-900">{value}</p>
+    <div className={`flex gap-2.5 ${full ? "sm:col-span-2" : ""}`}>
+      {/* Icons are a scanning aid only — the label always carries the meaning,
+       * so a field without a natural icon simply indents to align with the rest. */}
+      <span className="mt-0.5 w-4 flex-shrink-0 text-navy-400">{icon}</span>
+      <div className="min-w-0">
+        <p className="text-[11px] text-navy-500">{label}</p>
+        <p className="mt-0.5 text-[13.5px] font-medium text-navy-900">{value}</p>
+      </div>
     </div>
   );
 }
 
-function TimingRow({ label, value }: { label: string; value: string }) {
+function TimingRow({ label, value, at }: { label: string; value: string; at?: Date | null }) {
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-[12.5px] text-ink-500">{label}</span>
-      <span className="text-[13px] font-bold text-ink-900">{value}</span>
+    <div className="border-b border-line-subtle pb-3 last:border-0 last:pb-0">
+      <div className="flex items-start justify-between gap-3">
+        <span className="text-[12.5px] text-navy-600">{label}</span>
+        <span className="whitespace-nowrap text-[13px] font-bold text-navy-900">{value}</span>
+      </div>
+      {at && <p className="mt-0.5 text-[11.5px] text-navy-400">{formatDateTime(at)}</p>}
     </div>
   );
 }

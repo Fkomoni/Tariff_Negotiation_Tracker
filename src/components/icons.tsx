@@ -323,3 +323,35 @@ export function MinusCircleIcon({ className = base }: IconProps) {
     </svg>
   );
 }
+
+export function MailIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <rect x="3" y="5.5" width="18" height="13" rx="2.2" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M3.8 7l7.1 5.2c.65.48 1.55.48 2.2 0L20.2 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function PhoneIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path
+        d="M6.5 3.5h2.2l1.6 4-2 1.4a11 11 0 005.4 5.4l1.4-2 4 1.6v2.2a2 2 0 01-2.2 2A15.5 15.5 0 014.5 5.7a2 2 0 012-2.2z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+/** Naira sign in a circle — marks the money fields on a case. */
+export function NairaIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M8.6 16.5v-9l6.8 9v-9M7.4 10.6h9.2M7.4 13.4h9.2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ROLE_LABELS } from "@/lib/domain";
 import { logoutAction } from "@/app/actions/auth-actions";
-import { BellIcon, LogoutIcon, ShieldIcon } from "@/components/icons";
+import { ArrowLeftIcon, BellIcon, LogoutIcon, ShieldIcon } from "@/components/icons";
 import type { Role } from "@prisma/client";
 
 interface HeaderProps {
@@ -15,9 +15,13 @@ interface HeaderProps {
   actions?: React.ReactNode;
   /** Shown as a count badge on the bell — omitted when there's nothing to flag. */
   alertCount?: number;
+  /** Renders a back arrow to the left of the title. */
+  backHref?: string;
+  /** Rendered beside the title — used for a case's current status. */
+  badge?: React.ReactNode;
 }
 
-export function Header({ title, subtitle, user, actions, alertCount = 0 }: HeaderProps) {
+export function Header({ title, subtitle, user, actions, alertCount = 0, backHref, badge }: HeaderProps) {
   const initials =
     user.name
       .split(/\s+/)
@@ -28,9 +32,25 @@ export function Header({ title, subtitle, user, actions, alertCount = 0 }: Heade
 
   return (
     <header className="flex items-center justify-between border-b border-line-subtle bg-white px-8 py-3.5">
-      <div>
-        {title && <h1 className="text-[18px] font-bold leading-tight text-navy-900">{title}</h1>}
-        {title && subtitle && <p className="text-[12.5px] text-navy-500">{subtitle}</p>}
+      <div className="flex items-center gap-3">
+        {backHref && (
+          <Link
+            href={backHref}
+            aria-label="Back"
+            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-navy-500 transition-colors hover:bg-surface-muted hover:text-navy-900"
+          >
+            <ArrowLeftIcon className="h-[18px] w-[18px]" />
+          </Link>
+        )}
+        <div>
+          {title && (
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-[19px] font-bold leading-tight text-navy-900">{title}</h1>
+              {badge}
+            </div>
+          )}
+          {title && subtitle && <p className="text-[12.5px] text-navy-500">{subtitle}</p>}
+        </div>
       </div>
 
       <div className="flex items-center gap-4">
