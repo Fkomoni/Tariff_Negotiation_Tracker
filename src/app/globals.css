@@ -35,3 +35,34 @@ body {
   padding-top: 3px;
   padding-bottom: 3px;
 }
+
+/* Print rules for the Reports PDF view (/reports/print). The app shell is
+ * hidden so the sheet contains only the report, and tables are told not to
+ * split a row across a page break. */
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm 12mm;
+  }
+
+  aside,
+  header.sticky,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  /* Keep table headers repeating when a long table runs over a page. */
+  thead {
+    display: table-header-group;
+  }
+
+  tr,
+  section {
+    break-inside: avoid;
+  }
+}
