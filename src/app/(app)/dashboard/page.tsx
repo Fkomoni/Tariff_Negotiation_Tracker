@@ -5,6 +5,9 @@ import { StatCard } from "@/components/StatCard";
 import { getDashboardData } from "@/lib/dashboard";
 import {
   DashboardIcon,
+  ReportIcon,
+  DownloadIcon,
+  RefreshIcon,
   LogIcon,
   QueueIcon,
   CheckMarkIcon,
@@ -16,6 +19,7 @@ import {
 } from "@/components/icons";
 import Link from "next/link";
 import {
+  DISPLAY_TIME_ZONE,
   URGENCY_BADGE,
   URGENCY_LABELS,
   CASE_STATUS_BADGE,
@@ -23,6 +27,33 @@ import {
   formatDateTime,
   formatDuration,
 } from "@/lib/domain";
+
+/** Toolbar button. `primary` is the one action that creates something. */
+function ToolButton({
+  href,
+  icon,
+  label,
+  variant = "secondary",
+}: {
+  href: string;
+  icon: React.ReactNode;
+  label: string;
+  variant?: "primary" | "secondary";
+}) {
+  return (
+    <Link
+      href={href}
+      className={`inline-flex items-center gap-2 rounded-lg px-3.5 py-2.5 text-[12.5px] font-semibold transition-colors ${
+        variant === "primary"
+          ? "bg-accent text-white shadow-cta hover:bg-accent-600"
+          : "border border-line bg-white text-navy-700 hover:bg-surface-muted"
+      }`}
+    >
+      {icon}
+      {label}
+    </Link>
+  );
+}
 
 /** Phrases a whole-number change against yesterday. */
 function deltaNote(delta: number | null): { note: string; tone: "good" | "bad" | "neutral" } {
@@ -36,6 +67,9 @@ export default async function DashboardPage() {
   if (!session?.user) return null;
 
   const d = await getDashboardData();
+  // Lagos calendar date, so a "today" link into Reports selects the same day
+  // the cards counted.
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: DISPLAY_TIME_ZONE }).format(new Date());
   const logged = deltaNote(d.loggedToday.deltaFromYesterday);
   const completed = deltaNote(d.completedToday.deltaFromYesterday);
 
@@ -46,12 +80,33 @@ export default async function DashboardPage() {
         subtitle="Provider Tariff Negotiation · Overview"
         icon={<DashboardIcon />}
         user={{ name: session.user.name ?? session.user.prognosisUsername, role: session.user.role }}
+        alertCount={d.urgentUnresolved.value}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            {["CONTACT_CENTER", "ADMIN"].includes(session.user.role) && (
+              <ToolButton
+                href="/negotiations/new"
+                icon={<LogIcon className="h-4 w-4" />}
+                label="Log Negotiation"
+                variant="primary"
+              />
+            )}
+            <ToolButton href="/negotiations/queue" icon={<QueueIcon className="h-4 w-4" />} label="Open Queue" />
+            <ToolButton href="/reports" icon={<ReportIcon className="h-4 w-4" />} label="Reports" />
+            <ToolButton href="/reports" icon={<DownloadIcon className="h-4 w-4" />} label="Export" />
+            {/* A plain link back to this page. Every figure here is computed in
+                a server component, so navigating re-runs the queries — a real
+                refresh, not a decorative button. */}
+            <ToolButton href="/dashboard" icon={<RefreshIcon className="h-4 w-4" />} label="Refresh" />
+          </div>
+        }
       />
 
       <div className="flex-1 space-y-6 px-8 py-8">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard
             id="logged"
+            href={`/reports?from=${today}&to=${today}`}
             tone="info"
             icon={<LogIcon className="h-[19px] w-[19px]" />}
             label="Logged Today"
@@ -62,6 +117,7 @@ export default async function DashboardPage() {
           />
           <StatCard
             id="open"
+            href="/negotiations/queue"
             tone="danger"
             icon={<QueueIcon className="h-[19px] w-[19px]" />}
             label="Open Requests"
@@ -71,6 +127,7 @@ export default async function DashboardPage() {
           />
           <StatCard
             id="completed"
+            href="/negotiations/completed"
             tone="success"
             icon={<CheckMarkIcon className="h-[19px] w-[19px]" />}
             label="Completed Today"
@@ -81,6 +138,7 @@ export default async function DashboardPage() {
           />
           <StatCard
             id="avg"
+            href="/reports"
             tone="info"
             icon={<ClockIcon className="h-[19px] w-[19px]" />}
             label="Avg Resolution Time"
@@ -97,6 +155,7 @@ export default async function DashboardPage() {
           />
           <StatCard
             id="longest"
+            href={d.longestPending.case ? `/negotiations/${d.longestPending.case.id}` : undefined}
             tone="accent"
             icon={<HourglassIcon className="h-[19px] w-[19px]" />}
             label="Longest Pending Case"
@@ -114,6 +173,7 @@ export default async function DashboardPage() {
           />
           <StatCard
             id="urgent"
+            href="/negotiations/queue?urgency=PRIORITY"
             tone="warning"
             icon={<AlertIcon className="h-[19px] w-[19px]" />}
             label="Urgent Unresolved"
@@ -124,6 +184,7 @@ export default async function DashboardPage() {
           />
           <StatCard
             id="topprovider"
+            href="/reports"
             tone="violet"
             icon={<BuildingIcon className="h-[19px] w-[19px]" />}
             label="Top Provider"
@@ -135,6 +196,7 @@ export default async function DashboardPage() {
           />
           <StatCard
             id="topitem"
+            href="/tariff-review"
             tone="teal"
             icon={<TagIcon className="h-[19px] w-[19px]" />}
             label="Top Item"
