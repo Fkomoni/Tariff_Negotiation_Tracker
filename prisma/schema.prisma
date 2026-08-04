@@ -4,7 +4,15 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  // Pooled connection for the app's own queries. On Supabase use the pooler in
+  // *transaction* mode (port 6543) with ?pgbouncer=true.
   url      = env("DATABASE_URL")
+  // Migrations must not go through a connection pooler. They hold a session,
+  // take advisory locks and run DDL, none of which survive a transaction-mode
+  // pooler — and against Supabase's session-mode pooler they exhaust its
+  // 15-client limit and fail with EMAXCONNSESSION. Prisma uses this URL for
+  // `migrate` and `db push` only; runtime queries still use `url` above.
+  directUrl = env("DIRECT_URL")
 }
 
 enum Role {

@@ -41,14 +41,21 @@ signs in.
    - **Node version:** 20.9 or later — required by Next.js 16 (`package.json`'s `engines.node`
      documents this; if Render's default image is older, set `NODE_VERSION` under Environment
      variables, or add a `.node-version` file pinning it).
-   - **Build Command:** `npm install && npm run build`
+   - **Build Command:** `npm install && npm run build:deploy`
    - **Start Command:** `npm run start`
 
-   `npm run start` applies any pending Prisma migrations before booting, so a
-   deploy can never serve code whose columns don't exist yet. (This previously
-   listed a build command that ran the migrations but never built the app; the
-   two drifted, migrations stopped running, and every page that reads a full
-   case row started 500ing.)
+   `build:deploy` runs `prisma migrate deploy` **and** `next build` in one
+   script, deliberately. Configuring them as two separate things is how this
+   broke once already: the build command ran only the migration, so the
+   database advanced while the compiled app went stale, and every page that
+   reads a full case row started 500ing on columns that existed in the code but
+   not yet in the schema. Keeping them in one script means they can't be set
+   apart.
+
+   Migrations run at build rather than at startup on purpose. If a migration
+   fails, the deploy fails and Render keeps the previous version serving. Put
+   the same command in `start` and a transient database blip stops the app
+   booting at all, even when the schema is already correct.
    - **Instance Type:** Starter is fine to begin with.
 4. Add the environment variables below under **Environment**.
 5. Click **Create Web Service**. Render will install dependencies, run the Prisma migration
@@ -58,7 +65,8 @@ signs in.
 
 | Variable | Value |
 |---|---|
-| `DATABASE_URL` | The Neon/Supabase connection string from step 1. If it's a pooled connection (e.g. Supabase's session pooler) with a small `pool_size`, add `?connection_limit=5` (or lower) to the URL so this app doesn't consume the whole pool by itself |
+| `DATABASE_URL` | Pooled connection, used by the running app. On Supabase use the pooler in **transaction** mode (port `6543`) with `?pgbouncer=true&connection_limit=5` |
+| `DIRECT_URL` | **Direct, non-pooled** connection, used only by `prisma migrate`. Supabase: Project Settings → Database → Connection string → "Direct connection". Migrations hold a session and take advisory locks, which a pooler breaks — run them through Supabase's session-mode pooler (port `5432`) and they fail with `FATAL: (EMAXCONNSESSION) max clients reached in session mode`. If your Supabase project has no IPv4 direct endpoint, point this at the session-mode pooler and lower `DATABASE_URL`'s `connection_limit` so the app leaves clients free for the migration |
 | `NEXTAUTH_URL` | Your Render service URL, e.g. `https://tariff-negotiation-tracker.onrender.com` — used to build links in emails and to validate the CORS allow-list, not for session auth (sessions are a database-backed opaque token now, not a signed/encrypted cookie, so there's no secret to configure for them) |
 | `PROGNOSIS_BASE` | `https://prognosis-api.leadwayhealth.com` (default, only override if it changes) |
 | `PROGNOSIS_SERVICE_USERNAME` | A Prognosis username dedicated to sending member notifications |
