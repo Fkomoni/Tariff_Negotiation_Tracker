@@ -287,3 +287,39 @@ export function UsersIcon({ className = base }: IconProps) {
     </svg>
   );
 }
+
+export function SortIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path d="M8 4v16m0 0l-3.5-3.5M8 20l3.5-3.5M16 20V4m0 0l-3.5 3.5M16 4l3.5 3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/** Tiny up/down pair for a sortable column header. Filled arrow marks the
+ * direction currently applied; both muted when the column isn't the sort. */
+export function SortArrows({ className = "", active }: { className?: string; active?: "asc" | "desc" | null }) {
+  return (
+    <svg viewBox="0 0 10 14" fill="none" className={className} aria-hidden>
+      <path d="M5 1.5l3 3.5H2l3-3.5z" fill="currentColor" opacity={active === "asc" ? 1 : 0.28} />
+      <path d="M5 12.5l3-3.5H2l3 3.5z" fill="currentColor" opacity={active === "desc" ? 1 : 0.28} />
+    </svg>
+  );
+}
+
+export function BoltIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path d="M13 2L4.5 13.5H11l-1 8.5 8.5-11.5H12l1-8.5z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function MinusCircleIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M8.5 12h7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}

@@ -224,3 +224,18 @@ export function generateCaseNumber(): string {
 export function amountDifference(current: number | string, requested: number | string): number {
   return Number(requested) - Number(current);
 }
+
+/**
+ * Splits a timestamp into date and time parts so a table cell can stack them
+ * on two lines. The queue carries enough columns that a single-line
+ * "04 Aug 2026, 17:22" pushed Urgency and Status off the right edge.
+ */
+export function formatDateParts(date: Date | string | null | undefined): { date: string; time: string } {
+  if (!date) return { date: "—", time: "" };
+  const d = new Date(date);
+  const opts = { timeZone: DISPLAY_TIME_ZONE } as const;
+  return {
+    date: new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric", ...opts }).format(d),
+    time: new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false, ...opts }).format(d),
+  };
+}

@@ -24,3 +24,14 @@ body {
   line-height: 1.4rem;
   white-space: nowrap;
 }
+
+/* Opt-in wrapping for badges whose label is long enough to distort a table
+ * column ("Update Existing Tariff"). The default stays nowrap because most
+ * badges are short and look wrong broken across lines. */
+.badge-wrap {
+  white-space: normal;
+  text-align: center;
+  line-height: 1.15rem;
+  padding-top: 3px;
+  padding-bottom: 3px;
+}

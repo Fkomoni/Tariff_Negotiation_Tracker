@@ -41,7 +41,7 @@ export default async function CompletedNegotiationsPage() {
       <div className="flex flex-1 flex-col gap-5 px-8 py-8">
         <p className="text-[12.5px] text-navy-500">{describeCounts(cases, "completed")}</p>
         <Card>
-          <CaseTable cases={cases} viewerRole={session.user.role} groupSizes={groupSizes} />
+          <CaseTable cases={cases} viewerRole={session.user.role} groupSizes={groupSizes} variant="completed" />
         </Card>
       </div>
     </>

@@ -32,3 +32,27 @@ export async function getCaseGroupSizes(cases: Pick<NegotiationCase, "id" | "ses
   }
   return sizes;
 }
+
+/**
+ * Groups cases into the requests they were submitted as, preserving the order
+ * the caller's sort produced.
+ *
+ * Lives here rather than in CaseTable because the queue also needs the grouping
+ * *before* rendering: pagination has to page by request, not by case row, or a
+ * request whose services straddle the page boundary would show up as two
+ * partial rows on different pages.
+ */
+export function groupCasesByRequest<T extends { id: string; sessionGroupId: string | null }>(cases: T[]): T[][] {
+  const byRoot = new Map<string, T[]>();
+  for (const c of cases) {
+    // A case is its own group root unless it points at one, matching the
+    // convention in negotiations/[id]/page.tsx.
+    const root = c.sessionGroupId ?? c.id;
+    const existing = byRoot.get(root);
+    if (existing) existing.push(c);
+    else byRoot.set(root, [c]);
+  }
+  // Map iteration is insertion-ordered, so the page's chosen sort still drives
+  // the order of the groups.
+  return Array.from(byRoot.values());
+}
