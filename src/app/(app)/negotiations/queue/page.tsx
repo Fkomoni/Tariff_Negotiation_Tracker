@@ -5,6 +5,7 @@ import { Header } from "@/components/Header";
 import { Card } from "@/components/ui";
 import { QueueIcon } from "@/components/icons";
 import { CaseTable } from "@/components/CaseTable";
+import { getCaseGroupSizes } from "@/lib/case-groups";
 import { OPEN_STATUSES, CASE_STATUS_LABELS, URGENCY_LABELS } from "@/lib/domain";
 import type { Prisma, Urgency } from "@prisma/client";
 
@@ -40,6 +41,8 @@ export default async function OpenNegotiationsPage(
     orderBy: SORT_OPTIONS[sortKey].orderBy,
     include: { loggedBy: true, owner: true },
   });
+
+  const groupSizes = await getCaseGroupSizes(cases);
 
   function buildHref(overrides: { sort?: string; status?: string; urgency?: string }) {
     const params = new URLSearchParams();
@@ -132,7 +135,7 @@ export default async function OpenNegotiationsPage(
         </div>
 
         <Card>
-          <CaseTable cases={cases} viewerRole={session.user.role} />
+          <CaseTable cases={cases} viewerRole={session.user.role} groupSizes={groupSizes} />
         </Card>
       </div>
     </>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Field, inputClass } from "@/components/ui";
 import { ProviderFields, type ProviderInitial } from "@/components/ProviderFields";
 import { ServiceTariffFields } from "@/components/ServiceTariffFields";
@@ -46,16 +46,39 @@ function ServiceLine({
 export function RequestFields({
   initialProvider,
   initialEnrollee,
+  resyncSignal,
 }: {
   initialProvider?: ProviderInitial;
   initialEnrollee?: EnrolleeInitial;
+  /** Changes identity each time the parent form's action returns. React
+   * resets the form at that point, which wipes a <select>'s DOM value
+   * without touching React state — see the matching note in
+   * LogNegotiationForm. Used only to trigger the repair below. */
+  resyncSignal?: unknown;
 }) {
   const [caseType, setCaseType] = useState<CaseType>("TARIFF_UPDATE");
   const [providerCode, setProviderCode] = useState(initialProvider?.code ?? "");
   const [pmCategories, setPmCategories] = useState<string[]>([]);
   const [serviceLineIds, setServiceLineIds] = useState<number[]>([0]);
+  // Controlled rather than left to defaultValue/uncontrolled: React resets a
+  // form's uncontrolled fields once its action finishes, so when the action
+  // comes back asking about duplicate services these would silently blank
+  // out (or snap back to their default) and the agent would have to retype
+  // them — the reason textarea reverting also tripped the browser's own
+  // "required" check and blocked resubmitting entirely.
+  const [serviceType, setServiceType] = useState("CONSULTATION");
+  const [reason, setReason] = useState("");
+  const serviceTypeRef = useRef<HTMLSelectElement>(null);
   const nextServiceLineId = useRef(1);
   const isTariffUpdate = caseType === "TARIFF_UPDATE";
+
+  // Repairs the select's DOM value after React resets the form on each action
+  // response — without this, a chosen service type silently reverted to the
+  // first option on resubmit. See resyncSignal above.
+  useEffect(() => {
+    if (serviceTypeRef.current) serviceTypeRef.current.value = serviceType;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resyncSignal]);
 
   function addServiceLine() {
     setServiceLineIds((ids) => [...ids, nextServiceLineId.current++]);
@@ -94,7 +117,14 @@ export function RequestFields({
           <ProviderFields initial={initialProvider} onProviderCodeChange={setProviderCode} />
 
           <Field label="Service Type" required>
-            <select name="serviceType" required className={inputClass} defaultValue="CONSULTATION">
+            <select
+              ref={serviceTypeRef}
+              name="serviceType"
+              required
+              className={inputClass}
+              value={serviceType}
+              onChange={(e) => setServiceType(e.target.value)}
+            >
               {Object.entries(SERVICE_TYPE_LABELS).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
@@ -159,6 +189,8 @@ export function RequestFields({
             rows={3}
             className={inputClass}
             placeholder="e.g. Provider says current tariff is below their cost for this procedure"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
           />
         </Field>
       )}

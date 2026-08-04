@@ -1,3 +1,5 @@
+import { DISPLAY_TIME_ZONE } from "@/lib/domain";
+
 const BRAND_ORANGE = "#F2661B";
 const BRAND_RED = "#E31837";
 const BRAND_GREEN = "#16a34a";
@@ -244,12 +246,15 @@ export interface MemberNotificationEmailParams {
  * shell above.
  */
 export function buildMemberNotificationEmailHtml(params: MemberNotificationEmailParams): string {
+  // timeZone is pinned because this renders on a UTC server — without it
+  // the member was told their request came in an hour before they made it.
   const submitted = params.submittedAt.toLocaleString("en-NG", {
     day: "numeric",
     month: "long",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: DISPLAY_TIME_ZONE,
   });
 
   return buildEmailShell({
@@ -317,9 +322,14 @@ export interface MfaCodeEmailParams {
 export function buildMfaCodeEmailHtml(params: MfaCodeEmailParams): string {
   const { baseUrl, code, requestedAt } = params;
   const codeDisplay = /^\d{6}$/.test(code) ? `${code.slice(0, 3)} ${code.slice(3)}` : code;
-  const requestDate = requestedAt.toLocaleDateString("en-NG", { day: "numeric", month: "long", year: "numeric" });
+  const requestDate = requestedAt.toLocaleDateString("en-NG", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: DISPLAY_TIME_ZONE,
+  });
   const requestTime = requestedAt
-    .toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit", hour12: true })
+    .toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: DISPLAY_TIME_ZONE })
     .toUpperCase();
 
   return `<!doctype html>

@@ -2,12 +2,9 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Header } from "@/components/Header";
-import { Card, Field, inputClass } from "@/components/ui";
-import { SubmitButton } from "@/components/SubmitButton";
+import { Card } from "@/components/ui";
 import { LogIcon } from "@/components/icons";
-import { createCase } from "@/app/actions/case-actions";
-import { URGENCY_LABELS } from "@/lib/domain";
-import { RequestFields } from "@/components/RequestFields";
+import { LogNegotiationForm } from "@/components/LogNegotiationForm";
 import type { ProviderInitial } from "@/components/ProviderFields";
 import type { EnrolleeInitial } from "@/components/EnrolleeFields";
 
@@ -75,29 +72,11 @@ export default async function LogNegotiationPage(
             </p>
           )}
 
-          <form action={createCase} encType="multipart/form-data" className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2">
-            <input type="hidden" name="sessionGroupId" value={sessionGroupId ?? ""} />
-
-            <RequestFields initialProvider={initialProvider} initialEnrollee={initialEnrollee} />
-
-            <Field label="Urgency" required>
-              <select name="urgency" required className={inputClass} defaultValue="ROUTINE">
-                {Object.entries(URGENCY_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-
-            <Field label="Notes" className="sm:col-span-2">
-              <textarea name="notes" rows={3} className={inputClass} placeholder="Any additional context for the Provider Team" />
-            </Field>
-
-            <div className="flex justify-end gap-3 sm:col-span-2">
-              <SubmitButton pendingLabel="Logging…">Log Request</SubmitButton>
-            </div>
-          </form>
+          <LogNegotiationForm
+            initialProvider={initialProvider}
+            initialEnrollee={initialEnrollee}
+            sessionGroupId={sessionGroupId}
+          />
         </Card>
       </div>
     </>

@@ -4,6 +4,7 @@ import { Header } from "@/components/Header";
 import { Card } from "@/components/ui";
 import { CheckIcon } from "@/components/icons";
 import { CaseTable } from "@/components/CaseTable";
+import { getCaseGroupSizes } from "@/lib/case-groups";
 import { CLOSED_STATUSES } from "@/lib/domain";
 
 export default async function CompletedNegotiationsPage() {
@@ -15,6 +16,8 @@ export default async function CompletedNegotiationsPage() {
     orderBy: { completedAt: "desc" },
     include: { loggedBy: true, owner: true },
   });
+
+  const groupSizes = await getCaseGroupSizes(cases);
 
   return (
     <>
@@ -28,7 +31,7 @@ export default async function CompletedNegotiationsPage() {
       <div className="flex flex-1 flex-col gap-5 px-8 py-8">
         <p className="text-[12.5px] text-ink-500">{cases.length} completed case{cases.length === 1 ? "" : "s"}</p>
         <Card>
-          <CaseTable cases={cases} viewerRole={session.user.role} />
+          <CaseTable cases={cases} viewerRole={session.user.role} groupSizes={groupSizes} />
         </Card>
       </div>
     </>

@@ -217,6 +217,56 @@ export default async function CaseDetailsPage(
             </div>
           </Card>
 
+          {/* The Provider Team treats one service at a time (each is its own
+              case with its own price and status), but they need to see the
+              rest of the visit to review it as a whole — without this, only
+              the service they happened to open was visible here. */}
+          {relatedCases.length > 0 && (
+            <Card>
+              <CardHeader
+                title="Other Services in This Visit"
+                subtitle={`${relatedCases.length + 1} services were logged together — each is approved separately`}
+              />
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-[12.5px]">
+                  <thead className="border-b border-ink-100 text-[11px] font-semibold uppercase tracking-wide text-ink-400">
+                    <tr>
+                      <th className="px-5 py-2.5">Case</th>
+                      <th className="px-5 py-2.5">Service / Item</th>
+                      <th className="px-5 py-2.5 text-right">Current → Requested</th>
+                      <th className="px-5 py-2.5">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-ink-100">
+                    {relatedCases.map((c) => (
+                      <tr key={c.id}>
+                        <td className="px-5 py-2.5">
+                          <Link
+                            href={`/negotiations/${c.id}?tab=provider-team`}
+                            className="font-semibold text-brand-600 hover:underline"
+                          >
+                            {c.caseNumber}
+                          </Link>
+                        </td>
+                        <td className="px-5 py-2.5 text-ink-800">
+                          {c.serviceCode ? `${c.requestedItem} (${c.serviceCode})` : c.requestedItem}
+                        </td>
+                        <td className="whitespace-nowrap px-5 py-2.5 text-right text-ink-700">
+                          {c.requestType === "NEW_SERVICE"
+                            ? formatCurrency(c.providerRequestedAmount.toString())
+                            : `${formatCurrency(c.currentTariff.toString())} → ${formatCurrency(c.providerRequestedAmount.toString())}`}
+                        </td>
+                        <td className="px-5 py-2.5">
+                          <Badge className={CASE_STATUS_BADGE[c.status]}>{CASE_STATUS_LABELS[c.status]}</Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
+
           <Card>
             <CardHeader title="Timing" />
             <div className="space-y-3 px-5 py-4">

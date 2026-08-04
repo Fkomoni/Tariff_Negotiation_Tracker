@@ -23,6 +23,13 @@ const MAX_ATTACHMENT_BYTES = 2 * 1024 * 1024;
 
 const PM_CATEGORY_VALUES = Object.keys(PM_CATEGORY_LABELS) as [ProviderManagementCategory, ...ProviderManagementCategory[]];
 
+// Derived from the label map rather than repeated as a literal list — the
+// two drifted apart the moment new service types were added (the form
+// offered Maternity/Gym and Spa/Immunizations while this schema still only
+// accepted the original six, so picking one failed validation). Deriving
+// it means adding a service type in one place can't silently break the form.
+const SERVICE_TYPE_VALUES = Object.keys(SERVICE_TYPE_LABELS) as [ServiceType, ...ServiceType[]];
+
 const createCaseSchema = z
   .object({
     caseType: z.enum(["TARIFF_UPDATE", "PROVIDER_MANAGEMENT"]).default("TARIFF_UPDATE"),
@@ -44,9 +51,7 @@ const createCaseSchema = z
       (v) => (v === "" || v === undefined ? undefined : v),
       z.coerce.number().int().min(0).optional()
     ),
-    serviceType: z
-      .enum(["CONSULTATION", "MEDICATIONS", "INVESTIGATIONS", "ADMISSION_RELATED_SERVICES", "PROCEDURES_AND_SERVICES", "SURGERIES"])
-      .optional(),
+    serviceType: z.enum(SERVICE_TYPE_VALUES).optional(),
     reason: z.string().min(3, "Reason is required"),
     urgency: z.enum(["ROUTINE", "URGENT", "EMERGENCY"]),
     notes: z.string().optional(),
@@ -84,6 +89,14 @@ const serviceLineSchema = z.object({
   currentTariff: z.coerce.number().min(0),
   providerRequestedAmount: z.coerce.number().min(0, "Provider requested amount is required"),
 });
+
+/** Identity of a service line for de-duplication: its Prognosis service
+ * code when one was matched, else its free-typed name. Shared by the
+ * same-submission check and the already-negotiated check so both agree on
+ * what counts as "the same service". */
+function lineKey(line: { serviceCode?: string; requestedItem: string }): string {
+  return (line.serviceCode || line.requestedItem).trim().toLowerCase();
+}
 
 /** Reads the repeated per-line fields off the form and zips them back into
  * one object per service line, in the order they appear in the form. */
@@ -150,7 +163,36 @@ async function findDuplicateTariffCase(data: {
   });
 }
 
-export async function createCase(formData: FormData) {
+/** One service line the agent tried to log that already has a live (or
+ * completed) case for the same provider + enrollee + service. Returned to
+ * the form so it can list every affected service at once and offer to drop
+ * them, rather than bouncing the whole submission on the first one found. */
+export interface DuplicateServiceFlag {
+  requestedItem: string;
+  caseId: string;
+  caseNumber: string;
+  statusLabel: string;
+}
+
+export interface CreateCaseState {
+  duplicates: DuplicateServiceFlag[];
+  /** How many of the submitted service lines are still valid, i.e. how many
+   * would actually be logged if the agent chooses to skip the flagged ones. */
+  remainingCount: number;
+}
+
+/**
+ * Server action behind the Log Negotiation form. Returns a
+ * CreateCaseState only when it needs the agent to decide something
+ * (currently: some services are duplicates) — every other outcome, success
+ * or validation failure, redirects with a toast as before, so the returned
+ * state stays narrowly about the duplicate decision.
+ *
+ * Takes the useActionState previous-state argument it never reads; the form
+ * needs to keep the agent's typed-in data across a duplicate warning, which
+ * a redirect can't do.
+ */
+export async function createCase(_prevState: CreateCaseState | null, formData: FormData): Promise<CreateCaseState | null> {
   const session = await requireSession();
 
   const raw: Record<string, unknown> = Object.fromEntries(formData.entries());
@@ -188,7 +230,7 @@ export async function createCase(formData: FormData) {
     // reaches the database, on top of the cross-case check below.
     const seen = new Set<string>();
     for (const line of serviceLines) {
-      const key = (line.serviceCode || line.requestedItem).trim().toLowerCase();
+      const key = lineKey(line);
       if (seen.has(key)) {
         redirectWithToast("/negotiations/new", {
           type: "error",
@@ -198,6 +240,12 @@ export async function createCase(formData: FormData) {
       seen.add(key);
     }
 
+    // Checks every line and collects all of them rather than redirecting on
+    // the first hit — one already-negotiated service used to reject the
+    // whole submission, forcing the agent to re-enter every other service
+    // by hand. The agent gets the full list back and can drop just those.
+    const duplicates: DuplicateServiceFlag[] = [];
+    const duplicateKeys = new Set<string>();
     for (const line of serviceLines) {
       const duplicate = await findDuplicateTariffCase({
         providerId: data.providerId ?? null,
@@ -208,14 +256,28 @@ export async function createCase(formData: FormData) {
         requestedItem: line.requestedItem,
       });
       if (duplicate) {
-        const guidance =
-          duplicate.status === "COMPLETED"
-            ? "Check its agreed tariff before logging a new request."
-            : "Continue that one instead of logging a new one.";
-        redirectWithToast(`/negotiations/${duplicate.id}`, {
-          type: "error",
-          message: `A case for "${line.requestedItem}" with this provider and enrollee already exists — ${duplicate.caseNumber} (${CASE_STATUS_LABELS[duplicate.status]}). ${guidance}`,
+        duplicates.push({
+          requestedItem: line.requestedItem,
+          caseId: duplicate.id,
+          caseNumber: duplicate.caseNumber,
+          statusLabel: CASE_STATUS_LABELS[duplicate.status],
         });
+        duplicateKeys.add(lineKey(line));
+      }
+    }
+
+    if (duplicates.length > 0) {
+      const remaining = serviceLines.filter((l) => !duplicateKeys.has(lineKey(l)));
+
+      // Only drops the flagged lines once the agent has actually seen the
+      // list and asked for it (the "skip these" submit button sets this) —
+      // never silently on the first attempt, since a duplicate is usually a
+      // signal the agent picked the wrong service, not something to discard
+      // without being told.
+      if (formData.get("skipDuplicates") === "1" && remaining.length > 0) {
+        serviceLines = remaining;
+      } else {
+        return { duplicates, remainingCount: remaining.length };
       }
     }
   }
@@ -324,66 +386,67 @@ export async function createCase(formData: FormData) {
     // first one as its group root, the same convention "Log Another
     // Service" already uses (see negotiations/[id]/page.tsx).
     if (!groupSessionId) groupSessionId = created.id;
+  }
 
-    // Provider Management requests (portal access, bank info, complaints,
-    // etc.) aren't about a member's care being delayed, so the "your care
-    // may be delayed" auto-notification doesn't apply — skip it entirely
-    // for those.
-    if (isProviderManagement) {
-      await prisma.caseUpdate.create({
-        data: {
-          caseId: created.id,
-          userId: session.user.id,
-          type: "NOTE",
-          note: "Provider Management request — no member notification applicable.",
-        },
+  // Deliberately outside the loop above: the member gets one notification
+  // for the whole visit, listing every service, instead of one per service
+  // line. Sending inside the loop meant a two-service submission emailed
+  // and texted the same person twice about the same visit.
+  const first = createdCases[0];
+
+  if (isProviderManagement) {
+    await prisma.caseUpdate.create({
+      data: {
+        caseId: first.id,
+        userId: session.user.id,
+        type: "NOTE",
+        note: "Provider Management request — no member notification applicable.",
+      },
+    });
+  } else {
+    const wantsEmail = !!first.enrolleeEmail;
+    const wantsSms = !!first.enrolleePhone;
+    const autoTemplate: "ROUTINE" | "URGENT" = first.urgency === "ROUTINE" ? "ROUTINE" : "URGENT";
+    const serviceCount = `${createdCases.length} service${createdCases.length === 1 ? "" : "s"}`;
+
+    let note: string;
+    if (wantsEmail || wantsSms) {
+      const results = await dispatchMemberNotifications({
+        caseId: first.id,
+        caseNumber: first.caseNumber,
+        providerName: first.providerName,
+        enrolleeName: first.enrolleeName,
+        enrolleeId: first.enrolleeId,
+        requestedItems: createdCases.map((c) => c.requestedItem),
+        serviceType: first.serviceType as ServiceType,
+        loggedAt: first.loggedAt,
+        template: autoTemplate,
+        wantsEmail,
+        wantsSms,
+        email: first.enrolleeEmail,
+        phone: first.enrolleePhone,
+        sentByUserId: session.user.id,
       });
+      note = `Member auto-notified once for all ${serviceCount} in this submission (${autoTemplate.toLowerCase()} template): ${results.join(", ")}`;
     } else {
-      const wantsEmail = !!created.enrolleeEmail;
-      const wantsSms = !!created.enrolleePhone;
-      const autoTemplate: "ROUTINE" | "URGENT" = created.urgency === "ROUTINE" ? "ROUTINE" : "URGENT";
-
-      if (wantsEmail || wantsSms) {
-        const results = await dispatchMemberNotifications({
-          caseId: created.id,
-          caseNumber: created.caseNumber,
-          providerName: created.providerName,
-          enrolleeName: created.enrolleeName,
-          enrolleeId: created.enrolleeId,
-          requestedItem: created.requestedItem,
-          serviceType: created.serviceType as ServiceType,
-          loggedAt: created.loggedAt,
-          template: autoTemplate,
-          wantsEmail,
-          wantsSms,
-          email: created.enrolleeEmail,
-          phone: created.enrolleePhone,
-          sentByUserId: session.user.id,
-        });
-        await prisma.caseUpdate.create({
-          data: {
-            caseId: created.id,
-            userId: session.user.id,
-            type: "NOTIFICATION",
-            note: `Member auto-notified at logging (${autoTemplate.toLowerCase()} template): ${results.join(", ")}`,
-          },
-        });
-      } else {
-        await prisma.caseUpdate.create({
-          data: {
-            caseId: created.id,
-            userId: session.user.id,
-            type: "NOTE",
-            note: "Member not auto-notified: no email or phone number on file.",
-          },
-        });
-      }
+      note = "Member not auto-notified: no email or phone number on file.";
     }
+
+    // Recorded against every case in the group, not just the one the
+    // notification row hangs off, so the trail is visible from whichever
+    // service the Provider Team happens to open.
+    await prisma.caseUpdate.createMany({
+      data: createdCases.map((c) => ({
+        caseId: c.id,
+        userId: session.user.id,
+        type: (wantsEmail || wantsSms ? "NOTIFICATION" : "NOTE") as "NOTIFICATION" | "NOTE",
+        note,
+      })),
+    });
   }
 
   revalidatePath("/negotiations/queue");
   revalidatePath("/dashboard");
-  const first = createdCases[0];
   const message =
     createdCases.length > 1
       ? `${createdCases.length} cases logged successfully (${createdCases.map((c) => c.caseNumber).join(", ")}).`
@@ -600,7 +663,9 @@ interface DispatchNotificationsParams {
   providerName: string;
   enrolleeName: string;
   enrolleeId: string | null;
-  requestedItem: string;
+  /** Every service logged in this submission — the member is told about the
+   * whole visit in one message rather than getting one per service. */
+  requestedItems: string[];
   serviceType: ServiceType;
   loggedAt: Date;
   template: "ROUTINE" | "URGENT";
@@ -612,10 +677,11 @@ interface DispatchNotificationsParams {
 }
 
 /**
- * Sends the member email/SMS for a case and records a MemberNotification per
- * channel. Called exactly once, from createCase() below — member comms only
- * go out at the moment Contact Centre logs the request, never on later
- * status changes or any other action.
+ * Sends the member email/SMS for a submission and records a
+ * MemberNotification per channel. Called exactly once per submission from
+ * createCase() — member comms only go out at the moment Contact Centre logs
+ * the request, never on later status changes or any other action, and never
+ * once per service line.
  */
 async function dispatchMemberNotifications(params: DispatchNotificationsParams): Promise<string[]> {
   const emailMessage = buildEmailMessage(params.template, params.enrolleeName, params.providerName);
@@ -630,7 +696,7 @@ async function dispatchMemberNotifications(params: DispatchNotificationsParams):
     enrolleeId: params.enrolleeId,
     memberName: params.enrolleeName,
     serviceTypeLabel: SERVICE_TYPE_LABELS[params.serviceType],
-    requestedItem: params.requestedItem,
+    requestedItem: params.requestedItems.join(", "),
     providerName: params.providerName,
     submittedAt: params.loggedAt,
   });

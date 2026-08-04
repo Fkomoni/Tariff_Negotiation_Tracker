@@ -176,6 +176,11 @@ export function formatCurrency(value: number | string | null | undefined): strin
   }).format(n);
 }
 
+/** Everyone using this app is in Nigeria, but the server it runs on is UTC
+ * — without pinning the zone, every timestamp rendered server-side came out
+ * an hour behind the wall-clock time the user actually submitted at. */
+export const DISPLAY_TIME_ZONE = "Africa/Lagos";
+
 export function formatDateTime(date: Date | string | null | undefined): string {
   if (!date) return "—";
   const d = new Date(date);
@@ -185,6 +190,7 @@ export function formatDateTime(date: Date | string | null | undefined): string {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: DISPLAY_TIME_ZONE,
   }).format(d);
 }
 

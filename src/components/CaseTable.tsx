@@ -20,9 +20,14 @@ export type CaseRow = NegotiationCase & {
 export function CaseTable({
   cases,
   viewerRole,
+  groupSizes,
 }: {
   cases: CaseRow[];
   viewerRole?: Role;
+  /** Group root id → how many services were logged in that visit, counted
+   * across every status so the badge stays accurate even when the current
+   * filter hides some of the sibling services. */
+  groupSizes?: Record<string, number>;
 }) {
   const isProviderTeamViewer = viewerRole === "PROVIDER_TEAM" || viewerRole === "ADMIN";
 
@@ -44,7 +49,8 @@ export function CaseTable({
             <th className="px-4 py-3">Agent</th>
             <th className="px-4 py-3">Provider</th>
             <th className="px-4 py-3">Enrollee</th>
-            <th className="px-4 py-3">Service</th>
+            <th className="px-4 py-3">Service Type</th>
+            <th className="px-4 py-3">Service / Item</th>
             <th className="px-4 py-3">Request Type</th>
             <th className="px-4 py-3 text-right">Current Tariff</th>
             <th className="px-4 py-3 text-right">Requested Amount</th>
@@ -55,6 +61,10 @@ export function CaseTable({
         </thead>
         <tbody className="divide-y divide-ink-100">
           {cases.map((c) => {
+            // A case is its own group root unless it points at one, matching
+            // the convention in negotiations/[id]/page.tsx.
+            const groupRoot = c.sessionGroupId ?? c.id;
+            const groupCount = groupSizes?.[groupRoot] ?? 1;
             const pendingMs = (c.completedAt ?? new Date()).getTime() - c.loggedAt.getTime();
             const isAgreed = c.status === "COMPLETED" && c.finalAgreedAmount !== null;
             const diff = amountDifference(c.currentTariff.toString(), c.providerRequestedAmount.toString());
@@ -78,6 +88,18 @@ export function CaseTable({
                 <td className="px-4 py-3 text-ink-700">{c.enrolleeName}</td>
                 <td className="px-4 py-3 text-ink-700">
                   {c.caseType === "PROVIDER_MANAGEMENT" ? "—" : c.serviceType ? SERVICE_TYPE_LABELS[c.serviceType as ServiceType] : "—"}
+                </td>
+                {/* The actual negotiated item. Without this the queue showed
+                    only the service-type category, so several services logged
+                    for one visit were indistinguishable rows — the Provider
+                    Team could see there were N of them but not what they were. */}
+                <td className="px-4 py-3">
+                  <span className="font-medium text-ink-800">{c.requestedItem}</span>
+                  {groupCount > 1 && (
+                    <span className="mt-0.5 block text-[10.5px] font-semibold uppercase tracking-wide text-ink-400">
+                      Part of a {groupCount}-service visit
+                    </span>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   {c.caseType === "PROVIDER_MANAGEMENT" ? (
