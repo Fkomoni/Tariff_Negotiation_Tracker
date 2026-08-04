@@ -528,6 +528,17 @@ export default async function CaseDetailsPage(
                         <p className="mt-1 text-[11px] text-ink-500">
                           {n.recipientEmail ?? n.recipientPhone} · {formatDateTime(n.createdAt)}
                         </p>
+                        {n.errorMessage && <p className="mt-1 text-[11px] text-brand-600">{n.errorMessage}</p>}
+                        {/* Only meaningful for SMS. "Sent" means the gateway
+                            accepted it, not that the handset received it — if
+                            the member says it never arrived, this is the
+                            reference Prognosis needs to trace it. */}
+                        {n.providerReference && (
+                          <p className="mt-1 text-[11px] text-ink-400">
+                            Gateway ticket <span className="font-semibold text-ink-600">{n.providerReference}</span> — accepted by the
+                            SMS gateway; not a delivery confirmation
+                          </p>
+                        )}
                         <p className="mt-1 text-[11px] text-ink-400">by {n.sentBy.displayName ?? n.sentBy.prognosisUsername}</p>
                       </li>
                     ))}

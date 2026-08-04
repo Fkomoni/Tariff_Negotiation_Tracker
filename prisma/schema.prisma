@@ -321,6 +321,12 @@ model MemberNotification {
   recipientPhone String?
   status        NotificationStatus
   errorMessage  String?
+  /// The downstream gateway's ticket for this message (SMS only — Prognosis's
+  /// email endpoint returns no equivalent). A SENT row means the gateway
+  /// accepted the message and issued this ticket; it is not a delivery
+  /// receipt, so when a member reports never receiving an SMS this is the
+  /// reference Prognosis/the telco needs to trace what happened after us.
+  providerReference String?
 
   createdAt     DateTime @default(now())
 

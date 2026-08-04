@@ -734,12 +734,13 @@ async function dispatchMemberNotifications(params: DispatchNotificationsParams):
     const phone = params.phone;
     tasks.push(
       sendSms({ to: phone, message: smsMessage, referenceNo: params.caseNumber })
-        .then(() => ({ status: "SENT" as const, errorMessage: null }))
+        .then((result) => ({ status: "SENT" as const, errorMessage: null, ticketId: result.ticketId }))
         .catch((err) => ({
           status: "FAILED" as const,
           errorMessage: err instanceof Error ? err.message : "Unknown error sending SMS",
+          ticketId: null,
         }))
-        .then(async ({ status, errorMessage }) => {
+        .then(async ({ status, errorMessage, ticketId }) => {
           await prisma.memberNotification.create({
             data: {
               caseId: params.caseId,
@@ -750,6 +751,7 @@ async function dispatchMemberNotifications(params: DispatchNotificationsParams):
               recipientPhone: phone,
               status,
               errorMessage,
+              providerReference: ticketId,
             },
           });
           return status === "SENT" ? "SMS sent" : `SMS failed: ${errorMessage}`;

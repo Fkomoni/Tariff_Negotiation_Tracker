@@ -363,18 +363,79 @@ export interface SendSmsParams {
   referenceNo?: string;
 }
 
+export interface SendSmsResult {
+  /** The downstream SMS gateway's own ticket for this message. Worth keeping:
+   * it's the only handle Prognosis/the telco can trace a message by when a
+   * member says they never received one. Null if the response didn't carry it. */
+  ticketId: string | null;
+}
+
+/**
+ * Pulls the real outcome out of a Sms/SendSms response.
+ *
+ * The endpoint answers HTTP 200 whether or not the message was accepted, and
+ * buries the actual result two levels down: a top-level `success`, plus a
+ * `response` string that is itself JSON (with its own `success`, `errorMsg`
+ * and `ticketId`) followed by "#" and the internal relay URL it called. So a
+ * gateway-rejected message looks exactly like a delivered one to anything
+ * that only checks the status code.
+ *
+ * Deliberately lenient about shape: only an explicit failure flag is treated
+ * as a failure. An unfamiliar or unparsable body is passed through as
+ * accepted-without-a-ticket rather than failing a send that may well have
+ * worked.
+ */
+function readSmsOutcome(payload: Record<string, unknown> | null): { ok: boolean; error: string | null; ticketId: string | null } {
+  if (!payload) return { ok: true, error: null, ticketId: null };
+
+  const outerFailed = payload.success === false;
+  const outerMessage = typeof payload.message === "string" ? payload.message : null;
+
+  let ticketId: string | null = null;
+  let innerFailed = false;
+  let innerError: string | null = null;
+
+  if (typeof payload.response === "string") {
+    // Everything before the "#" is the gateway's JSON; the rest is the relay
+    // URL it forwarded to (which echoes the full message text, so it is never
+    // stored or surfaced).
+    const jsonPart = payload.response.split("#")[0];
+    try {
+      const inner = JSON.parse(jsonPart) as Record<string, unknown>;
+      if (typeof inner.ticketId === "string" && inner.ticketId.trim()) ticketId = inner.ticketId.trim();
+      if (inner.success === false) {
+        innerFailed = true;
+        // errorMsg reads " No error" on success, so it's only meaningful here.
+        innerError = typeof inner.errorMsg === "string" ? inner.errorMsg.trim() : null;
+      }
+    } catch {
+      // Unrecognized shape — fall through to the flags we do understand.
+    }
+  }
+
+  if (outerFailed || innerFailed) {
+    return { ok: false, error: innerError || outerMessage || "SMS gateway reported a failure", ticketId };
+  }
+  return { ok: true, error: null, ticketId };
+}
+
 /**
  * Sends a member-facing SMS through Prognosis's own Sms/SendSms endpoint.
+ *
+ * Throws if the gateway reports a failure, so callers record it as failed
+ * rather than silently logging it as sent. Note what a successful return does
+ * and doesn't mean: the gateway accepted the message and issued a ticket. It
+ * is not a delivery receipt — whether the handset actually received it happens
+ * downstream of Prognosis and isn't visible in this response.
  */
-export async function sendSms(params: SendSmsParams): Promise<void> {
+export async function sendSms(params: SendSmsParams): Promise<SendSmsResult> {
   // Prognosis's SMS gateway rejects unregistered Source/SourceId/TemplateId
   // combinations with a generic 500 ("Tariff Negotiation Tracker"/0/0 isn't
-  // registered there). Falling back to the one confirmed-working combination we
-  // have (the Drug Delivery OTP flow) until Provider Team registers a dedicated
-  // Source for this app — check production logs after deploy to confirm this
-  // actually delivers, and whether TemplateId 5 forces OTP wording over our
-  // custom Message body.
-  await servicePost("/api/Sms/SendSms", {
+  // registered there). Uses the one confirmed-working combination we have (the
+  // Drug Delivery OTP flow) until Provider Team registers a dedicated Source
+  // for this app. Confirmed in production that TemplateId 5 does not override
+  // the custom Message body — the message goes out as written.
+  const payload = await serviceRequest("POST", "/api/Sms/SendSms", {
     To: params.to,
     Message: params.message,
     Source: "Drug Delivery",
@@ -384,6 +445,12 @@ export async function sendSms(params: SendSmsParams): Promise<void> {
     ReferenceNo: params.referenceNo ?? "",
     UserId: 0,
   });
+
+  const outcome = readSmsOutcome(payload);
+  if (!outcome.ok) {
+    throw new Error(`SMS gateway rejected the message: ${outcome.error}`);
+  }
+  return { ticketId: outcome.ticketId };
 }
 
 export interface TariffReviewItem {
