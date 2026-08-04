@@ -4,6 +4,8 @@ import { Header } from "@/components/Header";
 import { Card, CardHeader, StatTile, inputClass } from "@/components/ui";
 import { ReportIcon } from "@/components/icons";
 import { formatCurrency, formatDuration, CASE_TYPE_LABELS, URGENCY_LABELS, CASE_STATUS_LABELS } from "@/lib/domain";
+import { parseReportFilters, filtersToQuery, describeFilters } from "@/lib/report-filters";
+import { ReportFilterBar } from "@/components/ReportFilterBar";
 import {
   groupByProvider,
   groupByItem,
@@ -18,26 +20,25 @@ import {
 
 export default async function ReportsPage(
   props: {
-    searchParams: Promise<{ from?: string; to?: string }>;
+    searchParams: Promise<Record<string, string | string[] | undefined>>;
   }
 ) {
   const searchParams = await props.searchParams;
   const session = await auth();
   if (!session?.user) return null;
 
-  const from = searchParams.from;
-  const to = searchParams.to;
-  const loggedAt: { gte?: Date; lte?: Date } = {};
-  // Lagos is UTC+1, so a Lagos calendar day starts at 23:00 UTC the day before.
-  // Parsing these as UTC midnight put the first hour of each day in the wrong
-  // bucket and made these totals disagree with the dashboard cards that link
-  // here with a date range.
-  const LAGOS_OFFSET_MS = 60 * 60 * 1000;
-  if (from) loggedAt.gte = new Date(new Date(`${from}T00:00:00.000Z`).getTime() - LAGOS_OFFSET_MS);
-  if (to) loggedAt.lte = new Date(new Date(`${to}T23:59:59.999Z`).getTime() - LAGOS_OFFSET_MS);
+  // Same parser the export routes use, so the tables below and anything
+  // downloaded describe the same population.
+  const params = new URLSearchParams();
+  for (const [k, v] of Object.entries(searchParams)) {
+    if (Array.isArray(v)) v.forEach((x) => params.append(k, x));
+    else if (v !== undefined) params.set(k, v);
+  }
+  const filters = parseReportFilters(params);
+  const exportQuery = filtersToQuery(filters);
 
   const cases = await prisma.negotiationCase.findMany({
-    where: Object.keys(loggedAt).length > 0 ? { loggedAt } : undefined,
+    where: filters.where,
     include: { loggedBy: true, owner: true },
     orderBy: { loggedAt: "desc" },
   });
@@ -66,82 +67,31 @@ export default async function ReportsPage(
       />
 
       <div className="flex-1 space-y-6 px-8 py-8">
-        <Card className="flex flex-wrap items-end justify-between gap-4 px-5 py-4">
-          <form className="flex flex-wrap items-end gap-3" action="/reports">
-            <label className="block">
-              <span className="mb-1.5 block text-[12.5px] font-semibold text-ink-700">From</span>
-              <input type="date" name="from" defaultValue={from ?? ""} className="rounded-lg border border-ink-200 px-3 py-1.5 text-[12.5px]" />
-            </label>
-            <label className="block">
-              <span className="mb-1.5 block text-[12.5px] font-semibold text-ink-700">To</span>
-              <input type="date" name="to" defaultValue={to ?? ""} className="rounded-lg border border-ink-200 px-3 py-1.5 text-[12.5px]" />
-            </label>
-            <button type="submit" className="rounded-lg bg-ink-900 px-3.5 py-1.5 text-[12.5px] font-semibold text-white hover:bg-ink-800">
-              Apply
-            </button>
-            {(from || to) && (
-              <a href="/reports" className="text-[12.5px] font-semibold text-ink-500 hover:text-ink-800">
-                Clear
-              </a>
-            )}
-          </form>
-        </Card>
+        <ReportFilterBar filters={filters} exportQuery={exportQuery} matchCount={cases.length} />
 
         <Card>
-          <CardHeader title="Export to CSV" subtitle="Choose which cases and columns to include" />
+          <CardHeader
+            title="Choose export columns"
+            subtitle="Which cases are included is set by the filters above — this picks the columns"
+          />
           <form action="/api/reports/export" method="GET" className="space-y-4 px-5 py-4">
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-              <label className="block">
-                <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-ink-400">From</span>
-                <input type="date" name="from" defaultValue={from ?? ""} className={inputClass} />
-              </label>
-              <label className="block">
-                <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-ink-400">To</span>
-                <input type="date" name="to" defaultValue={to ?? ""} className={inputClass} />
-              </label>
-              <label className="block sm:col-span-2">
-                <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-ink-400">
-                  Provider Name Contains
-                </span>
-                <input type="text" name="provider" placeholder="e.g. Pharmacy Benefit" className={inputClass} />
-              </label>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div>
-                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-400">Case Type</p>
-                <div className="space-y-1.5">
-                  {Object.entries(CASE_TYPE_LABELS).map(([value, label]) => (
-                    <label key={value} className="flex items-center gap-2 text-[12.5px] text-ink-700">
-                      <input type="checkbox" name="caseType" value={value} className="h-3.5 w-3.5 rounded border-ink-300" />
-                      {label}
-                    </label>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-400">Urgency</p>
-                <div className="space-y-1.5">
-                  {Object.entries(URGENCY_LABELS).map(([value, label]) => (
-                    <label key={value} className="flex items-center gap-2 text-[12.5px] text-ink-700">
-                      <input type="checkbox" name="urgency" value={value} className="h-3.5 w-3.5 rounded border-ink-300" />
-                      {label}
-                    </label>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-400">Status</p>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {Object.entries(CASE_STATUS_LABELS).map(([value, label]) => (
-                    <label key={value} className="flex items-center gap-2 text-[12.5px] text-ink-700">
-                      <input type="checkbox" name="status" value={value} className="h-3.5 w-3.5 rounded border-ink-300" />
-                      {label}
-                    </label>
-                  ))}
-                </div>
-              </div>
-            </div>
+            {/* The applied filters ride along as hidden fields so this download
+                covers the same cases as the tables on screen. Its own duplicate
+                date/provider/status inputs were removed: two competing filter
+                sets meant the export could describe a different population from
+                the page it sat on. */}
+            {filters.from && <input type="hidden" name="from" value={filters.from} />}
+            {filters.to && <input type="hidden" name="to" value={filters.to} />}
+            {filters.provider && <input type="hidden" name="provider" value={filters.provider} />}
+            {filters.caseType.map((v) => (
+              <input key={v} type="hidden" name="caseType" value={v} />
+            ))}
+            {filters.urgency.map((v) => (
+              <input key={v} type="hidden" name="urgency" value={v} />
+            ))}
+            {filters.status.map((v) => (
+              <input key={v} type="hidden" name="status" value={v} />
+            ))}
 
             <div>
               <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-400">Columns to Include</p>
