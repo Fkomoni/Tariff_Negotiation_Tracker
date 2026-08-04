@@ -1,8 +1,8 @@
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { Header } from "@/components/Header";
 import { Card, CardHeader, Badge } from "@/components/ui";
 import { StatCard } from "@/components/StatCard";
+import { getDashboardData } from "@/lib/dashboard";
 import {
   DashboardIcon,
   LogIcon,
@@ -16,7 +16,6 @@ import {
 } from "@/components/icons";
 import Link from "next/link";
 import {
-  OPEN_STATUSES,
   URGENCY_BADGE,
   URGENCY_LABELS,
   CASE_STATUS_BADGE,
@@ -25,56 +24,20 @@ import {
   formatDuration,
 } from "@/lib/domain";
 
-function startOfToday() {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d;
+/** Phrases a whole-number change against yesterday. */
+function deltaNote(delta: number | null): { note: string; tone: "good" | "bad" | "neutral" } {
+  if (delta === null || delta === 0) return { note: "Same as yesterday", tone: "neutral" };
+  const word = delta > 0 ? "more" : "fewer";
+  return { note: `${Math.abs(delta)} ${word} than yesterday`, tone: delta > 0 ? "good" : "bad" };
 }
 
 export default async function DashboardPage() {
   const session = await auth();
   if (!session?.user) return null;
 
-  const [totalToday, openCases, completedToday, urgentOpen, closedCases, providerGroups, itemGroups, oldestOpen] =
-    await Promise.all([
-      prisma.negotiationCase.count({ where: { loggedAt: { gte: startOfToday() } } }),
-      prisma.negotiationCase.findMany({
-        where: { status: { in: OPEN_STATUSES } },
-        include: { loggedBy: true, owner: true },
-        orderBy: { loggedAt: "asc" },
-      }),
-      prisma.negotiationCase.count({ where: { status: "COMPLETED", completedAt: { gte: startOfToday() } } }),
-      prisma.negotiationCase.findMany({
-        where: { status: { in: OPEN_STATUSES }, urgency: { in: ["URGENT", "EMERGENCY"] } },
-        include: { loggedBy: true, owner: true },
-        orderBy: { loggedAt: "asc" },
-      }),
-      prisma.negotiationCase.findMany({
-        where: { completedAt: { not: null } },
-        select: { loggedAt: true, completedAt: true },
-      }),
-      prisma.negotiationCase.groupBy({
-        by: ["providerName"],
-        _count: { providerName: true },
-        orderBy: { _count: { providerName: "desc" } },
-        take: 5,
-      }),
-      prisma.negotiationCase.groupBy({
-        by: ["requestedItem"],
-        _count: { requestedItem: true },
-        orderBy: { _count: { requestedItem: "desc" } },
-        take: 5,
-      }),
-      prisma.negotiationCase.findFirst({
-        where: { status: { in: OPEN_STATUSES } },
-        orderBy: { loggedAt: "asc" },
-      }),
-    ]);
-
-  const avgResolutionMs =
-    closedCases.length > 0
-      ? closedCases.reduce((sum, c) => sum + (c.completedAt!.getTime() - c.loggedAt.getTime()), 0) / closedCases.length
-      : null;
+  const d = await getDashboardData();
+  const logged = deltaNote(d.loggedToday.deltaFromYesterday);
+  const completed = deltaNote(d.completedToday.deltaFromYesterday);
 
   return (
     <>
@@ -88,76 +51,97 @@ export default async function DashboardPage() {
       <div className="flex-1 space-y-6 px-8 py-8">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <StatCard
+            id="logged"
             tone="info"
             icon={<LogIcon className="h-[19px] w-[19px]" />}
             label="Logged Today"
-            value={totalToday}
-            note="Requests logged today"
+            value={d.loggedToday.value}
+            series={d.loggedToday.series}
+            note={logged.note}
+            noteTone={logged.tone}
           />
           <StatCard
+            id="open"
             tone="danger"
             icon={<QueueIcon className="h-[19px] w-[19px]" />}
             label="Open Requests"
-            value={openCases.length}
+            value={d.openRequests.value}
+            series={d.openRequests.series}
             note="Currently active"
           />
           <StatCard
+            id="completed"
             tone="success"
             icon={<CheckMarkIcon className="h-[19px] w-[19px]" />}
             label="Completed Today"
-            value={completedToday}
-            note="Settled today"
+            value={d.completedToday.value}
+            series={d.completedToday.series}
+            note={completed.note}
+            noteTone={completed.tone}
           />
           <StatCard
+            id="avg"
             tone="info"
             icon={<ClockIcon className="h-[19px] w-[19px]" />}
             label="Avg Resolution Time"
-            value={avgResolutionMs !== null ? formatDuration(avgResolutionMs) : "—"}
-            note="Across all settled cases"
+            value={d.avgResolution.ms === null ? "—" : formatDuration(d.avgResolution.ms)}
+            series={d.avgResolution.series}
+            note={
+              d.avgResolution.deltaPct === null
+                ? "Across all settled cases"
+                : `${Math.abs(Math.round(d.avgResolution.deltaPct))}% ${d.avgResolution.deltaPct > 0 ? "slower" : "faster"} than yesterday`
+            }
+            // Faster is the good direction here, so the sign reads the opposite
+            // way round from the count cards above.
+            noteTone={d.avgResolution.deltaPct === null ? "neutral" : d.avgResolution.deltaPct > 0 ? "bad" : "good"}
           />
           <StatCard
+            id="longest"
             tone="accent"
             icon={<HourglassIcon className="h-[19px] w-[19px]" />}
             label="Longest Pending Case"
-            value={oldestOpen ? formatDuration(Date.now() - oldestOpen.loggedAt.getTime()) : "—"}
+            value={d.longestPending.ms === null ? "—" : formatDuration(d.longestPending.ms)}
+            series={d.longestPending.series}
             sublabel={
-              oldestOpen ? (
+              d.longestPending.case ? (
                 <>
-                  <span className="font-semibold text-navy-700">{oldestOpen.caseNumber}</span>
-                  <span className="block truncate">{oldestOpen.providerName}</span>
+                  <span className="font-semibold text-navy-700">{d.longestPending.case.caseNumber}</span>
+                  <span className="block truncate">{d.longestPending.case.providerName}</span>
                 </>
               ) : null
             }
-            note={oldestOpen ? "Oldest unresolved request" : "Nothing pending"}
+            note={d.longestPending.case ? "Oldest unresolved request" : "Nothing pending"}
           />
           <StatCard
+            id="urgent"
             tone="warning"
             icon={<AlertIcon className="h-[19px] w-[19px]" />}
             label="Urgent Unresolved"
-            value={urgentOpen.length}
-            note={urgentOpen.length > 0 ? "Requires immediate attention" : "Nothing urgent outstanding"}
-            noteTone={urgentOpen.length > 0 ? "bad" : "neutral"}
+            value={d.urgentUnresolved.value}
+            series={d.urgentUnresolved.series}
+            note={d.urgentUnresolved.value > 0 ? "Requires immediate attention" : "Nothing urgent outstanding"}
+            noteTone={d.urgentUnresolved.value > 0 ? "bad" : "neutral"}
           />
           <StatCard
+            id="topprovider"
             tone="violet"
             icon={<BuildingIcon className="h-[19px] w-[19px]" />}
             label="Top Provider"
-            value={providerGroups[0]?.providerName ?? "—"}
+            value={d.topProvider?.label ?? "—"}
+            series={d.topProvider?.series}
             note={
-              providerGroups[0]
-                ? `${providerGroups[0]._count.providerName} case${providerGroups[0]._count.providerName === 1 ? "" : "s"}`
-                : "No cases yet"
+              d.topProvider ? `${d.topProvider.count} case${d.topProvider.count === 1 ? "" : "s"}` : "No cases yet"
             }
           />
           <StatCard
+            id="topitem"
             tone="teal"
             icon={<TagIcon className="h-[19px] w-[19px]" />}
             label="Top Item"
-            value={itemGroups[0]?.requestedItem ?? "—"}
+            value={d.topItem?.label ?? "—"}
+            series={d.topItem?.series}
             note={
-              itemGroups[0]
-                ? `${itemGroups[0]._count.requestedItem} case${itemGroups[0]._count.requestedItem === 1 ? "" : "s"}`
-                : "No cases yet"
+              d.topItem ? `${d.topItem.count} case${d.topItem.count === 1 ? "" : "s"}` : "No cases yet"
             }
           />
         </div>
@@ -166,14 +150,14 @@ export default async function DashboardPage() {
           <Card>
             <CardHeader title="Top Negotiated Providers" />
             <ul className="divide-y divide-ink-100">
-              {providerGroups.length === 0 && <li className="px-5 py-6 text-[12.5px] text-ink-400">No data yet.</li>}
-              {providerGroups.map((g, idx) => (
-                <li key={g.providerName} className="flex items-center justify-between px-5 py-3">
+              {d.topProviders.length === 0 && <li className="px-5 py-6 text-[12.5px] text-ink-400">No data yet.</li>}
+              {d.topProviders.map((g, idx) => (
+                <li key={g.label} className="flex items-center justify-between px-5 py-3">
                   <span className="text-[13px] text-ink-800">
                     <span className="mr-2 text-ink-400">#{idx + 1}</span>
-                    {g.providerName}
+                    {g.label}
                   </span>
-                  <span className="text-[12.5px] font-bold text-ink-900">{g._count.providerName}</span>
+                  <span className="text-[12.5px] font-bold text-ink-900">{g.count}</span>
                 </li>
               ))}
             </ul>
@@ -182,14 +166,14 @@ export default async function DashboardPage() {
           <Card>
             <CardHeader title="Top Negotiated Services / Items" />
             <ul className="divide-y divide-ink-100">
-              {itemGroups.length === 0 && <li className="px-5 py-6 text-[12.5px] text-ink-400">No data yet.</li>}
-              {itemGroups.map((g, idx) => (
-                <li key={g.requestedItem} className="flex items-center justify-between px-5 py-3">
+              {d.topItems.length === 0 && <li className="px-5 py-6 text-[12.5px] text-ink-400">No data yet.</li>}
+              {d.topItems.map((g, idx) => (
+                <li key={g.label} className="flex items-center justify-between px-5 py-3">
                   <span className="text-[13px] text-ink-800">
                     <span className="mr-2 text-ink-400">#{idx + 1}</span>
-                    {g.requestedItem}
+                    {g.label}
                   </span>
-                  <span className="text-[12.5px] font-bold text-ink-900">{g._count.requestedItem}</span>
+                  <span className="text-[12.5px] font-bold text-ink-900">{g.count}</span>
                 </li>
               ))}
             </ul>
@@ -198,11 +182,11 @@ export default async function DashboardPage() {
 
         <Card>
           <CardHeader title="Urgent Unresolved Cases" subtitle="Needs immediate attention" />
-          {urgentOpen.length === 0 ? (
+          {d.urgentOpen.length === 0 ? (
             <p className="px-5 py-6 text-[12.5px] text-ink-400">No urgent cases currently open.</p>
           ) : (
             <ul className="divide-y divide-ink-100">
-              {urgentOpen.map((c) => (
+              {d.urgentOpen.map((c) => (
                 <li key={c.id} className="flex items-center justify-between px-5 py-3">
                   <div>
                     <Link href={`/negotiations/${c.id}`} className="text-[13px] font-semibold text-ink-900 hover:underline">
