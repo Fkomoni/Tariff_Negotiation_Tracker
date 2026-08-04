@@ -4,15 +4,13 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  // Pooled connection for the app's own queries. On Supabase use the pooler in
-  // *transaction* mode (port 6543) with ?pgbouncer=true.
   url      = env("DATABASE_URL")
-  // Migrations must not go through a connection pooler. They hold a session,
-  // take advisory locks and run DDL, none of which survive a transaction-mode
-  // pooler — and against Supabase's session-mode pooler they exhaust its
-  // 15-client limit and fail with EMAXCONNSESSION. Prisma uses this URL for
-  // `migrate` and `db push` only; runtime queries still use `url` above.
-  directUrl = env("DIRECT_URL")
+  // Deliberately no `directUrl` here. Migrations do need a non-pooled
+  // connection — they hold a session and take advisory locks, which a pooler
+  // breaks — but naming an env var here makes it mandatory for every Prisma
+  // command, and a missing one is a hard P1012 failure. scripts/migrate-deploy.mjs
+  // picks the right connection and passes it as DATABASE_URL instead, so nothing
+  // is required and the plain CLI keeps working.
 }
 
 enum Role {

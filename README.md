@@ -56,6 +56,9 @@ signs in.
    fails, the deploy fails and Render keeps the previous version serving. Put
    the same command in `start` and a transient database blip stops the app
    booting at all, even when the schema is already correct.
+   - **Health Check Path:** `/api/health` — returns 503 when the database schema
+     is behind the deployed code, so a bad deploy is caught instead of silently
+     500ing every page that reads a case.
    - **Instance Type:** Starter is fine to begin with.
 4. Add the environment variables below under **Environment**.
 5. Click **Create Web Service**. Render will install dependencies, run the Prisma migration
@@ -66,7 +69,7 @@ signs in.
 | Variable | Value |
 |---|---|
 | `DATABASE_URL` | Pooled connection, used by the running app. On Supabase use the pooler in **transaction** mode (port `6543`) with `?pgbouncer=true&connection_limit=5` |
-| `DIRECT_URL` | **Direct, non-pooled** connection, used only by `prisma migrate`. Supabase: Project Settings → Database → Connection string → "Direct connection". Migrations hold a session and take advisory locks, which a pooler breaks — run them through Supabase's session-mode pooler (port `5432`) and they fail with `FATAL: (EMAXCONNSESSION) max clients reached in session mode`. If your Supabase project has no IPv4 direct endpoint, point this at the session-mode pooler and lower `DATABASE_URL`'s `connection_limit` so the app leaves clients free for the migration |
+| `DIRECT_URL` | *Optional.* **Direct, non-pooled** connection, used only by `prisma migrate`. If unset, the migrate script derives it from `DATABASE_URL` for Supabase, and otherwise falls back to `DATABASE_URL`. Supabase: Project Settings → Database → Connection string → "Direct connection". Migrations hold a session and take advisory locks, which a pooler breaks — run them through Supabase's session-mode pooler (port `5432`) and they fail with `FATAL: (EMAXCONNSESSION) max clients reached in session mode`. If your Supabase project has no IPv4 direct endpoint, point this at the session-mode pooler and lower `DATABASE_URL`'s `connection_limit` so the app leaves clients free for the migration |
 | `NEXTAUTH_URL` | Your Render service URL, e.g. `https://tariff-negotiation-tracker.onrender.com` — used to build links in emails and to validate the CORS allow-list, not for session auth (sessions are a database-backed opaque token now, not a signed/encrypted cookie, so there's no secret to configure for them) |
 | `PROGNOSIS_BASE` | `https://prognosis-api.leadwayhealth.com` (default, only override if it changes) |
 | `PROGNOSIS_SERVICE_USERNAME` | A Prognosis username dedicated to sending member notifications |

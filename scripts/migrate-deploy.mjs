@@ -94,7 +94,9 @@ function attempt(url) {
   return new Promise((resolve) => {
     const child = spawn("npx", ["prisma", "migrate", "deploy"], {
       shell: false,
-      env: { ...process.env, DIRECT_URL: url },
+      // Overrides DATABASE_URL rather than setting DIRECT_URL, so the schema
+      // needn't declare a directUrl at all — see prisma/schema.prisma.
+      env: { ...process.env, DATABASE_URL: url },
     });
     let output = "";
     for (const stream of [child.stdout, child.stderr]) {
