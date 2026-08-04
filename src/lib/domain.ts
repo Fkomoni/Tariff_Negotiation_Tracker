@@ -99,6 +99,9 @@ export const SERVICE_TYPE_LABELS: Record<ServiceType, string> = {
   ADMISSION_RELATED_SERVICES: "Admission Related Services",
   PROCEDURES_AND_SERVICES: "Procedures and Services",
   SURGERIES: "Surgeries",
+  MATERNITY: "Maternity",
+  GYM_AND_SPA: "Gym and Spa",
+  IMMUNIZATIONS: "Immunizations",
 };
 
 export const URGENCY_LABELS: Record<Urgency, string> = {
