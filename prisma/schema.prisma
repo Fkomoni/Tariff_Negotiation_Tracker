@@ -41,6 +41,12 @@ enum CaseStatus {
   COMPLETED
   DECLINED
   ESCALATED
+  // Request withdrawn without a negotiation outcome — logged in error, a
+  // duplicate, provider pulled the request, enrollee no longer at the
+  // facility. Deliberately separate from DECLINED: declining is a real
+  // negotiation result that belongs in outcome metrics, whereas a cancelled
+  // request is noise that would skew them.
+  CANCELLED
 }
 
 enum RequestType {
@@ -255,6 +261,10 @@ model NegotiationCase {
   status                 CaseStatus  @default(NEW_REQUEST)
   finalAgreedAmount      Decimal?    @db.Decimal(14, 2)
   approvalReason         String?
+  // Why the request was disregarded. Required whenever status is CANCELLED
+  // (enforced in cancelCase) so the Contact Centre always has an explanation
+  // rather than a request that silently vanishes from their queue.
+  cancellationReason     String?
   tariffPushedAt         DateTime?
   /// When the new/updated price should take effect on Prognosis's side —
   /// set by Provider Team when marking a case Completed, sent as

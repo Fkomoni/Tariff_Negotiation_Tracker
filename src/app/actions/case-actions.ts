@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { sendEmailAlert, sendSms, addTariffReviews, getActiveTariffScheduleName } from "@/lib/prognosis";
-import { generateCaseNumber, CASE_STATUS_LABELS, SERVICE_TYPE_LABELS, PM_CATEGORY_LABELS, PM_CATEGORIES_REQUIRING_ATTACHMENT, OPEN_STATUSES } from "@/lib/domain";
+import { generateCaseNumber, CASE_STATUS_LABELS, SERVICE_TYPE_LABELS, PM_CATEGORY_LABELS, PM_CATEGORIES_REQUIRING_ATTACHMENT, OPEN_STATUSES, CLOSED_STATUSES } from "@/lib/domain";
 import type { CaseStatus, ProviderManagementCategory, ServiceType } from "@prisma/client";
 import { STATUS_TRANSITIONS } from "@/lib/domain";
 import { buildMemberNotificationEmailHtml } from "@/lib/email-template";
@@ -519,7 +519,7 @@ export async function updateCaseStatus(formData: FormData) {
       approvalReason: data.approvalReason || existing.approvalReason || undefined,
       ownerUserId: existing.ownerUserId ?? session.user.id,
       firstActionAt: existing.firstActionAt ?? now,
-      completedAt: ["COMPLETED", "DECLINED"].includes(data.status) ? now : existing.completedAt,
+      completedAt: CLOSED_STATUSES.includes(data.status) ? now : existing.completedAt,
       updates: {
         create: {
           userId: session.user.id,
@@ -641,6 +641,127 @@ export async function updateCaseStatus(formData: FormData) {
   revalidatePath("/negotiations/completed");
   revalidatePath("/dashboard");
   redirectWithToast(`/negotiations/${data.caseId}`, { type: "success", message: `Status updated to ${CASE_STATUS_LABELS[data.status]}.` });
+}
+
+const cancelCaseSchema = z.object({
+  caseId: z.string().min(1),
+  // A reason is the whole point of this action: the request disappears from
+  // the Contact Centre's queue, so they need to know why without chasing
+  // anyone. Ten characters is enough to reject "no" / "n/a" while staying out
+  // of the way of a genuine short answer like "logged twice by mistake".
+  cancellationReason: z
+    .string()
+    .trim()
+    .min(10, "Give a reason of at least 10 characters so the Contact Centre knows why this was cancelled")
+    .max(500, "Keep the reason under 500 characters"),
+});
+
+/**
+ * Cancels (disregards) a whole negotiation request, with a mandatory reason.
+ *
+ * This exists because service lines can only be removed down to the last one —
+ * a request must always describe at least one service — so there was no way to
+ * dispose of a request that shouldn't proceed at all. Rather than allowing an
+ * empty request, the whole thing is cancelled as a single explained act.
+ *
+ * Deliberately a separate action from updateCaseStatus rather than another
+ * option in its dropdown: there the note is optional, and a request vanishing
+ * from the queue with no explanation is exactly what this is meant to prevent.
+ * CANCELLED is likewise kept out of updateStatusSchema so this stays the only
+ * route to it.
+ */
+export async function cancelCase(formData: FormData) {
+  const session = await requireSession();
+  const caseId = String(formData.get("caseId") ?? "");
+
+  if (!["PROVIDER_TEAM", "ADMIN"].includes(session.user.role)) {
+    redirectWithToast(`/negotiations/${caseId}`, {
+      type: "error",
+      message: "Only the Provider Team can cancel a negotiation request.",
+    });
+  }
+
+  const parsed = cancelCaseSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) {
+    redirectWithToast(`/negotiations/${caseId}`, {
+      type: "error",
+      message: parsed.error.issues[0]?.message ?? "Invalid input",
+    });
+  }
+  const data = parsed.data;
+
+  const existing = await prisma.negotiationCase.findUnique({ where: { id: data.caseId } });
+  if (!existing) {
+    redirectWithToast("/negotiations/queue", { type: "error", message: "That case no longer exists." });
+  }
+
+  // Same transition table the status dropdown obeys, so a Completed case can't
+  // be cancelled out from under an agreed tariff that may already be on
+  // Prognosis, and an already-cancelled one can't be cancelled twice.
+  if (!STATUS_TRANSITIONS[existing.status as CaseStatus].includes("CANCELLED")) {
+    redirectWithToast(`/negotiations/${data.caseId}`, {
+      type: "error",
+      message: `A ${CASE_STATUS_LABELS[existing.status].toLowerCase()} request can no longer be cancelled.`,
+    });
+  }
+
+  // Cancel every service in the request, not just the one that happened to be
+  // open on screen. Each service is its own case row, so cancelling only this
+  // one would leave the siblings sitting in the queue — the exact
+  // one-at-a-time treadmill this action exists to replace.
+  const groupRoot = existing.sessionGroupId ?? existing.id;
+  const members = await prisma.negotiationCase.findMany({
+    where: { OR: [{ id: groupRoot }, { sessionGroupId: groupRoot }] },
+    select: { id: true, status: true, ownerUserId: true, firstActionAt: true },
+  });
+
+  // A completed service has an agreed tariff that may already be on Prognosis,
+  // so it is left alone rather than voided underneath the agreement.
+  const cancellable = members.filter((m) => STATUS_TRANSITIONS[m.status as CaseStatus].includes("CANCELLED"));
+  const skipped = members.length - cancellable.length;
+
+  const now = new Date();
+  await prisma.$transaction(
+    cancellable.map((m) =>
+      prisma.negotiationCase.update({
+        where: { id: m.id },
+        data: {
+          status: "CANCELLED",
+          cancellationReason: data.cancellationReason,
+          ownerUserId: m.ownerUserId ?? session.user.id,
+          firstActionAt: m.firstActionAt ?? now,
+          // Stops the delay clock. Without this the case would keep ageing in
+          // reports forever despite nobody working it.
+          completedAt: now,
+          updates: {
+            create: {
+              userId: session.user.id,
+              type: "STATUS_CHANGE",
+              previousStatus: m.status,
+              newStatus: "CANCELLED",
+              // Written into each service's own timeline as well as the
+              // column, because the timeline is what the Contact Centre
+              // actually reads on the case.
+              note: `Request cancelled — ${data.cancellationReason}`,
+            },
+          },
+        },
+      })
+    )
+  );
+
+  for (const m of cancellable) revalidatePath(`/negotiations/${m.id}`);
+  revalidatePath("/negotiations/queue");
+  revalidatePath("/negotiations/completed");
+  revalidatePath("/dashboard");
+
+  const serviceCount = `${cancellable.length} service${cancellable.length === 1 ? "" : "s"}`;
+  redirectWithToast(`/negotiations/${data.caseId}`, {
+    type: "success",
+    message: skipped > 0
+      ? `Cancelled ${serviceCount}. ${skipped} already-completed service${skipped === 1 ? " was" : "s were"} left as agreed. The Contact Centre can see your reason.`
+      : `Request cancelled — ${serviceCount} closed. The Contact Centre can see your reason on the case.`,
+  });
 }
 
 export async function addNote(formData: FormData) {

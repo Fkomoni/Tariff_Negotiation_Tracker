@@ -6,7 +6,7 @@ import { Header } from "@/components/Header";
 import { Card, CardHeader, Badge, Button, Field, inputClass } from "@/components/ui";
 import { Timeline } from "@/components/Timeline";
 import { SubmitButton } from "@/components/SubmitButton";
-import { LogIcon, BellIcon, DownloadIcon } from "@/components/icons";
+import { LogIcon, BellIcon, DownloadIcon, CloseIcon, AlertIcon } from "@/components/icons";
 import {
   CASE_STATUS_BADGE,
   CASE_STATUS_LABELS,
@@ -24,7 +24,7 @@ import {
   formatDuration,
   amountDifference,
 } from "@/lib/domain";
-import { updateCaseStatus, addNote } from "@/app/actions/case-actions";
+import { updateCaseStatus, addNote, cancelCase } from "@/app/actions/case-actions";
 import type { CaseStatus } from "@prisma/client";
 
 export default async function CaseDetailsPage(
@@ -94,7 +94,18 @@ export default async function CaseDetailsPage(
     ? negotiationCase.completedAt.getTime() - negotiationCase.loggedAt.getTime()
     : Date.now() - negotiationCase.loggedAt.getTime();
 
-  const allowedNext = STATUS_TRANSITIONS[negotiationCase.status as CaseStatus];
+  // CANCELLED is excluded on purpose: it's reachable only through the Cancel
+  // Request form below, which requires a reason. Offering it here — where the
+  // note is optional — is exactly the silent disappearance that form prevents.
+  const allowedNext = STATUS_TRANSITIONS[negotiationCase.status as CaseStatus].filter((s) => s !== "CANCELLED");
+  const canCancel = STATUS_TRANSITIONS[negotiationCase.status as CaseStatus].includes("CANCELLED");
+  // Cancelling closes the whole request, so say how many services that is.
+  // Already-completed siblings are excluded because cancelCase leaves them
+  // alone rather than voiding an agreed tariff.
+  const cancellableCount =
+    [negotiationCase, ...relatedCases].filter((c) =>
+      STATUS_TRANSITIONS[c.status as CaseStatus].includes("CANCELLED")
+    ).length;
 
   return (
     <>
@@ -135,6 +146,20 @@ export default async function CaseDetailsPage(
           </div>
         )}
       </div>
+
+      {negotiationCase.status === "CANCELLED" && negotiationCase.cancellationReason && (
+        <div className="mx-auto w-full max-w-4xl px-8 pt-6">
+          <div className="flex items-start gap-3 rounded-xl border border-line bg-surface-muted px-4 py-3.5">
+            <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-navy-400 text-white">
+              <AlertIcon className="h-3 w-3" />
+            </span>
+            <div>
+              <p className="text-[13px] font-bold text-navy-900">This request was cancelled</p>
+              <p className="mt-0.5 text-[12.5px] leading-relaxed text-navy-600">{negotiationCase.cancellationReason}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {activeTab === "provider-team" ? (
         <div className="mx-auto w-full max-w-2xl flex-1 space-y-6 px-8 py-8">
@@ -331,6 +356,45 @@ export default async function CaseDetailsPage(
               </form>
             </div>
           </Card>
+
+          {canCancel && (
+            <Card className="border-brand-100">
+              <CardHeader
+                title="Cancel Request"
+                subtitle="Disregard this request entirely"
+                icon={<CloseIcon className="h-[18px] w-[18px]" />}
+              />
+              <form action={cancelCase} className="space-y-4 px-5 py-4">
+                <input type="hidden" name="caseId" value={negotiationCase.id} />
+                <p className="text-[12px] leading-relaxed text-navy-600">
+                  Use this when the request shouldn&apos;t proceed at all — logged in error, a duplicate, the provider
+                  withdrew it, or the enrollee is no longer at the facility. Your reason is shown to the Contact Centre
+                  on the case.
+                </p>
+                <p className="rounded-lg bg-surface-muted px-3 py-2.5 text-[12px] font-semibold text-navy-700">
+                  {cancellableCount > 1
+                    ? `This closes all ${cancellableCount} services in this request and stops the delay clock.`
+                    : "This closes the request and stops the delay clock."}
+                  {relatedCases.some((c) => c.status === "COMPLETED") &&
+                    " Services already completed keep their agreed tariff."}
+                </p>
+                <Field label="Reason for cancelling" required hint="At least 10 characters — the Contact Centre sees this">
+                  <textarea
+                    name="cancellationReason"
+                    rows={3}
+                    required
+                    minLength={10}
+                    maxLength={500}
+                    className={inputClass}
+                    placeholder="e.g. Duplicate of TN-2026-0117 logged earlier the same day"
+                  />
+                </Field>
+                <SubmitButton className="w-full" variant="danger" pendingLabel="Cancelling…">
+                  Cancel This Request
+                </SubmitButton>
+              </form>
+            </Card>
+          )}
 
           <Card>
             <CardHeader title="Timeline" subtitle="Every update, in order" />

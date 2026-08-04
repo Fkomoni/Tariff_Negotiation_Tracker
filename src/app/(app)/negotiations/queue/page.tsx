@@ -19,6 +19,16 @@ const SORT_OPTIONS: Record<string, { label: string; orderBy: Prisma.NegotiationC
   pending: { label: "Longest Pending", orderBy: [{ loggedAt: "asc" }] },
 };
 
+
+/** The table collapses each request to one row, so a bare case count would
+ * contradict the number of rows on screen. Report both. */
+function describeCounts(cases: { id: string; sessionGroupId: string | null }[], noun: string): string {
+  const requests = new Set(cases.map((c) => c.sessionGroupId ?? c.id)).size;
+  const requestLabel = `${requests} ${noun} request${requests === 1 ? "" : "s"}`;
+  if (requests === cases.length) return requestLabel;
+  return `${requestLabel} · ${cases.length} services`;
+}
+
 export default async function OpenNegotiationsPage(
   props: {
     searchParams: Promise<{ sort?: string; status?: string; urgency?: string }>;
@@ -70,7 +80,7 @@ export default async function OpenNegotiationsPage(
 
       <div className="flex flex-1 flex-col gap-5 px-8 py-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-[12.5px] text-ink-500">{cases.length} open case{cases.length === 1 ? "" : "s"}</p>
+          <p className="text-[12.5px] text-navy-500">{describeCounts(cases, "open")}</p>
           <div className="flex items-center gap-2">
             {Object.entries(SORT_OPTIONS).map(([key, opt]) => (
               <Link
