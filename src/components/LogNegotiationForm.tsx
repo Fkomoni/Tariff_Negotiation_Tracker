@@ -4,7 +4,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Card, Field, inputClass } from "@/components/ui";
 import { SubmitButton } from "@/components/SubmitButton";
-import { AlertIcon } from "@/components/icons";
+import { AlertIcon, CloseIcon, SendIcon } from "@/components/icons";
 import { RequestFields } from "@/components/RequestFields";
 import { URGENCY_LABELS } from "@/lib/domain";
 import { createCase, type CreateCaseState } from "@/app/actions/case-actions";
@@ -135,8 +135,18 @@ export function LogNegotiationForm({
         />
       </Field>
 
-      <div className="flex justify-end gap-3 sm:col-span-2">
-        <SubmitButton pendingLabel="Logging…">Log Request</SubmitButton>
+      <div className="mt-2 flex items-center justify-between gap-3 border-t border-line-subtle pt-5 sm:col-span-2">
+        <Link
+          href="/dashboard"
+          className="inline-flex items-center gap-2 rounded-lg border border-line bg-white px-4 py-2.5 text-[13px] font-semibold text-navy-700 transition-colors hover:bg-surface-muted"
+        >
+          <CloseIcon className="h-4 w-4" />
+          Cancel
+        </Link>
+        <SubmitButton pendingLabel="Logging…">
+          <SendIcon className="h-4 w-4" />
+          Submit Request
+        </SubmitButton>
       </div>
     </form>
   );

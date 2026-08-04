@@ -2,18 +2,18 @@ import type { ReactNode } from "react";
 
 export function Card({ className = "", children }: { className?: string; children: ReactNode }) {
   return (
-    <div className={`rounded-xl border border-ink-100 bg-white ${className}`}>{children}</div>
+    <div className={`rounded-2xl border border-line-subtle bg-white shadow-card ${className}`}>{children}</div>
   );
 }
 
 export function CardHeader({ title, subtitle, icon, action }: { title: string; subtitle?: string; icon?: ReactNode; action?: ReactNode }) {
   return (
-    <div className="flex items-center justify-between border-b border-ink-100 px-5 py-4">
+    <div className="flex items-center justify-between border-b border-line-subtle px-5 py-4">
       <div className="flex items-center gap-2.5">
-        {icon && <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 text-brand-600">{icon}</div>}
+        {icon && <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent-50 text-accent">{icon}</div>}
         <div>
-          <p className="text-[13.5px] font-bold text-ink-900">{title}</p>
-          {subtitle && <p className="text-[11.5px] text-ink-400">{subtitle}</p>}
+          <p className="text-[14px] font-bold text-navy-900">{title}</p>
+          {subtitle && <p className="text-[11.5px] text-navy-500">{subtitle}</p>}
         </div>
       </div>
       {action}
@@ -38,15 +38,15 @@ export function Button({
   type?: "button" | "submit" | "reset";
 } & React.ButtonHTMLAttributes<HTMLButtonElement>) {
   const styles: Record<string, string> = {
-    primary: "bg-brand text-white hover:bg-brand-600 shadow-sm disabled:bg-ink-200 disabled:text-ink-400",
-    secondary: "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50",
-    ghost: "bg-transparent text-ink-600 hover:bg-ink-100",
-    danger: "bg-ink-900 text-white hover:bg-ink-800",
+    primary: "bg-accent text-white hover:bg-accent-600 shadow-cta disabled:bg-navy-400 disabled:text-white/70 disabled:shadow-none",
+    secondary: "border border-line bg-white text-navy-700 hover:bg-surface-muted",
+    ghost: "bg-transparent text-navy-600 hover:bg-surface-muted",
+    danger: "bg-brand text-white hover:bg-brand-600",
   };
   return (
     <button
       type={type}
-      className={`inline-flex items-center justify-center gap-2 rounded-[7px] px-3 py-1.5 text-[11.5px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${styles[variant]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${styles[variant]} ${className}`}
       {...rest}
     >
       {children}
@@ -118,15 +118,15 @@ export function Field({
 }) {
   return (
     <label className={`block ${className}`}>
-      <span className="mb-1.5 block text-[12.5px] font-semibold text-ink-700">
+      <span className="mb-1.5 block text-[12.5px] font-semibold text-navy-900">
         {label}
-        {required && <span className="text-brand"> *</span>}
+        {required && <span className="text-accent"> *</span>}
       </span>
       {children}
-      {hint && <span className="mt-1 block text-[11px] text-ink-400">{hint}</span>}
+      {hint && <span className="mt-1 block text-[11px] text-navy-500">{hint}</span>}
     </label>
   );
 }
 
 export const inputClass =
-  "w-full rounded-[7px] border border-[#e2e5ea] bg-[#f5f6f8] px-2.5 py-[7px] text-[12px] text-ink-900 placeholder:text-ink-300 focus:border-brand focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-100 resize-none";
+  "w-full rounded-lg border border-line bg-white px-3.5 py-2.5 text-[13px] text-navy-900 placeholder:text-navy-400 focus:border-accent focus:outline-none focus:ring-4 focus:ring-accent/10 disabled:cursor-not-allowed disabled:bg-surface-muted disabled:text-navy-400 resize-none";

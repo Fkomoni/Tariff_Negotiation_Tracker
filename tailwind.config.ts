@@ -43,6 +43,30 @@ const config: Config = {
           200: "#cbc2cb",
           100: "#e6e0e6",
         },
+        // Structural navy from the design reference — sidebar, login panel,
+        // headings. Distinct from the `ink` scale above (a purple-black tuned
+        // to the crimson brand); this is the blue-black the new screens use.
+        navy: {
+          DEFAULT: "#1A1A2E",
+          950: "#101024",
+          900: "#1A1A2E",
+          800: "#262640",
+          700: "#33334f",
+          600: "#43435f",
+          400: "#8b8ba3",
+          300: "#a8a8bd",
+          200: "#c7c7d6",
+        },
+        // Neutral surfaces/lines from the design reference.
+        surface: {
+          page: "#F7F8FA",
+          card: "#FFFFFF",
+          muted: "#F4F5F7",
+        },
+        line: {
+          DEFAULT: "#DADDE3",
+          subtle: "#E6E8EC",
+        },
       },
       fontFamily: {
         sans: [
@@ -58,6 +82,11 @@ const config: Config = {
       },
       boxShadow: {
         glow: "0 0 0 1px rgba(200,16,46,0.4), 0 0 24px rgba(200,16,46,0.25)",
+        // Orange-tinted lift for the primary action, matching the design
+        // reference's raised Sign In / Submit buttons.
+        cta: "0 8px 20px -6px rgba(232,119,34,0.55)",
+        card: "0 1px 2px rgba(16,16,36,0.04), 0 8px 24px -12px rgba(16,16,36,0.12)",
+        panel: "0 12px 40px -16px rgba(16,16,36,0.18)",
       },
     },
   },

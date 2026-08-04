@@ -18,8 +18,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const openNegotiationsCount = await prisma.negotiationCase.count({ where: { status: { in: OPEN_STATUSES } } });
 
   return (
-    <div className="flex h-screen overflow-hidden bg-ink-100/60">
-      <Sidebar role={session.user.role} openNegotiationsCount={openNegotiationsCount} />
+    <div className="flex h-screen overflow-hidden bg-surface-page">
+      <Sidebar
+        role={session.user.role}
+        openNegotiationsCount={openNegotiationsCount}
+        userName={session.user.name ?? session.user.prognosisUsername}
+      />
       <div className="flex flex-1 flex-col overflow-y-auto">{children}</div>
       <ToastHost />
     </div>

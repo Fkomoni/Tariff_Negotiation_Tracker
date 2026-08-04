@@ -151,3 +151,139 @@ export function LogoutIcon({ className = base }: IconProps) {
     </svg>
   );
 }
+
+/* Icons added for the navy/orange screens: field affordances, the login
+ * feature list, and the sidebar help card. Same 24-box, 1.8 stroke,
+ * currentColor conventions as everything above. */
+
+export function UserIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <circle cx="12" cy="8" r="3.6" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M4.5 20c1.4-3.4 4.2-5.2 7.5-5.2s5.9 1.8 7.5 5.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function LockIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <rect x="4.5" y="10.5" width="15" height="9.5" rx="2.2" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M8 10.5V8a4 4 0 018 0v2.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <circle cx="12" cy="15.2" r="1.2" fill="currentColor" />
+    </svg>
+  );
+}
+
+export function HeadsetIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path d="M4.5 14v-2a7.5 7.5 0 0115 0v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <rect x="2.8" y="13.4" width="4" height="6" rx="1.6" stroke="currentColor" strokeWidth="1.8" />
+      <rect x="17.2" y="13.4" width="4" height="6" rx="1.6" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M19.2 19.4v.6a2.4 2.4 0 01-2.4 2.4H13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function ClockIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M12 7.5V12l3 1.8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function ChevronRightIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path d="M9.5 5.5l6.5 6.5-6.5 6.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function ArrowLeftIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path d="M19 12H5m0 0l6.5-6.5M5 12l6.5 6.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function ArrowRightIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path d="M5 12h14m0 0l-6.5-6.5M19 12l-6.5 6.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function SendIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path d="M21 3L10.5 13.5M21 3l-6.8 18-3.7-7.5L3 9.8 21 3z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function BuildingIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <rect x="4" y="3.5" width="12" height="17" rx="1.8" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M16 9h3.2a.8.8 0 01.8.8v9.9a.8.8 0 01-.8.8H16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M7.5 7.5h5M7.5 11h5M7.5 14.5h5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function TagIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path
+        d="M20.5 12.8l-7.7 7.7a2 2 0 01-2.9 0l-6.4-6.4a2 2 0 01-.6-1.4V4.9a1.4 1.4 0 011.4-1.4h7.8c.5 0 1 .2 1.4.6l7 7a2 2 0 010 2.9z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <circle cx="8.6" cy="8.6" r="1.5" fill="currentColor" />
+    </svg>
+  );
+}
+
+export function SearchIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M16 16l4.5 4.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function FlagIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <path d="M5.5 21V4m0 0h11l-2 4 2 4h-11" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function InfoIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M12 11v5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <circle cx="12" cy="8.2" r="1.05" fill="currentColor" />
+    </svg>
+  );
+}
+
+export function UsersIcon({ className = base }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className}>
+      <circle cx="9" cy="8" r="3.2" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M3 20c1.2-3 3.4-4.6 6-4.6S13.8 17 15 20" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M16 5.2a3.2 3.2 0 010 5.9M18 20c-.5-1.9-1.3-3.2-2.4-4.1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}

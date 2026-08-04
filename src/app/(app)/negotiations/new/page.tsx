@@ -2,8 +2,9 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Header } from "@/components/Header";
-import { Card } from "@/components/ui";
-import { LogIcon } from "@/components/icons";
+import Link from "next/link";
+import { Card, CardHeader } from "@/components/ui";
+import { ArrowLeftIcon, InfoIcon, LogIcon } from "@/components/icons";
 import { LogNegotiationForm } from "@/components/LogNegotiationForm";
 import type { ProviderInitial } from "@/components/ProviderFields";
 import type { EnrolleeInitial } from "@/components/EnrolleeFields";
@@ -50,34 +51,49 @@ export default async function LogNegotiationPage(
 
   return (
     <>
-      <Header
-        title="Log Negotiation Request"
-        subtitle="Leadway Health · Provider Tariff Negotiation"
-        icon={<LogIcon />}
-        user={{ name: session.user.name ?? session.user.prognosisUsername, role: session.user.role }}
-      />
+      <Header user={{ name: session.user.name ?? session.user.prognosisUsername, role: session.user.role }} />
 
-      <div className="mx-auto w-full max-w-3xl px-8 py-8">
-        <Card className="p-6">
-          <h2 className="text-[13.5px] font-bold text-ink-900">New Provider Tariff Negotiation</h2>
-          <p className="mt-1 text-[12.5px] text-ink-400">
-            The timer starts the moment this request is logged. Your name and the current time are
-            recorded automatically.
-          </p>
+      <div className="mx-auto w-full max-w-4xl px-8 py-7">
+        <div className="mb-5 flex items-start gap-3">
+          <Link
+            href="/dashboard"
+            aria-label="Back to dashboard"
+            className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-navy-500 transition-colors hover:bg-white hover:text-navy-900"
+          >
+            <ArrowLeftIcon className="h-[18px] w-[18px]" />
+          </Link>
+          <div>
+            <h2 className="text-[21px] font-bold leading-tight text-navy-900">Log Negotiation Request</h2>
+            <p className="mt-0.5 text-[13px] text-navy-500">Capture provider tariff negotiation details</p>
+          </div>
+        </div>
 
-          {initialProvider && (
-            <p className="mt-4 rounded-lg bg-emerald-50 px-3.5 py-2.5 text-[12.5px] font-medium text-emerald-700">
-              Logging another service for {initialProvider.name} — {initialEnrollee?.fullName}. Provider and
-              enrollee details are carried over; just fill in the new service.
-            </p>
-          )}
-
-          <LogNegotiationForm
-            initialProvider={initialProvider}
-            initialEnrollee={initialEnrollee}
-            sessionGroupId={sessionGroupId}
+        <Card>
+          <CardHeader
+            title="Request Details"
+            subtitle="Provide accurate information to ensure quick resolution."
+            icon={<LogIcon className="h-[18px] w-[18px]" />}
           />
+          <div className="px-6 pb-6">
+            {initialProvider && (
+              <p className="mt-5 rounded-lg border border-emerald-100 bg-emerald-50 px-3.5 py-2.5 text-[12.5px] font-medium text-emerald-700">
+                Logging another service for {initialProvider.name} — {initialEnrollee?.fullName}. Provider and enrollee details
+                are carried over; just fill in the new service.
+              </p>
+            )}
+
+            <LogNegotiationForm
+              initialProvider={initialProvider}
+              initialEnrollee={initialEnrollee}
+              sessionGroupId={sessionGroupId}
+            />
+          </div>
         </Card>
+
+        <p className="mt-4 flex items-center gap-2 text-[12px] text-navy-500">
+          <InfoIcon className="h-4 w-4 flex-shrink-0 text-accent" />
+          The timer starts the moment this request is logged. Your name and the current time are recorded automatically.
+        </p>
       </div>
     </>
   );
