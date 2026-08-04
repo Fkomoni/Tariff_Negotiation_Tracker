@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { Header } from "@/components/Header";
 import { Card, CardHeader, Badge, Button, Field, inputClass } from "@/components/ui";
 import { Timeline } from "@/components/Timeline";
+import { getRequestSequence } from "@/lib/case-groups";
 import { SubmitButton } from "@/components/SubmitButton";
 import {
   LogIcon,
@@ -22,6 +23,7 @@ import {
   MailIcon,
   PhoneIcon,
   NairaIcon,
+  QueueIcon,
 } from "@/components/icons";
 import {
   CASE_STATUS_BADGE,
@@ -35,6 +37,7 @@ import {
   URGENCY_BADGE,
   URGENCY_LABELS,
   STATUS_TRANSITIONS,
+  CLOSED_STATUSES,
   formatCurrency,
   formatDateTime,
   formatDuration,
@@ -73,6 +76,9 @@ export default async function CaseDetailsPage(
     },
     orderBy: { loggedAt: "asc" },
   });
+
+  // Where this service sits in its request, and which one to price next.
+  const sequence = await getRequestSequence(negotiationCase.id);
 
   const canLogNegotiation = ["CONTACT_CENTER", "ADMIN"].includes(session.user.role);
   const isProviderTeam = ["PROVIDER_TEAM", "ADMIN"].includes(session.user.role);
@@ -128,9 +134,16 @@ export default async function CaseDetailsPage(
       <Header
         title={negotiationCase.caseNumber}
         subtitle={
-          negotiationCase.enrolleeName !== "N/A"
-            ? `${negotiationCase.providerName} · ${negotiationCase.enrolleeName}`
-            : negotiationCase.providerName
+          [
+            negotiationCase.enrolleeName !== "N/A"
+              ? `${negotiationCase.providerName} · ${negotiationCase.enrolleeName}`
+              : negotiationCase.providerName,
+            // Multi-service requests are worked one service at a time, so the
+            // position belongs next to the case number, not buried in a card.
+            sequence?.isMulti ? `Service ${sequence.step} of ${sequence.total}` : null,
+          ]
+            .filter(Boolean)
+            .join("  ·  ")
         }
         icon={<LogIcon />}
         user={{ name: session.user.name ?? session.user.prognosisUsername, role: session.user.role }}
@@ -268,49 +281,85 @@ export default async function CaseDetailsPage(
               case with its own price and status), but they need to see the
               rest of the visit to review it as a whole — without this, only
               the service they happened to open was visible here. */}
-          {relatedCases.length > 0 && (
+          {sequence?.isMulti && (
             <Card>
               <CardHeader
-                title="Other Services in This Visit"
-                subtitle={`${relatedCases.length + 1} services were logged together — each is approved separately`}
+                title="Services in This Request"
+                subtitle={`Step ${sequence.step} of ${sequence.total} — ${sequence.resolvedCount} settled, each priced separately`}
+                icon={<QueueIcon className="h-[18px] w-[18px]" />}
               />
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-[12.5px]">
-                  <thead className="border-b border-ink-100 text-[11px] font-semibold uppercase tracking-wide text-ink-400">
-                    <tr>
-                      <th className="px-5 py-2.5">Case</th>
-                      <th className="px-5 py-2.5">Service / Item</th>
-                      <th className="px-5 py-2.5 text-right">Current → Requested</th>
-                      <th className="px-5 py-2.5">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-ink-100">
-                    {relatedCases.map((c) => (
-                      <tr key={c.id}>
-                        <td className="px-5 py-2.5">
-                          <Link
-                            href={`/negotiations/${c.id}?tab=provider-team`}
-                            className="font-semibold text-brand-600 hover:underline"
-                          >
-                            {c.caseNumber}
-                          </Link>
-                        </td>
-                        <td className="px-5 py-2.5 text-ink-800">
-                          {c.serviceCode ? `${c.requestedItem} (${c.serviceCode})` : c.requestedItem}
-                        </td>
-                        <td className="whitespace-nowrap px-5 py-2.5 text-right text-ink-700">
-                          {c.requestType === "NEW_SERVICE"
-                            ? formatCurrency(c.providerRequestedAmount.toString())
-                            : `${formatCurrency(c.currentTariff.toString())} → ${formatCurrency(c.providerRequestedAmount.toString())}`}
-                        </td>
-                        <td className="px-5 py-2.5">
-                          <Badge className={CASE_STATUS_BADGE[c.status]}>{CASE_STATUS_LABELS[c.status]}</Badge>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <ol className="divide-y divide-line-subtle">
+                {sequence.services.map((svc, i) => {
+                  const isCurrent = svc.id === negotiationCase.id;
+                  const isSettled = CLOSED_STATUSES.includes(svc.status);
+                  return (
+                    <li
+                      key={svc.id}
+                      className={`flex items-start gap-3 px-5 py-3.5 ${isCurrent ? "bg-accent-50/60" : ""}`}
+                    >
+                      {/* Numbered so "which of these am I on" is answerable at a
+                          glance — the old flat list of siblings gave no order and
+                          hid the current service entirely. */}
+                      <span
+                        className={`mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
+                          isCurrent
+                            ? "bg-accent text-white"
+                            : isSettled
+                              ? "bg-emerald-100 text-emerald-700"
+                              : "bg-surface-muted text-navy-500"
+                        }`}
+                      >
+                        {isSettled && !isCurrent ? <CheckMarkIcon className="h-3 w-3" /> : i + 1}
+                      </span>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {isCurrent ? (
+                            <span className="text-[13px] font-bold text-navy-900">
+                              {svc.serviceCode ? `${svc.requestedItem} (${svc.serviceCode})` : svc.requestedItem}
+                            </span>
+                          ) : (
+                            <Link
+                              href={`/negotiations/${svc.id}?tab=provider-team`}
+                              className="text-[13px] font-semibold text-navy-800 hover:text-accent-600 hover:underline"
+                            >
+                              {svc.serviceCode ? `${svc.requestedItem} (${svc.serviceCode})` : svc.requestedItem}
+                            </Link>
+                          )}
+                          {isCurrent && (
+                            <span className="rounded-md bg-accent px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-white">
+                              Pricing now
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-0.5 text-[11.5px] text-navy-500">
+                          {svc.caseNumber} ·{" "}
+                          {svc.requestType === "NEW_SERVICE"
+                            ? formatCurrency(svc.providerRequestedAmount.toString())
+                            : `${formatCurrency(svc.currentTariff.toString())} → ${formatCurrency(svc.providerRequestedAmount.toString())}`}
+                          {svc.finalAgreedAmount !== null &&
+                            ` · agreed ${formatCurrency(svc.finalAgreedAmount.toString())}`}
+                        </p>
+                      </div>
+
+                      <Badge className={CASE_STATUS_BADGE[svc.status]}>{CASE_STATUS_LABELS[svc.status]}</Badge>
+                    </li>
+                  );
+                })}
+              </ol>
+
+              {sequence.nextService && (
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line-subtle bg-surface-muted px-5 py-3">
+                  <p className="text-[12px] text-navy-600">
+                    Saving a final status here moves you straight to the next unpriced service.
+                  </p>
+                  <Link href={`/negotiations/${sequence.nextService.id}?tab=provider-team`}>
+                    <Button variant="secondary" className="whitespace-nowrap bg-white">
+                      Skip to {sequence.nextService.requestedItem}
+                    </Button>
+                  </Link>
+                </div>
+              )}
             </Card>
           )}
 

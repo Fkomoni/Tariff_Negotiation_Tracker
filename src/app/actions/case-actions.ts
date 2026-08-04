@@ -12,6 +12,7 @@ import { STATUS_TRANSITIONS } from "@/lib/domain";
 import { buildMemberNotificationEmailHtml } from "@/lib/email-template";
 import { detectAllowedFileType, sanitizeFilename } from "@/lib/file-validation";
 import { redirectWithToast } from "@/lib/toast";
+import { getRequestSequence } from "@/lib/case-groups";
 
 async function requireSession() {
   const session = await auth();
@@ -640,6 +641,30 @@ export async function updateCaseStatus(formData: FormData) {
   revalidatePath("/negotiations/queue");
   revalidatePath("/negotiations/completed");
   revalidatePath("/dashboard");
+
+  // Multi-service requests are priced one service at a time, so once this one
+  // is settled hand the team straight to the next unpriced service instead of
+  // making them go back to the queue and find it. Only on a settling status —
+  // an intermediate change (say Negotiating) means they're still on this one.
+  const settled = CLOSED_STATUSES.includes(data.status);
+  const sequence = settled ? await getRequestSequence(data.caseId) : null;
+
+  if (sequence?.isMulti) {
+    revalidatePath(`/negotiations/${sequence.services[0].id}`);
+    if (sequence.nextService) {
+      redirectWithToast(`/negotiations/${sequence.nextService.id}?tab=provider-team`, {
+        type: "success",
+        message: `${CASE_STATUS_LABELS[data.status]}. Next: ${sequence.nextService.requestedItem} (${
+          sequence.resolvedCount + 1
+        } of ${sequence.total}).`,
+      });
+    }
+    redirectWithToast(`/negotiations/${data.caseId}`, {
+      type: "success",
+      message: `${CASE_STATUS_LABELS[data.status]}. All ${sequence.total} services in this request are now settled.`,
+    });
+  }
+
   redirectWithToast(`/negotiations/${data.caseId}`, { type: "success", message: `Status updated to ${CASE_STATUS_LABELS[data.status]}.` });
 }
 
