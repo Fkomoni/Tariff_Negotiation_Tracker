@@ -95,6 +95,10 @@ export function LoginForm() {
       setError("Too many attempts. Wait a few minutes and try again.");
       return;
     }
+    if (result.status === "upstream_unavailable") {
+      setError("Can't reach Prognosis right now, so we can't verify your sign-in. Your password is fine — wait a moment and try again, or contact the IT Help Desk if it persists.");
+      return;
+    }
     if (result.status === "invalid_credentials") {
       setError("Invalid Prognosis username or password.");
       return;
@@ -121,6 +125,12 @@ export function LoginForm() {
     setLoading(true);
     try {
       const check = await checkCredentialsAndMaybeSendOtp(username.trim(), password);
+      if (check.status === "upstream_unavailable") {
+        setError(
+          "Can't reach Prognosis right now, so we can't verify your sign-in. Your password is fine — wait a moment and try again, or contact the IT Help Desk if it persists."
+        );
+        return;
+      }
       if (check.status === "invalid_credentials") {
         setError("Invalid Prognosis username or password.");
         return;

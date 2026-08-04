@@ -13,6 +13,7 @@ const BASE_URL = process.env.NEXTAUTH_URL ?? "https://tariff-negotiation-tracker
 
 export type CredentialsCheckResult =
   | { status: "invalid_credentials" }
+  | { status: "upstream_unavailable" }
   | { status: "no_mfa_needed" }
   | { status: "no_email_on_file" }
   | { status: "otp_sent" }
@@ -39,9 +40,8 @@ export async function checkCredentialsAndMaybeSendOtp(username: string, password
   try {
     user = await resolveStaffUser(username, password);
   } catch (err) {
-    if (err instanceof PrognosisAuthError || err instanceof PrognosisUnavailableError) {
-      return { status: "invalid_credentials" };
-    }
+    if (err instanceof PrognosisUnavailableError) return { status: "upstream_unavailable" };
+    if (err instanceof PrognosisAuthError) return { status: "invalid_credentials" };
     throw err;
   }
 

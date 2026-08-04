@@ -124,6 +124,7 @@ export async function prognosisStaffLogin(username: string, password: string): P
   const basicAuth = Buffer.from(`${service.username}:${service.password}`).toString("base64");
 
   let res: Response;
+  const loginStartedAt = Date.now();
   try {
     res = await fetch(`${PROGNOSIS_BASE}/api/Account/ExternalPortalLogin`, {
       method: "POST",
@@ -140,10 +141,13 @@ export async function prognosisStaffLogin(username: string, password: string): P
         LogInSource: "Core",
       }),
       cache: "no-store",
-      signal: AbortSignal.timeout(12_000),
+      signal: AbortSignal.timeout(AUTH_TIMEOUT_MS),
     });
   } catch (err) {
-    console.error("[prognosis] network error reaching", PROGNOSIS_BASE, err);
+    console.error(
+      `[prognosis] network error on staff login after ${Date.now() - loginStartedAt}ms (base ${PROGNOSIS_BASE})`,
+      err
+    );
     throw new PrognosisUnavailableError(
       `Could not reach Prognosis at ${PROGNOSIS_BASE}: ${err instanceof Error ? err.message : String(err)}`
     );
@@ -200,17 +204,24 @@ export async function prognosisStaffLogin(username: string, password: string): P
  */
 export async function prognosisLogin(username: string, password: string): Promise<string> {
   let res: Response;
+  const loginStartedAt = Date.now();
   try {
     res = await fetch(`${PROGNOSIS_BASE}/api/ApiUsers/Login`, {
       method: "POST",
       headers: POSTMAN_HEADERS,
       body: JSON.stringify({ Username: username, Password: password }),
       cache: "no-store",
+      signal: AbortSignal.timeout(AUTH_TIMEOUT_MS),
     });
   } catch (err) {
-    console.error("[prognosis] network error reaching", PROGNOSIS_BASE, err);
-    throw new PrognosisAuthError(
-      `Could not reach Prognosis at ${PROGNOSIS_BASE}: ${err instanceof Error ? err.message : String(err)}`
+    const elapsed = Date.now() - loginStartedAt;
+    console.error(`[prognosis] network error on service-account login after ${elapsed}ms (base ${PROGNOSIS_BASE})`, err);
+    // Unreachable, not rejected. This used to raise PrognosisAuthError, which
+    // made an upstream outage look like bad service-account credentials in the
+    // logs — and sent serviceRequest into its pointless refresh-and-retry on a
+    // host that simply wasn't answering.
+    throw new PrognosisUnavailableError(
+      `Could not reach Prognosis at ${PROGNOSIS_BASE} after ${elapsed}ms: ${err instanceof Error ? err.message : String(err)}`
     );
   }
 
@@ -230,6 +241,17 @@ export async function prognosisLogin(username: string, password: string): Promis
 }
 
 const TOKEN_TTL_MS = 5 * 60 * 60 * 1000;
+
+/**
+ * Every outbound Prognosis call needs a deadline. Without one, `fetch` waits
+ * on the OS TCP timeout — minutes — so a Prognosis instance that accepts the
+ * connection and then stalls ties up a server worker for the whole time and
+ * leaves the user's page spinning with no error. Auth gets the tighter budget
+ * because someone is watching a sign-in form; data calls get more room since
+ * tariff lists can be genuinely large.
+ */
+const AUTH_TIMEOUT_MS = 12_000;
+const DATA_TIMEOUT_MS = 20_000;
 
 let cachedServiceToken: { token: string; expiresAt: number } | null = null;
 
@@ -264,17 +286,38 @@ async function serviceRequest(
   body?: unknown,
   extraHeaders?: Record<string, string>
 ): Promise<Record<string, unknown> | null> {
-  const call = async (token: string) =>
-    fetch(`${PROGNOSIS_BASE}${path}`, {
-      method,
-      headers: {
-        ...POSTMAN_HEADERS,
-        ...extraHeaders,
-        Authorization: `Bearer ${token}`,
-      },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-      cache: "no-store",
-    });
+  const call = async (token: string) => {
+    const startedAt = Date.now();
+    try {
+      return await fetch(`${PROGNOSIS_BASE}${path}`, {
+        method,
+        headers: {
+          ...POSTMAN_HEADERS,
+          ...extraHeaders,
+          Authorization: `Bearer ${token}`,
+        },
+        body: body !== undefined ? JSON.stringify(body) : undefined,
+        cache: "no-store",
+        signal: AbortSignal.timeout(DATA_TIMEOUT_MS),
+      });
+    } catch (err) {
+      // Log the path and how long we actually waited. The old message named
+      // only the base URL, which told us a call had timed out but not which
+      // endpoint or whether it died instantly or sat at the full deadline —
+      // the two point at very different causes.
+      const elapsed = Date.now() - startedAt;
+      console.error(`[prognosis] network error on ${method} ${path} after ${elapsed}ms`, err);
+      // Typed so callers can distinguish "Prognosis is unreachable" from
+      // "Prognosis said no". NOTE for a timed-out POST (notably SMS): the
+      // request may in fact have been accepted upstream, so this surfaces as
+      // failed while possibly having been delivered. Still strictly better
+      // than hanging indefinitely, but it means an SMS marked failed after a
+      // timeout is worth checking rather than blindly resending.
+      throw new PrognosisUnavailableError(
+        `${method} ${path} could not reach Prognosis after ${elapsed}ms: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+  };
 
   if (body !== undefined) {
     console.error("[prognosis] request", method, path, redactedForLog(body));

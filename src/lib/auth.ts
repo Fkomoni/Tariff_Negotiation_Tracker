@@ -112,6 +112,7 @@ export async function resolveStaffUser(username: string, password: string): Prom
 export type CompleteLoginResult =
   | { status: "success" }
   | { status: "invalid_credentials" }
+  | { status: "upstream_unavailable" }
   | { status: "mfa_required" }
   | { status: "mfa_invalid" }
   | { status: "rate_limited" };
@@ -144,7 +145,12 @@ export async function completeLogin(input: {
     user = await resolveStaffUser(username, password);
   } catch (err) {
     console.error(`[auth] Prognosis staff login failed for username:`, username, err);
-    if (err instanceof PrognosisAuthError || err instanceof PrognosisUnavailableError) return { status: "invalid_credentials" };
+    // Kept distinct: Prognosis being unreachable is not the same as Prognosis
+    // rejecting the password. Collapsing them told staff "invalid username or
+    // password" during an upstream outage, so they retried a correct password
+    // until the rate limiter locked them out.
+    if (err instanceof PrognosisUnavailableError) return { status: "upstream_unavailable" };
+    if (err instanceof PrognosisAuthError) return { status: "invalid_credentials" };
     throw err;
   }
 
