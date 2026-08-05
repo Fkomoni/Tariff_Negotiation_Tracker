@@ -276,6 +276,13 @@ model NegotiationCase {
   /// set by Provider Team when marking a case Completed, sent as
   /// EffectiveDate on the AddTarrifReviews push.
   tariffEffectiveDate    DateTime?
+  /// Optional date the negotiated price is intended to lapse. Recorded on
+  /// the case and sent as EndDate on the AddTarrifReviews push — but note:
+  /// verified against production (05/08/2026), Prognosis currently ignores
+  /// that field and keeps a price active until a successor price is pushed.
+  /// This date is therefore surfaced in the UI as the team's cue to action
+  /// the change when it falls due, not an automatic cut-off.
+  tariffEndDate          DateTime?
 
   /// Groups multiple service negotiations logged for the same provider
   /// visit ("quick repeat") without merging their independent statuses/timers.

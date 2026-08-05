@@ -510,6 +510,12 @@ export interface TariffReviewItem {
   zeroRate?: boolean;
   /** When the new/updated price should take effect on Prognosis's side. */
   effectiveDate: Date;
+  /** Optional intended lapse date for the price, sent as EndDate. Verified
+   * against production (05/08/2026): Prognosis accepts the push but ignores
+   * this field — a price stays active until a successor price starts. Sent
+   * anyway so the intent reaches Prognosis if they ever start honouring it;
+   * the app-side reminder on the case is what actually surfaces the date. */
+  endDate?: Date | null;
 }
 
 /**
@@ -540,6 +546,7 @@ export async function addTariffReviews(items: TariffReviewItem[]): Promise<unkno
       ProviderTarifName: i.providerTariffName ?? "",
       zerorate: i.zeroRate ?? false,
       EffectiveDate: i.effectiveDate.toISOString(),
+      EndDate: i.endDate ? i.endDate.toISOString() : "",
     })),
   });
   throwIfProgosisBodyFailed(payload, "/api/ProviderNetwork/AddTarrifReviews");

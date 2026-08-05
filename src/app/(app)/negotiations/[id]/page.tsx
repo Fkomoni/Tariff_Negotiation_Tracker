@@ -408,6 +408,17 @@ export default async function CaseDetailsPage(
                         className={inputClass}
                       />
                     </Field>
+                    <Field
+                      label="Tariff End Date"
+                      hint="Optional — leave blank for no end date. Prognosis keeps a price active until a new price is pushed, so a date here is recorded on the case as the team's cue to action it when due."
+                    >
+                      <input
+                        name="endDate"
+                        type="date"
+                        defaultValue={negotiationCase.tariffEndDate?.toISOString().slice(0, 10) ?? ""}
+                        className={inputClass}
+                      />
+                    </Field>
                   </>
                 )}
                 <Field label="Approved / Declined Reason">
@@ -588,6 +599,13 @@ export default async function CaseDetailsPage(
                 )}
                 {negotiationCase.tariffEffectiveDate && (
                   <Detail label="Tariff Effective Date" icon={<ClockIcon className="h-4 w-4" />} value={negotiationCase.tariffEffectiveDate.toISOString().slice(0, 10)} />
+                )}
+                {negotiationCase.tariffEndDate && (
+                  <Detail
+                    label="Tariff End Date"
+                    icon={<ClockIcon className="h-4 w-4" />}
+                    value={`${negotiationCase.tariffEndDate.toISOString().slice(0, 10)} — needs a successor price pushed when due`}
+                  />
                 )}
                 {negotiationCase.approvalReason && <Detail label="Approval / Decline Reason" icon={<FlagIcon className="h-4 w-4" />} value={negotiationCase.approvalReason} full />}
               </dl>

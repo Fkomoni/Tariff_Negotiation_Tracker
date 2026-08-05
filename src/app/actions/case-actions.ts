@@ -470,6 +470,7 @@ const updateStatusSchema = z.object({
   note: z.string().optional(),
   finalAgreedAmount: z.coerce.number().min(0, "Final agreed amount must be non-negative").optional(),
   effectiveDate: z.string().optional(),
+  endDate: z.string().optional(),
   approvalReason: z.string().optional(),
 });
 
@@ -511,12 +512,29 @@ export async function updateCaseStatus(formData: FormData) {
 
   const now = new Date();
   const tariffEffectiveDate = data.effectiveDate ? new Date(data.effectiveDate) : existing.tariffEffectiveDate ?? undefined;
+
+  // Optional intended lapse date for the price. Blank on a tariff case means
+  // "no end date" (the input is prefilled with the stored value, so blank is
+  // a deliberate state, not a missing field); non-tariff cases never carry
+  // one. Must fall after the effective date to mean anything.
+  const tariffEndDate = isTariffCase ? (data.endDate ? new Date(data.endDate) : null) : undefined;
+  if (tariffEndDate && isNaN(tariffEndDate.getTime())) {
+    redirectWithToast(`/negotiations/${data.caseId}`, { type: "error", message: "Tariff end date is not a valid date." });
+  }
+  if (tariffEndDate && tariffEffectiveDate && tariffEndDate.getTime() <= tariffEffectiveDate.getTime()) {
+    redirectWithToast(`/negotiations/${data.caseId}`, {
+      type: "error",
+      message: "Tariff end date must be after the effective date.",
+    });
+  }
+
   await prisma.negotiationCase.update({
     where: { id: data.caseId },
     data: {
       status: data.status,
       finalAgreedAmount: data.finalAgreedAmount ?? existing.finalAgreedAmount ?? undefined,
       tariffEffectiveDate,
+      tariffEndDate,
       approvalReason: data.approvalReason || existing.approvalReason || undefined,
       ownerUserId: existing.ownerUserId ?? session.user.id,
       firstActionAt: existing.firstActionAt ?? now,
@@ -606,6 +624,7 @@ export async function updateCaseStatus(formData: FormData) {
               providerTariffName: "",
               zeroRate: false,
               effectiveDate: c.tariffEffectiveDate ?? new Date(),
+              endDate: c.tariffEndDate,
             },
           ]);
           await prisma.negotiationCase.update({
@@ -617,7 +636,11 @@ export async function updateCaseStatus(formData: FormData) {
               caseId: c.id,
               userId: session.user.id,
               type: "NOTE",
-              note: `Tariff review submitted to Prognosis: ${c.serviceCode} → ${c.finalAgreedAmount}. Tariff schedule: ${tariffScheduleName || "none found — sent blank"}.`,
+              note: `Tariff review submitted to Prognosis: ${c.serviceCode} → ${c.finalAgreedAmount}. Tariff schedule: ${tariffScheduleName || "none found — sent blank"}.${
+                c.tariffEndDate
+                  ? ` Intended end date: ${c.tariffEndDate.toISOString().slice(0, 10)} — Prognosis keeps a price active until a successor price is pushed, so this needs actioning when it falls due.`
+                  : ""
+              }`,
             },
           });
           console.error(`[case-actions] tariff review push succeeded for provider ${existing.providerId}: ${c.serviceCode}`);
