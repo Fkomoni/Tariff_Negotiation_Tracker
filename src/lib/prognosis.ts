@@ -1049,6 +1049,12 @@ function extractTariffItems(payload: unknown): TariffItem[] {
     const minCost = toNumberOrNull(r.MinCost);
     const maxCost = toNumberOrNull(r.MaxCost);
     const startDate = parseDmyDate(firstString(r, ["Startdate", "StartDate"]));
+    // A row that hasn't started yet isn't the current price. These exist now
+    // that completing a case with an end date schedules the return-to-old-
+    // price as a future-dated row — without this check, "latest start date
+    // wins" below would show that future reversion price as today's tariff
+    // for the whole window between completion and the end date.
+    if (startDate && startDate.getTime() > todayUtc.getTime()) continue;
 
     const item: TariffItem = {
       serviceCode: serviceCode ?? "",
