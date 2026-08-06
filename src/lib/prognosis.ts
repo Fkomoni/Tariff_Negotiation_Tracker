@@ -929,11 +929,15 @@ async function fetchEnrolleeEndpoint(path: string): Promise<EnrolleeRecord[]> {
   }
 }
 
-/** Raw string concatenation on purpose — enrollee IDs contain a literal "/"
- * (e.g. 21000645/0) that must NOT be percent-encoded, or Prognosis returns
- * nothing for an otherwise-valid ID. */
+/** Encodes each side of the enrollee ID's literal "/" separately, then rejoins
+ * with a real slash — Prognosis needs the slash unencoded (e.g. 21000645/0),
+ * but the digit groups around it are still percent-encoded so a caller that one
+ * day passes an un-validated id can't inject extra query params. (Callers today
+ * only reach here via classifyEnrolleeQuery's digits-and-one-slash regex, so
+ * this is defence-in-depth, not a live fix.) */
 function fetchByEnrolleeId(id: string): Promise<EnrolleeRecord[]> {
-  return fetchEnrolleeEndpoint(`/api/EnrolleeProfile/GetEnrolleeBioDataByEnrolleeID?enrolleeid=${id}`);
+  const safeId = id.split("/").map(encodeURIComponent).join("/");
+  return fetchEnrolleeEndpoint(`/api/EnrolleeProfile/GetEnrolleeBioDataByEnrolleeID?enrolleeid=${safeId}`);
 }
 
 type EnrolleeQueryType = "email" | "enrolleeId" | "phone" | "membershipRoot" | "name";
