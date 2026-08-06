@@ -283,6 +283,12 @@ model NegotiationCase {
   /// This date is therefore surfaced in the UI as the team's cue to action
   /// the change when it falls due, not an automatic cut-off.
   tariffEndDate          DateTime?
+  /// Set when the return-to-old-price push for tariffEndDate has actually
+  /// landed in Prognosis — either scheduled in advance at completion (a
+  /// future-dated push verified from the response echo), pushed via the
+  /// case page's "Revert now" button, or swept by /api/tasks/revert-due-tariffs.
+  /// Null with a due tariffEndDate means the reversion still needs doing.
+  tariffRevertPushedAt   DateTime?
 
   /// Groups multiple service negotiations logged for the same provider
   /// visit ("quick repeat") without merging their independent statuses/timers.

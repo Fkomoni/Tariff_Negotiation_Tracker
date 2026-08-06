@@ -531,6 +531,42 @@ export interface TariffReviewItem {
  * throwIfProgosisBodyFailed. ProcedureCode is echoed back in that error
  * body, confirming that field name is correct.
  */
+/** dd/MM/yyyy from a date's UTC parts — the format tariff rows in the
+ * AddTarrifReviews response echo use for startdate/enddate. */
+function formatDmyUtc(date: Date): string {
+  const d = String(date.getUTCDate()).padStart(2, "0");
+  const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+  return `${d}/${m}/${date.getUTCFullYear()}`;
+}
+
+/**
+ * Checks an AddTarrifReviews response echo for a stored row matching the
+ * given procedure, start date, and price. The echo lists the provider's
+ * tariff rows after the write, so a future-dated push can be verified
+ * immediately: Prognosis silently discards payload fields and scheduling it
+ * doesn't support (verified 05/08/2026 with EndDate), so "the response said
+ * Success" proves nothing by itself — only the row actually appearing does.
+ *
+ * A false negative here (row accepted but not echoed) is survivable: the
+ * case stays flagged as needing manual reversion, and re-pushing the same
+ * old price on the due date is a harmless duplicate.
+ */
+export function pushEchoContainsRow(payload: unknown, procedureCode: string, startDate: Date, price: number): boolean {
+  if (!payload || typeof payload !== "object") return false;
+  const p = payload as Record<string, unknown>;
+  const rows = (p.result ?? p.Result) as unknown;
+  if (!Array.isArray(rows)) return false;
+  const wantDate = formatDmyUtc(startDate);
+  return rows.some((row) => {
+    if (!row || typeof row !== "object") return false;
+    const r = row as Record<string, unknown>;
+    const code = String(r.Tariff_code ?? r.ProviderTarrifCode ?? "");
+    const start = String(r.startdate ?? "");
+    const cost = Number(r.cost ?? r.maxcost ?? NaN);
+    return code === procedureCode && start === wantDate && Math.abs(cost - price) < 0.01;
+  });
+}
+
 export async function addTariffReviews(items: TariffReviewItem[]): Promise<unknown> {
   const payload = await serviceRequest("POST", "/api/ProviderNetwork/AddTarrifReviews", {
     TarifList: items.map((i) => ({

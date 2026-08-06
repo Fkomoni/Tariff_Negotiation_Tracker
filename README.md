@@ -75,6 +75,30 @@ signs in.
 | `PROGNOSIS_SERVICE_USERNAME` | A Prognosis username dedicated to sending member notifications |
 | `PROGNOSIS_SERVICE_PASSWORD` | That account's password |
 | `ADMIN_USERNAMES` | Your own Prognosis username (comma-separate more than one) |
+| `REVERT_TASK_TOKEN` | *Optional.* Shared secret for `POST /api/tasks/revert-due-tariffs`, the daily sweep that pushes the return-to-old-price for cases whose **Tariff End Date** has fallen due. Generate with `openssl rand -hex 32`. Unset = endpoint disabled (503); the per-case "Revert now" button still works without it |
+
+### Optional: daily price-reversion sweep
+
+Prognosis has no scheduled end-dating (verified 05/08/2026: an `EndDate` on
+`AddTarrifReviews` is silently discarded — a price only ends when a successor
+price starts). When a case is completed with a **Tariff End Date**, the app
+tries to schedule the reversion immediately (a future-dated push of the old
+price, verified from the response); when Prognosis doesn't keep it, the case
+stays flagged and needs the reversion pushed on the due date. Two ways that
+happens:
+
+1. **Manually** — a "Revert to ₦X now" button appears on the case once the end
+   date arrives (Provider Team / Admin).
+2. **Automatically** — schedule a daily job that calls the sweep endpoint:
+   in Render, create a **Cron Job** service (schedule e.g. `5 23 * * *`, which
+   is 00:05 Lagos) with the command:
+
+   ```bash
+   curl -fsS -X POST -H "Authorization: Bearer $REVERT_TASK_TOKEN" \
+     https://tariff-negotiation-tracker.onrender.com/api/tasks/revert-due-tariffs
+   ```
+
+   and set `REVERT_TASK_TOKEN` on both the cron job and the web service.
 
 The `PROGNOSIS_SERVICE_USERNAME`/`PASSWORD` account can be the same one you personally sign in
 with, or a separate shared account created for this app — either works, since it's only used

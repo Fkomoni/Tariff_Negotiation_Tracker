@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { sendEmailAlert, sendSms, addTariffReviews, getActiveTariffScheduleName } from "@/lib/prognosis";
+import { sendEmailAlert, sendSms, addTariffReviews, getActiveTariffScheduleName, pushEchoContainsRow } from "@/lib/prognosis";
 import { generateCaseNumber, CASE_STATUS_LABELS, SERVICE_TYPE_LABELS, PM_CATEGORY_LABELS, PM_CATEGORIES_REQUIRING_ATTACHMENT, OPEN_STATUSES, CLOSED_STATUSES } from "@/lib/domain";
 import type { CaseStatus, ProviderManagementCategory, ServiceType } from "@prisma/client";
 import { STATUS_TRANSITIONS } from "@/lib/domain";
@@ -631,19 +631,92 @@ export async function updateCaseStatus(formData: FormData) {
             where: { id: c.id },
             data: { tariffPushedAt: new Date() },
           });
+
+          // Whether the end date can be actioned automatically. A brand-new
+          // service has no old price to return to (currentTariff is 0), and
+          // pushing ₦0 could zero-rate it — those stay manual by design.
+          const oldPrice = Number(c.currentTariff);
+          const canScheduleRevert =
+            !!c.tariffEndDate && c.requestType === "EXISTING_TARIFF_UPDATE" && oldPrice > 0;
+
           await prisma.caseUpdate.create({
             data: {
               caseId: c.id,
               userId: session.user.id,
               type: "NOTE",
               note: `Tariff review submitted to Prognosis: ${c.serviceCode} → ${c.finalAgreedAmount}. Tariff schedule: ${tariffScheduleName || "none found — sent blank"}.${
-                c.tariffEndDate
-                  ? ` Intended end date: ${c.tariffEndDate.toISOString().slice(0, 10)} — Prognosis keeps a price active until a successor price is pushed, so this needs actioning when it falls due.`
+                c.tariffEndDate && !canScheduleRevert
+                  ? ` Intended end date: ${c.tariffEndDate.toISOString().slice(0, 10)} — no previous price exists to revert to (new service or zero current tariff), so ending this price needs a manual decision when it falls due.`
                   : ""
               }`,
             },
           });
           console.error(`[case-actions] tariff review push succeeded for provider ${existing.providerId}: ${c.serviceCode}`);
+
+          // Try to set up the return-to-old-price in the same breath: push the
+          // previous price future-dated to the end date. Prognosis silently
+          // drops scheduling it doesn't support, so "Success" alone proves
+          // nothing — the row actually appearing in the response echo does.
+          // If it doesn't appear, the case stays flagged for the manual path
+          // (the Revert button / the revert-due sweep).
+          if (canScheduleRevert) {
+            const endDateStr = c.tariffEndDate!.toISOString().slice(0, 10);
+            try {
+              const echo = await addTariffReviews([
+                {
+                  procedureId: c.serviceCode!,
+                  procedureName: c.requestedItem,
+                  newPrice: oldPrice,
+                  providerId: c.providerId!,
+                  tariffScheduleName,
+                  userEmail,
+                  requestorMobile: "",
+                  action: "Insert",
+                  providerTariffCode: c.providerTariffCode ?? "",
+                  providerTariffName: "",
+                  zeroRate: false,
+                  effectiveDate: c.tariffEndDate!,
+                },
+              ]);
+              const verified = pushEchoContainsRow(echo, c.serviceCode!, c.tariffEndDate!, oldPrice);
+              if (verified) {
+                await prisma.negotiationCase.update({
+                  where: { id: c.id },
+                  data: { tariffRevertPushedAt: new Date() },
+                });
+                await prisma.caseUpdate.create({
+                  data: {
+                    caseId: c.id,
+                    userId: session.user.id,
+                    type: "NOTE",
+                    note: `Price reversion scheduled in Prognosis: ${c.serviceCode} returns to ${oldPrice} on ${endDateStr} (verified in the push response — no further action needed).`,
+                  },
+                });
+                console.error(`[case-actions] scheduled reversion verified for ${c.serviceCode} on ${endDateStr}`);
+              } else {
+                await prisma.caseUpdate.create({
+                  data: {
+                    caseId: c.id,
+                    userId: session.user.id,
+                    type: "NOTE",
+                    note: `Price reversion could NOT be scheduled: Prognosis accepted the future-dated push for ${c.serviceCode} but the ${endDateStr} row did not appear in its response, so it was likely discarded. Revert to ${oldPrice} manually when the end date falls due (button on this case, or the daily revert task).`,
+                  },
+                });
+                console.error(`[case-actions] future-dated reversion not visible in echo for ${c.serviceCode} — flagged manual`);
+              }
+            } catch (revertErr) {
+              const rMessage = revertErr instanceof Error ? revertErr.message : "Unknown error";
+              await prisma.caseUpdate.create({
+                data: {
+                  caseId: c.id,
+                  userId: session.user.id,
+                  type: "NOTE",
+                  note: `Price reversion push failed for ${c.serviceCode}: ${rMessage}. Revert to ${oldPrice} manually when the end date falls due.`,
+                },
+              });
+              console.error(`[case-actions] reversion push failed for ${c.serviceCode}:`, revertErr);
+            }
+          }
         } catch (err) {
           const message = err instanceof Error ? err.message : "Unknown error";
           await prisma.caseUpdate.create({
@@ -689,6 +762,97 @@ export async function updateCaseStatus(formData: FormData) {
   }
 
   redirectWithToast(`/negotiations/${data.caseId}`, { type: "success", message: `Status updated to ${CASE_STATUS_LABELS[data.status]}.` });
+}
+
+/**
+ * Pushes the return-to-old-price for a case whose tariff end date has fallen
+ * due but whose reversion isn't in Prognosis yet (scheduling at completion
+ * didn't verify, or the case predates scheduling). Manual counterpart of
+ * /api/tasks/revert-due-tariffs.
+ *
+ * Refuses to run before the end date: Prognosis auto-closes the current
+ * price the day a successor starts, so reverting early wouldn't "queue" the
+ * old price — it would cut the agreed price short immediately.
+ */
+export async function revertTariffNow(formData: FormData) {
+  const session = await requireSession();
+  const caseId = String(formData.get("caseId") ?? "");
+
+  if (!["PROVIDER_TEAM", "ADMIN"].includes(session.user.role)) {
+    redirectWithToast(`/negotiations/${caseId}`, { type: "error", message: "Only the Provider Team can push a price reversion." });
+  }
+
+  const c = await prisma.negotiationCase.findUnique({ where: { id: caseId } });
+  if (!c) {
+    redirectWithToast("/negotiations/queue", { type: "error", message: "That case no longer exists." });
+  }
+
+  const oldPrice = Number(c.currentTariff);
+  if (
+    !c.tariffEndDate ||
+    c.tariffRevertPushedAt ||
+    c.requestType !== "EXISTING_TARIFF_UPDATE" ||
+    oldPrice <= 0 ||
+    !c.providerId ||
+    !c.serviceCode
+  ) {
+    redirectWithToast(`/negotiations/${caseId}`, { type: "error", message: "This case has no pending price reversion." });
+  }
+  if (c.tariffEndDate.getTime() > Date.now()) {
+    redirectWithToast(`/negotiations/${caseId}`, {
+      type: "error",
+      message: `Not due yet — the agreed price runs until ${c.tariffEndDate.toISOString().slice(0, 10)}. Reverting now would cut it short.`,
+    });
+  }
+
+  const actingUser = await prisma.user.findUnique({ where: { id: session.user.id } });
+  const userEmail = actingUser?.email ?? "";
+
+  let tariffScheduleName = "";
+  try {
+    tariffScheduleName = (await getActiveTariffScheduleName(c.providerId, userEmail)) ?? "";
+  } catch (err) {
+    console.error("[case-actions] tariff schedule lookup failed for reversion:", err);
+  }
+
+  try {
+    await addTariffReviews([
+      {
+        procedureId: c.serviceCode,
+        procedureName: c.requestedItem,
+        newPrice: oldPrice,
+        providerId: c.providerId,
+        tariffScheduleName,
+        userEmail,
+        requestorMobile: "",
+        action: "Insert",
+        providerTariffCode: c.providerTariffCode ?? "",
+        providerTariffName: "",
+        zeroRate: false,
+        effectiveDate: new Date(),
+      },
+    ]);
+    await prisma.negotiationCase.update({ where: { id: c.id }, data: { tariffRevertPushedAt: new Date() } });
+    await prisma.caseUpdate.create({
+      data: {
+        caseId: c.id,
+        userId: session.user.id,
+        type: "NOTE",
+        note: `Price reverted: ${c.serviceCode} pushed back to ${oldPrice}, effective today (end date was ${c.tariffEndDate.toISOString().slice(0, 10)}).`,
+      },
+    });
+    revalidatePath(`/negotiations/${caseId}`);
+    redirectWithToast(`/negotiations/${caseId}`, { type: "success", message: `Price reverted to ${oldPrice}.` });
+  } catch (err) {
+    // redirectWithToast works by throwing Next's redirect error — let it
+    // through rather than reporting the success redirect as a failure.
+    if (err && typeof err === "object" && "digest" in err) throw err;
+    const message = err instanceof Error ? err.message : "Unknown error";
+    await prisma.caseUpdate.create({
+      data: { caseId: c.id, userId: session.user.id, type: "NOTE", note: `Price reversion push failed: ${message}` },
+    });
+    redirectWithToast(`/negotiations/${caseId}`, { type: "error", message: `Reversion failed: ${message}` });
+  }
 }
 
 const cancelCaseSchema = z.object({

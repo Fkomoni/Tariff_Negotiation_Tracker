@@ -43,7 +43,7 @@ import {
   formatDuration,
   amountDifference,
 } from "@/lib/domain";
-import { updateCaseStatus, addNote, cancelCase } from "@/app/actions/case-actions";
+import { updateCaseStatus, addNote, cancelCase, revertTariffNow } from "@/app/actions/case-actions";
 import type { CaseStatus } from "@prisma/client";
 
 export default async function CaseDetailsPage(
@@ -439,6 +439,41 @@ export default async function CaseDetailsPage(
             </div>
           </Card>
 
+          {negotiationCase.status === "COMPLETED" &&
+            negotiationCase.tariffEndDate &&
+            !negotiationCase.tariffRevertPushedAt &&
+            negotiationCase.requestType === "EXISTING_TARIFF_UPDATE" &&
+            Number(negotiationCase.currentTariff) > 0 && (
+              <Card className="border-accent-100">
+                <CardHeader
+                  title="Price Reversion"
+                  subtitle={`Agreed price ends ${negotiationCase.tariffEndDate.toISOString().slice(0, 10)}`}
+                  icon={<ClockIcon className="h-[18px] w-[18px]" />}
+                />
+                <div className="space-y-3 px-5 py-4">
+                  <p className="text-[12px] leading-relaxed text-navy-600">
+                    Prognosis keeps the agreed {formatCurrency(negotiationCase.finalAgreedAmount?.toString() ?? "0")}{" "}
+                    active until a successor price is pushed. On the end date, push the previous price (
+                    {formatCurrency(negotiationCase.currentTariff.toString())}) to return this service to its
+                    pre-negotiation tariff.
+                  </p>
+                  {negotiationCase.tariffEndDate.getTime() <= Date.now() ? (
+                    <form action={revertTariffNow}>
+                      <input type="hidden" name="caseId" value={negotiationCase.id} />
+                      <SubmitButton className="w-full" pendingLabel="Reverting…">
+                        Revert to {formatCurrency(negotiationCase.currentTariff.toString())} now
+                      </SubmitButton>
+                    </form>
+                  ) : (
+                    <p className="rounded-lg bg-surface-muted px-3 py-2.5 text-[12px] font-semibold text-navy-700">
+                      Not due yet — the revert button appears here on the end date, and the daily revert task (if
+                      configured) handles it automatically.
+                    </p>
+                  )}
+                </div>
+              </Card>
+            )}
+
           {canCancel && (
             <Card className="border-brand-100">
               <CardHeader
@@ -604,7 +639,11 @@ export default async function CaseDetailsPage(
                   <Detail
                     label="Tariff End Date"
                     icon={<ClockIcon className="h-4 w-4" />}
-                    value={`${negotiationCase.tariffEndDate.toISOString().slice(0, 10)} — needs a successor price pushed when due`}
+                    value={
+                      negotiationCase.tariffRevertPushedAt
+                        ? `${negotiationCase.tariffEndDate.toISOString().slice(0, 10)} — price reversion already pushed to Prognosis`
+                        : `${negotiationCase.tariffEndDate.toISOString().slice(0, 10)} — price must be reverted or updated on this date (Prognosis won't end it automatically)`
+                    }
                   />
                 )}
                 {negotiationCase.approvalReason && <Detail label="Approval / Decline Reason" icon={<FlagIcon className="h-4 w-4" />} value={negotiationCase.approvalReason} full />}
