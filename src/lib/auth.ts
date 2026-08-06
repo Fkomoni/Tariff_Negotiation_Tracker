@@ -83,15 +83,28 @@ export async function resolveStaffUser(username: string, password: string): Prom
   });
 
   if (existing) {
-    return prisma.user.update({
+    // lastLoginAt is intentionally NOT written here — this runs at the
+    // password step (pre-MFA), and lastLoginAt should reflect an actual
+    // authenticated sign-in, so completeLogin sets it after MFA + session.
+    const promote = isSeededAdmin && existing.role !== "ADMIN";
+    const updated = await prisma.user.update({
       where: { id: existing.id },
       data: {
-        lastLoginAt: new Date(),
-        role: isSeededAdmin && existing.role !== "ADMIN" ? "ADMIN" : existing.role,
+        role: promote ? "ADMIN" : existing.role,
         displayName: existing.displayName ?? staff.displayName,
         email: existing.email ?? staff.email,
       },
     });
+    // Auto-promotion previously happened silently; record it so an ADMIN
+    // appearing is traceable in the audit log like any other role change.
+    if (promote) {
+      await logAudit(
+        "ROLE_CHANGE",
+        `${updated.displayName ?? updated.prognosisUsername} auto-promoted to Admin (listed in ADMIN_USERNAMES)`,
+        updated.id
+      );
+    }
+    return updated;
   }
 
   try {
@@ -101,7 +114,6 @@ export async function resolveStaffUser(username: string, password: string): Prom
         displayName: staff.displayName,
         email: staff.email,
         role: isSeededAdmin ? "ADMIN" : "PENDING",
-        lastLoginAt: new Date(),
       },
     });
   } catch (err) {
@@ -200,6 +212,10 @@ export async function completeLogin(input: {
 
   await logAudit("LOGIN", `${user.displayName ?? user.prognosisUsername} signed in`, user.id);
   await createSession(user.id);
+  // Set lastLoginAt only now — after MFA and a real session — so it reflects an
+  // authenticated sign-in, not merely a verified password (resolveStaffUser,
+  // which also runs at the pre-MFA credential check, no longer writes it).
+  await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
 
   return { status: "success" };
 }

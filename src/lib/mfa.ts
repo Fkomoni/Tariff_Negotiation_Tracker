@@ -27,6 +27,29 @@ function sha256(value: string): string {
   return crypto.createHash("sha256").update(value).digest("hex");
 }
 
+/**
+ * Hashes an OTP for storage and comparison. A 6-digit code has only 10^6
+ * possible values, so a plain unsalted hash is trivially reversible from a DB
+ * read (precompute all 10^6 hashes in under a second). Binding it to a server
+ * secret via HMAC makes the stored hash useless to anyone without that secret.
+ *
+ * Falls back to plain SHA-256 when MFA_HASH_SECRET is unset, so login never
+ * breaks before the secret is configured — set it (openssl rand -hex 32) to
+ * enable the stronger form. In-flight codes issued under the old form simply
+ * fail to verify once the secret is added (single-use, 10-min TTL — the user
+ * just requests a new code), so enabling it is safe at any time.
+ *
+ * The high-entropy session and trusted-device tokens deliberately keep plain
+ * sha256: for a 256-bit random token there is nothing to brute-force, so HMAC
+ * would add key-management burden for no gain.
+ */
+function hashOtp(code: string): string {
+  const secret = process.env.MFA_HASH_SECRET;
+  return secret && secret.length > 0
+    ? crypto.createHmac("sha256", secret).update(code).digest("hex")
+    : sha256(code);
+}
+
 function timingSafeEqualHex(a: string, b: string): boolean {
   const bufA = Buffer.from(a, "hex");
   const bufB = Buffer.from(b, "hex");
@@ -50,7 +73,7 @@ export async function issueOtp(userId: string, purpose: MfaCodePurpose): Promise
     data: {
       userId,
       purpose,
-      codeHash: sha256(code),
+      codeHash: hashOtp(code),
       expiresAt: new Date(Date.now() + OTP_TTL_MS),
     },
   });
@@ -82,7 +105,7 @@ export async function verifyOtp(userId: string, purpose: MfaCodePurpose, code: s
     orderBy: { createdAt: "desc" },
   });
   if (!candidate) return false;
-  if (!timingSafeEqualHex(candidate.codeHash, sha256(trimmed))) return false;
+  if (!timingSafeEqualHex(candidate.codeHash, hashOtp(trimmed))) return false;
 
   await prisma.mfaCode.update({ where: { id: candidate.id }, data: { consumedAt: new Date() } });
   await resetRateLimit(verifyKey);
