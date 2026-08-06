@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireApiSession } from "@/lib/api-auth";
 import { searchEnrollees } from "@/lib/prognosis";
 import { withCors, corsPreflight } from "@/lib/cors";
-import { checkRateLimit } from "@/lib/rate-limit";
+import { consumeRateLimit } from "@/lib/rate-limit";
 
 // Unlike providers/tariffs/treatments (served from an in-memory cache),
 // enrollee lookups hit Prognosis live and can return real PII — so this is
@@ -15,7 +15,7 @@ export const GET = withCors(async (req: NextRequest) => {
   const session = await requireApiSession(["CONTACT_CENTER", "ADMIN"]);
   if (session instanceof NextResponse) return session;
 
-  const limit = checkRateLimit(`enrollee-search:${session.user.id}`, ENROLLEE_SEARCH_MAX, ENROLLEE_SEARCH_WINDOW_MS);
+  const limit = await consumeRateLimit(`enrollee-search:${session.user.id}`, ENROLLEE_SEARCH_MAX, ENROLLEE_SEARCH_WINDOW_MS);
   if (!limit.allowed) {
     return NextResponse.json({ error: "Too many searches — slow down and try again shortly." }, { status: 429 });
   }

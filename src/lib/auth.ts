@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { prognosisStaffLogin, PrognosisAuthError, PrognosisUnavailableError } from "@/lib/prognosis";
 import { logAudit } from "@/lib/audit";
 import { isDeviceTrusted, trustThisDevice, verifyOtp } from "@/lib/mfa";
-import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { peekRateLimit, recordRateLimitFailure, getClientIp } from "@/lib/rate-limit";
 import { createSession, getSession } from "@/lib/session";
 import { Prisma, type User as PrismaUser } from "@prisma/client";
 
@@ -17,7 +17,11 @@ const LOGIN_WINDOW_MS = 15 * 60 * 1000;
  * attempts by alternating between the two entry points.
  */
 export async function checkLoginRateLimit(username: string): Promise<{ allowed: boolean; retryAfterMs: number }> {
-  const byUser = checkRateLimit(`login:user:${username.toLowerCase()}`, LOGIN_MAX_PER_USERNAME, LOGIN_WINDOW_MS);
+  // Read-only: a *successful* login must not spend budget, or one normal
+  // sign-in (which verifies the password at two entry points) plus a mistype
+  // or a "resend code" would self-lock a legitimate user. Only actual failures
+  // count, recorded by recordLoginFailure below on a rejected password.
+  const byUser = await peekRateLimit(`login:user:${username.toLowerCase()}`, LOGIN_MAX_PER_USERNAME);
   if (!byUser.allowed) return byUser;
 
   // Skipped entirely when the client IP can't be determined, rather than
@@ -27,10 +31,23 @@ export async function checkLoginRateLimit(username: string): Promise<{ allowed: 
   // what actually protects a given account either way.
   const ip = await getClientIp();
   if (ip) {
-    const byIp = checkRateLimit(`login:ip:${ip}`, LOGIN_MAX_PER_IP, LOGIN_WINDOW_MS);
+    const byIp = await peekRateLimit(`login:ip:${ip}`, LOGIN_MAX_PER_IP);
     if (!byIp.allowed) return byIp;
   }
   return { allowed: true, retryAfterMs: 0 };
+}
+
+/**
+ * Records one failed credential verification against both the per-username and
+ * per-IP budgets. Called from every place that rejects a password, so the two
+ * login entry points (this file's completeLogin and mfa-actions'
+ * checkCredentialsAndMaybeSendOtp) share one failure budget — an attacker
+ * can't double their guesses by alternating endpoints.
+ */
+export async function recordLoginFailure(username: string): Promise<void> {
+  await recordRateLimitFailure(`login:user:${username.toLowerCase()}`, LOGIN_WINDOW_MS);
+  const ip = await getClientIp();
+  if (ip) await recordRateLimitFailure(`login:ip:${ip}`, LOGIN_WINDOW_MS);
 }
 
 function getAdminUsernames(): string[] {
@@ -150,7 +167,13 @@ export async function completeLogin(input: {
     // password" during an upstream outage, so they retried a correct password
     // until the rate limiter locked them out.
     if (err instanceof PrognosisUnavailableError) return { status: "upstream_unavailable" };
-    if (err instanceof PrognosisAuthError) return { status: "invalid_credentials" };
+    if (err instanceof PrognosisAuthError) {
+      // Count the failed password against the brute-force budget (see
+      // recordLoginFailure). Upstream-unavailable is deliberately NOT counted
+      // — that's not a wrong password and shouldn't lock anyone out.
+      await recordLoginFailure(username);
+      return { status: "invalid_credentials" };
+    }
     throw err;
   }
 

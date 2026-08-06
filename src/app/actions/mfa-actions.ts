@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { auth, resolveStaffUser, checkLoginRateLimit, completeLogin, type CompleteLoginResult } from "@/lib/auth";
+import { auth, resolveStaffUser, checkLoginRateLimit, recordLoginFailure, completeLogin, type CompleteLoginResult } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { PrognosisAuthError, PrognosisUnavailableError, sendEmailAlert } from "@/lib/prognosis";
 import { issueOtp, isDeviceTrusted, OtpRateLimitedError } from "@/lib/mfa";
@@ -41,7 +41,12 @@ export async function checkCredentialsAndMaybeSendOtp(username: string, password
     user = await resolveStaffUser(username, password);
   } catch (err) {
     if (err instanceof PrognosisUnavailableError) return { status: "upstream_unavailable" };
-    if (err instanceof PrognosisAuthError) return { status: "invalid_credentials" };
+    if (err instanceof PrognosisAuthError) {
+      // Only failed passwords count toward the lockout (shared budget with
+      // completeLogin's own failure record via the same username/IP keys).
+      await recordLoginFailure(username);
+      return { status: "invalid_credentials" };
+    }
     throw err;
   }
 

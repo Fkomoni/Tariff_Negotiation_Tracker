@@ -380,3 +380,16 @@ model LookupSync {
   lastSyncedAt DateTime
   recordCount  Int
 }
+
+/// Durable fixed-window rate-limit counters (login attempts, OTP send/verify,
+/// enrollee search). Postgres-backed rather than in-memory so a deploy/restart
+/// doesn't reset the login brute-force budget and so multiple instances share
+/// one count. One row per bucket key; `count` is incremented atomically via an
+/// INSERT … ON CONFLICT, and the row is reused (reset) once `expiresAt` passes.
+model RateLimit {
+  key       String   @id
+  count     Int      @default(0)
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}

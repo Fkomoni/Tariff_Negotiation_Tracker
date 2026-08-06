@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
-import { checkRateLimit, resetRateLimit } from "@/lib/rate-limit";
+import { consumeRateLimit, resetRateLimit } from "@/lib/rate-limit";
 import type { MfaCodePurpose } from "@prisma/client";
 
 export const TRUST_COOKIE_NAME = "tnt_trusted_device";
@@ -42,7 +42,7 @@ export function generateOtp(): string {
  * Throws OtpRateLimitedError if too many codes have been requested recently
  * — otherwise an attacker (or a mistake) could email-bomb a user's inbox. */
 export async function issueOtp(userId: string, purpose: MfaCodePurpose): Promise<string> {
-  const sendLimit = checkRateLimit(`otp-send:${userId}:${purpose}`, OTP_SEND_MAX, OTP_SEND_WINDOW_MS);
+  const sendLimit = await consumeRateLimit(`otp-send:${userId}:${purpose}`, OTP_SEND_MAX, OTP_SEND_WINDOW_MS);
   if (!sendLimit.allowed) throw new OtpRateLimitedError(sendLimit.retryAfterMs);
 
   const code = generateOtp();
@@ -63,7 +63,7 @@ export async function issueOtp(userId: string, purpose: MfaCodePurpose): Promise
  * guesses a request can make within the code's 10-minute validity. */
 export async function verifyOtp(userId: string, purpose: MfaCodePurpose, code: string): Promise<boolean> {
   const verifyKey = `otp-verify:${userId}:${purpose}`;
-  const verifyLimit = checkRateLimit(verifyKey, OTP_VERIFY_MAX, OTP_VERIFY_WINDOW_MS);
+  const verifyLimit = await consumeRateLimit(verifyKey, OTP_VERIFY_MAX, OTP_VERIFY_WINDOW_MS);
   if (!verifyLimit.allowed) {
     // Burn the outstanding code too, not just the attempt budget — otherwise
     // the same code stays guessable again the instant the window rolls over.
@@ -85,7 +85,7 @@ export async function verifyOtp(userId: string, purpose: MfaCodePurpose, code: s
   if (!timingSafeEqualHex(candidate.codeHash, sha256(trimmed))) return false;
 
   await prisma.mfaCode.update({ where: { id: candidate.id }, data: { consumedAt: new Date() } });
-  resetRateLimit(verifyKey);
+  await resetRateLimit(verifyKey);
   return true;
 }
 
