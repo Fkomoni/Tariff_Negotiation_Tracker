@@ -11,6 +11,12 @@ import { debugFetchProviderTariff } from "@/lib/prognosis";
  * searchProviderTariff. Not linked from any page; hit it directly.
  */
 export async function GET(req: NextRequest) {
+  // Operator inspection tool — gated off in production (returns raw upstream
+  // tariff data). Set ENABLE_DEBUG_ROUTES=true in a non-prod environment to use it.
+  if (process.env.NODE_ENV === "production" && process.env.ENABLE_DEBUG_ROUTES !== "true") {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   const session = await requireApiSession(["ADMIN"]);
   if (session instanceof NextResponse) return session;
 

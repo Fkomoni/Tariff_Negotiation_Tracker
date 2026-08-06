@@ -61,26 +61,23 @@ export async function GET() {
     }
   } catch (err) {
     // Couldn't even reach the database — distinct from "reachable but stale".
-    return NextResponse.json(
-      {
-        status: "unhealthy",
-        database: "unreachable",
-        detail: err instanceof Error ? err.message.slice(0, 300) : String(err),
-      },
-      { status: 503 }
-    );
+    // The raw driver error can name the DB host / auth wording, so it goes to
+    // the server log (where the operator diagnosing a deploy already looks),
+    // not into an unauthenticated HTTP response.
+    console.error("[health] database unreachable:", err instanceof Error ? err.message : String(err));
+    return NextResponse.json({ status: "unhealthy", database: "unreachable" }, { status: 503 });
   }
 
   if (missing.length > 0) {
+    // Enumerating the exact missing tables/columns/enums + migration filenames
+    // is useful for the operator but is internal schema detail — log it, and
+    // return only a count to anonymous callers. Render's health check keys off
+    // the 503 status code, not the body, so this doesn't weaken the gate.
+    console.error(
+      `[health] schema behind code — missing: ${missing.join(", ")}; pending migrations: ${[...pendingMigrations].sort().join(", ")}`
+    );
     return NextResponse.json(
-      {
-        status: "unhealthy",
-        database: "reachable",
-        schema: "behind the code",
-        missing,
-        pendingMigrations: [...pendingMigrations].sort(),
-        fix: "Run `npm run db:migrate:deploy` against this database, then redeploy.",
-      },
+      { status: "unhealthy", database: "reachable", schema: "behind the code", missingCount: missing.length },
       { status: 503 }
     );
   }

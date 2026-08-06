@@ -10,6 +10,14 @@ import { sendSms } from "@/lib/prognosis";
  * page; hit it directly.
  */
 export async function GET(req: NextRequest) {
+  // Operator tool only — never reachable in production, where an admin lured to
+  // a crafted link (sameSite=lax lets the session cookie ride a top-level GET)
+  // could otherwise fire a real, billable SMS to any number. Set
+  // ENABLE_DEBUG_ROUTES=true in a non-prod environment to use it.
+  if (process.env.NODE_ENV === "production" && process.env.ENABLE_DEBUG_ROUTES !== "true") {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   const session = await requireApiSession(["ADMIN"]);
   if (session instanceof NextResponse) return session;
 

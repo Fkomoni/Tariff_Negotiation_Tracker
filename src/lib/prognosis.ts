@@ -33,13 +33,39 @@ const ENVELOPE_KEYS = ["data", "Data", "result", "Result"];
 const SENSITIVE_KEY_PATTERN =
   /email|phone|mobile|bank|account|address|dob|dateofbirth|password|pin\b|secret|token|iban|swift|sortcode|bvn|nin\b/i;
 
+// Keys whose VALUES are member-facing content or contact details that the
+// field-name pattern above doesn't catch. The notification/SMS payloads carry
+// the login OTP and message bodies inside `MessageBody`/`Message`, the
+// recipient phone inside `To`, and member context inside `Subject` — none of
+// which match a "phone/email/…" key name, so without this the second factor
+// and member PII reach the logs verbatim (the whole point of redaction).
+// `response` is included because the SMS gateway echoes the recipient number
+// and an internal gateway URL inside a stringified `response` field on the
+// SendSms reply — a value the recursive redactor can't reach (it's an opaque
+// string, not a parsed object). Redaction is log-only, so over-covering here
+// costs only log verbosity, never behaviour.
+const SENSITIVE_CONTENT_KEY_PATTERN = /^(messagebody|message|to|subject|body|cc|bcc|response)$/i;
+
+/** Strips the query string before a request path is logged. Enrollee lookups
+ * put the member's email/phone/enrolleeID in the query (?email=…&mobileno=…&
+ * enrolleeid=…), and every request/response/error log prints the path — so the
+ * query is dropped here to keep that PII out of the logs while still recording
+ * which endpoint was hit. */
+function logPath(path: string): string {
+  const q = path.indexOf("?");
+  return q === -1 ? path : path.slice(0, q);
+}
+
 function redactSensitive(value: unknown, depth = 0): unknown {
   if (depth > 6) return value;
   if (Array.isArray(value)) return value.map((v) => redactSensitive(v, depth + 1));
   if (value && typeof value === "object") {
     const out: Record<string, unknown> = {};
     for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
-      out[key] = SENSITIVE_KEY_PATTERN.test(key) ? "[REDACTED]" : redactSensitive(val, depth + 1);
+      out[key] =
+        SENSITIVE_KEY_PATTERN.test(key) || SENSITIVE_CONTENT_KEY_PATTERN.test(key)
+          ? "[REDACTED]"
+          : redactSensitive(val, depth + 1);
     }
     return out;
   }
@@ -320,7 +346,7 @@ async function serviceRequest(
   };
 
   if (body !== undefined) {
-    console.error("[prognosis] request", method, path, redactedForLog(body));
+    console.error("[prognosis] request", method, logPath(path), redactedForLog(body));
   }
 
   let token = await getServiceToken();
@@ -334,13 +360,13 @@ async function serviceRequest(
   const text = await res.text().catch(() => "");
 
   if (!res.ok) {
-    console.error("[prognosis] service request failed", method, path, res.status, redactedForLog(text, 500));
+    console.error("[prognosis] service request failed", method, logPath(path), res.status, redactedForLog(text, 500));
     // Redacted here too: this message can end up staff-visible (e.g. stored
     // as a CaseUpdate note when a tariff push fails), not just logged.
     throw new Error(`${path} failed with status ${res.status}: ${redactedForLog(text)}`);
   }
 
-  console.error("[prognosis] response", method, path, res.status, redactedForLog(text));
+  console.error("[prognosis] response", method, logPath(path), res.status, redactedForLog(text));
 
   try {
     return text ? JSON.parse(text) : null;
@@ -898,7 +924,7 @@ async function fetchEnrolleeEndpoint(path: string): Promise<EnrolleeRecord[]> {
     const payload = await serviceRequest("GET", path, undefined, ENROLLEE_HEADERS);
     return extractEnrolleeRecords(payload);
   } catch (err) {
-    console.error(`[prognosis] enrollee lookup failed for path:`, path, err);
+    console.error(`[prognosis] enrollee lookup failed for path:`, logPath(path), err);
     return [];
   }
 }

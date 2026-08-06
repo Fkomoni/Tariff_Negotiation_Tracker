@@ -195,6 +195,14 @@ export interface CreateCaseState {
  */
 export async function createCase(_prevState: CreateCaseState | null, formData: FormData): Promise<CreateCaseState | null> {
   const session = await requireSession();
+  // Server Actions are directly-invocable POST endpoints — the CONTACT_CENTER/
+  // ADMIN gate on negotiations/new/page.tsx does NOT protect this action, so it
+  // must enforce the same allowlist itself. Without it any authenticated role
+  // (PROVIDER_TEAM, or a PENDING account replaying the action id) could create
+  // cases and, worse, trigger member SMS/email to arbitrary recipients below.
+  if (!["CONTACT_CENTER", "ADMIN"].includes(session.user.role)) {
+    redirectWithToast("/dashboard", { type: "error", message: "Only the Contact Centre can log a negotiation request." });
+  }
 
   const raw: Record<string, unknown> = Object.fromEntries(formData.entries());
   raw.pmCategories = formData.getAll("pmCategories");
@@ -1004,6 +1012,13 @@ export async function cancelCase(formData: FormData) {
 export async function addNote(formData: FormData) {
   const session = await requireSession();
   const caseId = String(formData.get("caseId"));
+  // Same reasoning as createCase: this action is reachable directly, not only
+  // through the case page, so it self-enforces the roles the note UI is shown
+  // to. Otherwise any authenticated user (incl. PENDING) could inject notes
+  // into any case's staff-facing timeline.
+  if (!["CONTACT_CENTER", "PROVIDER_TEAM", "ADMIN"].includes(session.user.role)) {
+    redirectWithToast(`/negotiations/${caseId}`, { type: "error", message: "You don't have permission to add notes." });
+  }
   const note = String(formData.get("note") ?? "").trim();
   if (!note) redirectWithToast(`/negotiations/${caseId}`, { type: "error", message: "Note cannot be empty" });
 
@@ -1044,7 +1059,13 @@ interface DispatchNotificationsParams {
 async function dispatchMemberNotifications(params: DispatchNotificationsParams): Promise<string[]> {
   const emailMessage = buildEmailMessage(params.template, params.enrolleeName, params.providerName);
   const smsMessage = buildSmsMessage(params.template, params.providerName);
-  const subject = `Update on your care at ${params.providerName}`;
+  // Strip CR/LF before the free-typed provider name enters an email subject:
+  // if Prognosis's mailer composes the SMTP Subject header naively, an embedded
+  // newline could inject additional headers (Bcc, etc.). Cheap, closes it
+  // regardless of upstream behaviour. (The body needs no equivalent — HTML-
+  // escaped in the template, and the SMS is a header-less plaintext channel.)
+  const safeProviderName = params.providerName.replace(/[\r\n]+/g, " ").trim();
+  const subject = `Update on your care at ${safeProviderName}`;
   const emailHtml = buildMemberNotificationEmailHtml({
     baseUrl: process.env.NEXTAUTH_URL ?? "https://tariff-negotiation-tracker.onrender.com",
     urgency: params.template,
