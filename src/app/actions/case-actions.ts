@@ -468,7 +468,15 @@ const updateStatusSchema = z.object({
     "ESCALATED",
   ]),
   note: z.string().optional(),
-  finalAgreedAmount: z.coerce.number().min(0, "Final agreed amount must be non-negative").optional(),
+  // Empty input means "no amount yet", not zero. Without the preprocess,
+  // z.coerce.number() turns the form's empty string into 0, which then
+  // passed ?? and was stored — cases still being negotiated showed a
+  // "Final Agreed Amount: ₦0.00" nobody entered. An explicit 0 is rejected
+  // too: a tariff agreed at ₦0 is never a real outcome.
+  finalAgreedAmount: z.preprocess(
+    (v) => (v === "" || v === null || v === undefined ? undefined : v),
+    z.coerce.number().positive("Final agreed amount must be greater than 0").optional()
+  ),
   effectiveDate: z.string().optional(),
   endDate: z.string().optional(),
   approvalReason: z.string().optional(),

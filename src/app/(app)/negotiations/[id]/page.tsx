@@ -629,7 +629,10 @@ export default async function CaseDetailsPage(
                   full
                 />
                 {negotiationCase.notes && <Detail label="Notes" icon={<LogIcon className="h-4 w-4" />} value={negotiationCase.notes} full />}
-                {negotiationCase.finalAgreedAmount && (
+                {/* Number() gate, not truthiness: a Decimal 0 is an object and
+                    therefore truthy, which rendered "₦0.00" for legacy rows
+                    where an empty form field had been coerced to zero. */}
+                {negotiationCase.finalAgreedAmount && Number(negotiationCase.finalAgreedAmount) > 0 && (
                   <Detail icon={<CheckMarkIcon className="h-4 w-4" />} label="Final Agreed Amount" value={formatCurrency(negotiationCase.finalAgreedAmount.toString())} />
                 )}
                 {negotiationCase.tariffEffectiveDate && (
