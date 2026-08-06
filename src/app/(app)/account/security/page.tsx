@@ -83,7 +83,7 @@ export default async function AccountSecurityPage() {
           />
           <div className="flex items-center justify-between gap-4 px-5 py-4">
             <p className="text-[12.5px] text-ink-500">
-              Sessions end automatically after 15 minutes of inactivity, and after 24 hours regardless. To end them all
+              Sessions end automatically after 15 minutes of inactivity, and after 12 hours regardless. To end them all
               now — including this one — sign out everywhere.
             </p>
             <form action={signOutEverywhereAction}>

@@ -14,17 +14,23 @@ const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
  * out of the browser (host malware, a proxy capture, a log leak) stays valid
  * forever as long as it's touched within any 15-minute gap. This caps that:
  * past createdAt + ABSOLUTE_TIMEOUT_MS the session is rejected and deleted no
- * matter how recently it was used. Staff re-authenticate at most once a day.
+ * matter how recently it was used.
+ *
+ * 12 hours — shift-aligned. The 15-minute idle timeout handles the walk-away
+ * case; this backstop bounds a stolen-but-kept-alive token, where shorter is
+ * better. It rarely even triggers (the idle timeout usually ends a session
+ * first); when it does, it's at most one re-login per working day.
  */
-const ABSOLUTE_TIMEOUT_MS = 24 * 60 * 60 * 1000;
+const ABSOLUTE_TIMEOUT_MS = 12 * 60 * 60 * 1000;
 /** Throttles how often an activity refresh is written to the database —
  * same purpose as Auth.js's own database-session updateAge throttle. */
 const UPDATE_THROTTLE_MS = 5 * 60 * 1000;
 /** Upper bound on how long the browser holds onto the cookie at all. Not
  * the security boundary — that's IDLE_TIMEOUT_MS, enforced server-side on
  * every read below — just a hygiene cap for a cookie that otherwise never
- * expires on its own. */
-const COOKIE_MAX_AGE_SECONDS = 24 * 60 * 60;
+ * expires on its own. Aligned to the absolute session cap; no point holding a
+ * cookie longer than the longest-possible session it could refer to. */
+const COOKIE_MAX_AGE_SECONDS = 12 * 60 * 60;
 
 export type SessionUser = {
   id: string;
