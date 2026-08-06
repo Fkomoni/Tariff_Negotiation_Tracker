@@ -618,7 +618,8 @@ export async function updateCaseStatus(formData: FormData) {
       // succeed or fail on its own.
       for (const c of pushable) {
         try {
-          await addTariffReviews([
+          const effectiveDate = c.tariffEffectiveDate ?? new Date();
+          const mainEcho = await addTariffReviews([
             {
               procedureId: c.serviceCode!,
               procedureName: c.requestedItem,
@@ -631,10 +632,18 @@ export async function updateCaseStatus(formData: FormData) {
               providerTariffCode: c.providerTariffCode ?? "",
               providerTariffName: "",
               zeroRate: false,
-              effectiveDate: c.tariffEffectiveDate ?? new Date(),
+              effectiveDate,
               endDate: c.tariffEndDate,
             },
           ]);
+          // "Success" from Prognosis proves nothing — verified 06/08/2026,
+          // a push whose code didn't exactly match the provider's line key
+          // (whitespace included) answered Success while landing on a
+          // DIFFERENT catalog procedure, leaving the negotiated line
+          // untouched. Only the new row actually appearing on this
+          // provider's tariff counts.
+          const baseVerified = pushEchoContainsRow(mainEcho, c.serviceCode!, effectiveDate, Number(c.finalAgreedAmount));
+
           await prisma.negotiationCase.update({
             where: { id: c.id },
             data: { tariffPushedAt: new Date() },
@@ -652,22 +661,30 @@ export async function updateCaseStatus(formData: FormData) {
               caseId: c.id,
               userId: session.user.id,
               type: "NOTE",
-              note: `Tariff review submitted to Prognosis: ${c.serviceCode} → ${c.finalAgreedAmount}. Tariff schedule: ${tariffScheduleName || "none found — sent blank"}.${
-                c.tariffEndDate && !canScheduleRevert
-                  ? ` Intended end date: ${c.tariffEndDate.toISOString().slice(0, 10)} — no previous price exists to revert to (new service or zero current tariff), so ending this price needs a manual decision when it falls due.`
-                  : ""
-              }`,
+              note: baseVerified
+                ? `Tariff review submitted to Prognosis: ${c.serviceCode} → ${c.finalAgreedAmount}. Tariff schedule: ${tariffScheduleName || "none found — sent blank"}. Confirmed: the new price appears on the provider's tariff.${
+                    c.tariffEndDate && !canScheduleRevert
+                      ? ` Intended end date: ${c.tariffEndDate.toISOString().slice(0, 10)} — no previous price exists to revert to (new service or zero current tariff), so ending this price needs a manual decision when it falls due.`
+                      : ""
+                  }`
+                : `Tariff review submitted to Prognosis: ${c.serviceCode} → ${c.finalAgreedAmount}. WARNING: Prognosis answered Success but the new price did NOT appear on this provider's tariff in its response — likely the procedure code doesn't exactly match the provider's line key upstream. Treat this price as NOT applied and escalate to the Prognosis team with procedure code "${c.serviceCode}" and provider ID ${c.providerId}.${
+                    c.tariffEndDate ? " Price reversion was not scheduled because the base price is unconfirmed." : ""
+                  }`,
             },
           });
-          console.error(`[case-actions] tariff review push succeeded for provider ${existing.providerId}: ${c.serviceCode}`);
+          console.error(
+            `[case-actions] tariff review push for provider ${existing.providerId}: ${c.serviceCode} — ${baseVerified ? "verified on tariff" : "NOT visible on tariff (Success without effect)"}`
+          );
 
           // Try to set up the return-to-old-price in the same breath: push the
           // previous price future-dated to the end date. Prognosis silently
           // drops scheduling it doesn't support, so "Success" alone proves
           // nothing — the row actually appearing in the response echo does.
           // If it doesn't appear, the case stays flagged for the manual path
-          // (the Revert button / the revert-due sweep).
-          if (canScheduleRevert) {
+          // (the Revert button / the revert-due sweep). Skipped entirely when
+          // the base push itself couldn't be confirmed: scheduling a revert
+          // for a price that never applied would only compound the mess.
+          if (baseVerified && canScheduleRevert) {
             const endDateStr = c.tariffEndDate!.toISOString().slice(0, 10);
             try {
               const echo = await addTariffReviews([

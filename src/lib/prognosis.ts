@@ -760,6 +760,25 @@ function firstString(raw: Record<string, unknown>, keys: string[]): string | nul
   return null;
 }
 
+/**
+ * Like firstString but preserves the value byte-for-byte — no trim.
+ *
+ * Tariff line codes are join keys on Prognosis's side, and real production
+ * lines carry leading whitespace that distinguishes them from identical-
+ * looking codes belonging to OTHER procedures in the master catalog.
+ * Verified 06/08/2026 on provider 8935: its PROSTATE DEFENCE line is keyed
+ * "\t60600067A" (tab prefix), while clean "60600067A" is PSA QUANTITATIVE —
+ * trimming the code rewired a PROSTATE DEFENCE price push onto PSA
+ * QUANTITATIVE, with Prognosis answering Success throughout.
+ */
+function firstStringRaw(raw: Record<string, unknown>, keys: string[]): string | null {
+  for (const key of keys) {
+    const value = raw[key];
+    if (typeof value === "string" && value.trim().length > 0) return value;
+  }
+  return null;
+}
+
 /** Some enrollee records have junk placeholder text (e.g. "Normal") in the
  * email slot rather than a real address, so only accept values that are
  * actually shaped like an email. */
@@ -1039,7 +1058,11 @@ function extractTariffItems(payload: unknown): TariffItem[] {
     if (!entry || typeof entry !== "object") continue;
     const r = entry as Record<string, unknown>;
 
-    const serviceCode = firstString(r, ["ProcedureCode"]);
+    // Raw, not trimmed: the code is the push join key and its whitespace is
+    // significant (see firstStringRaw). It also keeps a whitespace-keyed
+    // provider line and a same-looking catalog code as the two distinct
+    // entries they really are, instead of deduping them into one.
+    const serviceCode = firstStringRaw(r, ["ProcedureCode"]);
     const description = firstString(r, ["ProcedureDescr"]);
     if (!serviceCode && !description) continue;
 
@@ -1058,8 +1081,8 @@ function extractTariffItems(payload: unknown): TariffItem[] {
 
     const item: TariffItem = {
       serviceCode: serviceCode ?? "",
-      description: description ?? serviceCode ?? "",
-      providerTariffCode: firstString(r, ["ProviderTarrifCode", "ProviderTariffCode"]),
+      description: description ?? serviceCode?.trim() ?? "",
+      providerTariffCode: firstStringRaw(r, ["ProviderTarrifCode", "ProviderTariffCode"]),
       nomenclature: firstString(r, ["ProviderNameClature"]),
       tariffName: firstString(r, ["TariffName"]),
       minCost,
