@@ -6,6 +6,7 @@ import { SubmitButton } from "@/components/SubmitButton";
 import { ShieldIcon } from "@/components/icons";
 import { formatDateTime } from "@/lib/domain";
 import { revokeTrustedDevice } from "@/app/actions/mfa-actions";
+import { signOutEverywhereAction } from "@/app/actions/auth-actions";
 
 export default async function AccountSecurityPage() {
   const session = await auth();
@@ -73,6 +74,28 @@ export default async function AccountSecurityPage() {
               ))}
             </div>
           )}
+        </Card>
+
+        <Card>
+          <CardHeader
+            title="Active Sessions"
+            subtitle="Sign out of every device — use this if you've signed in somewhere you no longer control"
+          />
+          <div className="flex items-center justify-between gap-4 px-5 py-4">
+            <p className="text-[12.5px] text-ink-500">
+              Sessions end automatically after 15 minutes of inactivity, and after 24 hours regardless. To end them all
+              now — including this one — sign out everywhere.
+            </p>
+            <form action={signOutEverywhereAction}>
+              <SubmitButton
+                variant="ghost"
+                className="whitespace-nowrap px-3 py-1.5 text-brand-600 hover:bg-brand-50"
+                pendingLabel="Signing out…"
+              >
+                Sign out everywhere
+              </SubmitButton>
+            </form>
+          </div>
         </Card>
       </div>
     </>

@@ -8,6 +8,15 @@ export { SESSION_COOKIE_NAME };
 
 /** Rolling idle timeout, same policy as the previous JWT session's maxAge. */
 const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
+/**
+ * Hard upper bound on a session's life, independent of activity. The idle
+ * window alone slides forward on every request, so without this a token copied
+ * out of the browser (host malware, a proxy capture, a log leak) stays valid
+ * forever as long as it's touched within any 15-minute gap. This caps that:
+ * past createdAt + ABSOLUTE_TIMEOUT_MS the session is rejected and deleted no
+ * matter how recently it was used. Staff re-authenticate at most once a day.
+ */
+const ABSOLUTE_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 /** Throttles how often an activity refresh is written to the database —
  * same purpose as Auth.js's own database-session updateAge throttle. */
 const UPDATE_THROTTLE_MS = 5 * 60 * 1000;
@@ -92,6 +101,13 @@ export async function getSession(): Promise<{ user: SessionUser } | null> {
     console.error(`[session] read ${id}: expired at ${session.expiresAt.toISOString()} -> rejected`);
     return null;
   }
+  // Absolute lifetime cap — enforced regardless of how recently the session was
+  // used. Deletes the row so a copied token can't keep probing.
+  if (session.createdAt.getTime() + ABSOLUTE_TIMEOUT_MS <= Date.now()) {
+    console.error(`[session] read ${id}: exceeded ${ABSOLUTE_TIMEOUT_MS}ms absolute lifetime -> rejected`);
+    await prisma.session.deleteMany({ where: { id: session.id } }).catch(() => {});
+    return null;
+  }
 
   const now = Date.now();
   const dueToBeExtended = session.expiresAt.getTime() - IDLE_TIMEOUT_MS + UPDATE_THROTTLE_MS <= now;
@@ -111,6 +127,16 @@ export async function getSession(): Promise<{ user: SessionUser } | null> {
       prognosisUsername: session.user.prognosisUsername,
     },
   };
+}
+
+/** Deletes every session row for a user — "sign out everywhere". Any copy of
+ * any of their tokens stops matching immediately. For an explicit sign-out-all,
+ * suspected compromise, or (future) an upstream password change. Returns how
+ * many sessions were revoked. */
+export async function revokeAllSessionsForUser(userId: string): Promise<number> {
+  const { count } = await prisma.session.deleteMany({ where: { userId } });
+  console.error(`[session] revoked all ${count} session(s) for user ${userId}`);
+  return count;
 }
 
 /** Deletes the session row and clears the cookie. A copy of the token
