@@ -190,7 +190,7 @@ export default async function DashboardPage() {
             <ToolButton href="/reports" icon={<ReportIcon className="h-4 w-4" />} label="Reports" />
             <ToolButton href="/reports" icon={<DownloadIcon className="h-4 w-4" />} label="Export" />
             {/* A plain link back to this page. Every figure here is computed in
-                a server component, so navigating re-runs the queries — a real
+                a server component, so navigating re-runs the queries - a real
                 refresh, not a decorative button. */}
             <ToolButton href="/dashboard" icon={<RefreshIcon className="h-4 w-4" />} label="Refresh" />
           </div>
@@ -237,7 +237,7 @@ export default async function DashboardPage() {
             tone="info"
             icon={<ClockIcon className="h-[19px] w-[19px]" />}
             label="Avg Resolution Time"
-            value={d.avgResolution.ms === null ? "—" : formatDuration(d.avgResolution.ms)}
+            value={d.avgResolution.ms === null ? "-" : formatDuration(d.avgResolution.ms)}
             series={d.avgResolution.series}
             note={
               d.avgResolution.deltaPct === null
@@ -254,7 +254,7 @@ export default async function DashboardPage() {
             tone="accent"
             icon={<HourglassIcon className="h-[19px] w-[19px]" />}
             label="Longest Pending Case"
-            value={d.longestPending.ms === null ? "—" : formatDuration(d.longestPending.ms)}
+            value={d.longestPending.ms === null ? "-" : formatDuration(d.longestPending.ms)}
             series={d.longestPending.series}
             sublabel={
               d.longestPending.case ? (
@@ -283,7 +283,7 @@ export default async function DashboardPage() {
             tone="violet"
             icon={<BuildingIcon className="h-[19px] w-[19px]" />}
             label="Top Provider"
-            value={d.topProvider?.label ?? "—"}
+            value={d.topProvider?.label ?? "-"}
             series={d.topProvider?.series}
             note={
               d.topProvider ? `${d.topProvider.count} case${d.topProvider.count === 1 ? "" : "s"}` : "No cases yet"
@@ -295,7 +295,7 @@ export default async function DashboardPage() {
             tone="teal"
             icon={<TagIcon className="h-[19px] w-[19px]" />}
             label="Top Item"
-            value={d.topItem?.label ?? "—"}
+            value={d.topItem?.label ?? "-"}
             series={d.topItem?.series}
             note={
               d.topItem ? `${d.topItem.count} case${d.topItem.count === 1 ? "" : "s"}` : "No cases yet"

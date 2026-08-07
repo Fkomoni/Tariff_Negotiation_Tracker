@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { ErrorState } from "@/components/ErrorState";
 
 /**
- * Root-level fallback — catches anything thrown outside the (app) segment
+ * Root-level fallback - catches anything thrown outside the (app) segment
  * (login, pending-approval, the root redirect page) and, since error.tsx
  * can't catch errors from its own segment's layout, also anything thrown
  * by (app)/layout.tsx itself before (app)/error.tsx ever gets a chance to.

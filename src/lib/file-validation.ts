@@ -1,6 +1,6 @@
 /**
  * The client's <input accept> attribute and the File API's reported
- * name/type are both purely advisory — a request can set either to anything
+ * name/type are both purely advisory - a request can set either to anything
  * regardless of what bytes actually follow. This only trusts the file's
  * leading bytes (magic numbers) to decide what it actually is.
  */
@@ -23,7 +23,7 @@ export interface DetectedFile {
 }
 
 /** Returns the detected type if the buffer's leading bytes match an allowed
- * signature (PDF/PNG/JPEG), else null — callers should reject on null rather
+ * signature (PDF/PNG/JPEG), else null - callers should reject on null rather
  * than falling back to the caller-supplied MIME type or file extension. */
 export function detectAllowedFileType(buffer: Buffer): DetectedFile | null {
   for (const candidate of ALLOWED_SIGNATURES) {

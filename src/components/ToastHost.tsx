@@ -77,7 +77,7 @@ function ToastHostInner() {
   );
 }
 
-/** Mounted once in the (app) layout — every mutating action reports its
+/** Mounted once in the (app) layout - every mutating action reports its
  * outcome by redirecting through redirectWithToast() (src/lib/toast.ts),
  * and this is what actually shows it. */
 export function ToastHost() {

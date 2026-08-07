@@ -5,14 +5,14 @@ import { prisma } from "@/lib/prisma";
  * Deploy health check, answering the one question that has caused every
  * production outage on this app so far: is the database schema behind the code?
  *
- * The failure mode is silent and confusing — the code selects a column the
+ * The failure mode is silent and confusing - the code selects a column the
  * database doesn't have yet, so every page that reads a full case row 500s
  * while the app itself looks fine. Nothing surfaced that except opening a page
  * and seeing the error boundary.
  *
  * Checks the schema features the current code depends on rather than reading
  * _prisma_migrations, because what matters is whether the columns and enum
- * values actually exist — a migration recorded as applied but only partly run
+ * values actually exist - a migration recorded as applied but only partly run
  * (someone pasting SQL by hand) would still break the app.
  *
  * Returns only names and booleans. No business data, so it's safe unauthenticated,
@@ -60,7 +60,7 @@ export async function GET() {
       }
     }
   } catch (err) {
-    // Couldn't even reach the database — distinct from "reachable but stale".
+    // Couldn't even reach the database - distinct from "reachable but stale".
     // The raw driver error can name the DB host / auth wording, so it goes to
     // the server log (where the operator diagnosing a deploy already looks),
     // not into an unauthenticated HTTP response.
@@ -70,11 +70,11 @@ export async function GET() {
 
   if (missing.length > 0) {
     // Enumerating the exact missing tables/columns/enums + migration filenames
-    // is useful for the operator but is internal schema detail — log it, and
+    // is useful for the operator but is internal schema detail - log it, and
     // return only a count to anonymous callers. Render's health check keys off
     // the 503 status code, not the body, so this doesn't weaken the gate.
     console.error(
-      `[health] schema behind code — missing: ${missing.join(", ")}; pending migrations: ${[...pendingMigrations].sort().join(", ")}`
+      `[health] schema behind code - missing: ${missing.join(", ")}; pending migrations: ${[...pendingMigrations].sort().join(", ")}`
     );
     return NextResponse.json(
       { status: "unhealthy", database: "reachable", schema: "behind the code", missingCount: missing.length },

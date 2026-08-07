@@ -33,7 +33,7 @@ export default async function AccountSecurityPage() {
         <Card>
           <CardHeader
             title="Multi-Factor Authentication"
-            subtitle="Required for every account — a 6-digit email code on top of your Prognosis password"
+            subtitle="Required for every account - a 6-digit email code on top of your Prognosis password"
           />
           <div className="px-5 py-4">
             <p className="text-[12.5px] text-ink-500">
@@ -41,7 +41,7 @@ export default async function AccountSecurityPage() {
               {user.email ? (
                 <span className="text-ink-400"> · codes are sent to {user.email}</span>
               ) : (
-                <span className="font-semibold text-brand-600"> · no email on file — contact the IT Help Desk, you won&apos;t be able to sign in without one</span>
+                <span className="font-semibold text-brand-600"> · no email on file - contact the IT Help Desk, you won&apos;t be able to sign in without one</span>
               )}
             </p>
           </div>
@@ -66,7 +66,7 @@ export default async function AccountSecurityPage() {
                   </div>
                   <form action={revokeTrustedDevice}>
                     <input type="hidden" name="deviceId" value={d.id} />
-                    <SubmitButton variant="ghost" className="px-2 py-1.5 text-brand-600 hover:bg-brand-50" pendingLabel="Revoking…">
+                    <SubmitButton variant="ghost" className="px-2 py-1.5 text-brand-600 hover:bg-brand-50" pendingLabel="Revoking...">
                       Revoke
                     </SubmitButton>
                   </form>
@@ -79,18 +79,18 @@ export default async function AccountSecurityPage() {
         <Card>
           <CardHeader
             title="Active Sessions"
-            subtitle="Sign out of every device — use this if you've signed in somewhere you no longer control"
+            subtitle="Sign out of every device - use this if you've signed in somewhere you no longer control"
           />
           <div className="flex items-center justify-between gap-4 px-5 py-4">
             <p className="text-[12.5px] text-ink-500">
               Sessions end automatically after 15 minutes of inactivity, and after 12 hours regardless. To end them all
-              now — including this one — sign out everywhere.
+              now - including this one - sign out everywhere.
             </p>
             <form action={signOutEverywhereAction}>
               <SubmitButton
                 variant="ghost"
                 className="whitespace-nowrap px-3 py-1.5 text-brand-600 hover:bg-brand-50"
-                pendingLabel="Signing out…"
+                pendingLabel="Signing out..."
               >
                 Sign out everywhere
               </SubmitButton>

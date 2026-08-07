@@ -19,7 +19,7 @@ function escapeHtml(value: string): string {
 }
 
 /** Escapes a URL for use in an href="..." attribute and rejects anything
- * that isn't http(s) (e.g. javascript:) — no caller currently passes
+ * that isn't http(s) (e.g. javascript:) - no caller currently passes
  * user-controlled input here, but this is shared chrome, so it's escaped
  * the same as every other interpolated value rather than trusted as safe. */
 function escapeHref(url: string): string {
@@ -32,7 +32,7 @@ function escapeHref(url: string): string {
   return escapeHtml(url);
 }
 
-/** Wraps the first occurrence of `word` in `text` with a yellow highlight —
+/** Wraps the first occurrence of `word` in `text` with a yellow highlight -
  * mirrors the reference template's title treatment (e.g. "Your
  * [Reimbursement] Code is Ready"). Falls back to the plain escaped title if
  * the word isn't found. */
@@ -59,17 +59,17 @@ function infoRow(label: string, value: string): string {
 
 export interface EmailShellParams {
   baseUrl: string;
-  /** Header block background — brand orange for routine notices, brand red for anything security- or urgency-flavored. Ignored when `badge` is set (that header style is always the light/cream treatment). */
+  /** Header block background - brand orange for routine notices, brand red for anything security- or urgency-flavored. Ignored when `badge` is set (that header style is always the light/cream treatment). */
   accentColor?: string;
   title: string;
   /** Substring of `title` to render with a yellow highlight, matching the reference template. */
   highlightedWord?: string;
   /** Switches the header to the light brand-bar + badge-tag treatment (logo/wordmark left, contextual note + bell right, then a cream card with a pill badge and dark title) instead of the solid-color block. */
   badge?: { label: string };
-  /** Right-aligned text next to the bell icon in the brand bar (e.g. "Update on your care") — only used with `badge`. */
+  /** Right-aligned text next to the bell icon in the brand bar (e.g. "Update on your care") - only used with `badge`. */
   contextLabel?: string;
   intro?: string;
-  /** Large centered code display in a dashed, tinted box — used for OTPs, claim/reimbursement codes, etc. */
+  /** Large centered code display in a dashed, tinted box - used for OTPs, claim/reimbursement codes, etc. */
   codeBox?: { label: string; code: string };
   /** Label/value rows rendered as a light zebra table (expiry/validity, case details, etc.). */
   infoRows?: { label: string; value: string }[];
@@ -83,7 +83,7 @@ export interface EmailShellParams {
 }
 
 /**
- * Shared chrome for every outbound email this app sends — logo header,
+ * Shared chrome for every outbound email this app sends - logo header,
  * colored title block, optional content sections, and the standard
  * Leadway Health footer (copyright + NHEA award banner). Keeping this in
  * one place means every email this app sends (member notifications, MFA
@@ -246,7 +246,7 @@ export interface MemberNotificationEmailParams {
  * shell above.
  */
 export function buildMemberNotificationEmailHtml(params: MemberNotificationEmailParams): string {
-  // timeZone is pinned because this renders on a UTC server — without it
+  // timeZone is pinned because this renders on a UTC server - without it
   // the member was told their request came in an hour before they made it.
   const submitted = params.submittedAt.toLocaleString("en-NG", {
     day: "numeric",
@@ -314,7 +314,7 @@ export interface MfaCodeEmailParams {
  * Builds the MFA sign-in code email as its own bespoke layout (logo header
  * + "LOGIN VERIFICATION" label, code card with a shield icon, a 4-tile
  * request-detail grid, and two status notices) rather than the generic
- * buildEmailShell — that shell's badge/codeBox primitives don't stretch to
+ * buildEmailShell - that shell's badge/codeBox primitives don't stretch to
  * this design's icon tiles and colored notice rows. Footer still reuses the
  * shared NHEA award banner image so it stays visually consistent with
  * every other email this app sends.

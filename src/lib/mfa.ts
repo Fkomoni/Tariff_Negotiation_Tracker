@@ -15,11 +15,11 @@ const OTP_VERIFY_MAX = 6;
 const OTP_VERIFY_WINDOW_MS = 10 * 60 * 1000;
 
 /** Thrown by issueOtp() when a user/purpose has requested too many codes
- * recently — callers should surface a "try again later" message rather than
+ * recently - callers should surface a "try again later" message rather than
  * silently emailing another code (or erroring with a raw 500). */
 export class OtpRateLimitedError extends Error {
   constructor(public retryAfterMs: number) {
-    super("Too many verification codes requested — try again later.");
+    super("Too many verification codes requested - try again later.");
   }
 }
 
@@ -34,9 +34,9 @@ function sha256(value: string): string {
  * secret via HMAC makes the stored hash useless to anyone without that secret.
  *
  * Falls back to plain SHA-256 when MFA_HASH_SECRET is unset, so login never
- * breaks before the secret is configured — set it (openssl rand -hex 32) to
+ * breaks before the secret is configured - set it (openssl rand -hex 32) to
  * enable the stronger form. In-flight codes issued under the old form simply
- * fail to verify once the secret is added (single-use, 10-min TTL — the user
+ * fail to verify once the secret is added (single-use, 10-min TTL - the user
  * just requests a new code), so enabling it is safe at any time.
  *
  * The high-entropy session and trusted-device tokens deliberately keep plain
@@ -63,7 +63,7 @@ export function generateOtp(): string {
 
 /** Issues a fresh single-use OTP for the given purpose, storing only its hash.
  * Throws OtpRateLimitedError if too many codes have been requested recently
- * — otherwise an attacker (or a mistake) could email-bomb a user's inbox. */
+ * - otherwise an attacker (or a mistake) could email-bomb a user's inbox. */
 export async function issueOtp(userId: string, purpose: MfaCodePurpose): Promise<string> {
   const sendLimit = await consumeRateLimit(`otp-send:${userId}:${purpose}`, OTP_SEND_MAX, OTP_SEND_WINDOW_MS);
   if (!sendLimit.allowed) throw new OtpRateLimitedError(sendLimit.retryAfterMs);
@@ -81,14 +81,14 @@ export async function issueOtp(userId: string, purpose: MfaCodePurpose): Promise
 }
 
 /** Verifies against the most recent unconsumed, unexpired code for this purpose, consuming it on success.
- * Rate-limited per user/purpose — a 6-digit code is only safe against
+ * Rate-limited per user/purpose - a 6-digit code is only safe against
  * brute force if attempts are bounded, since nothing else limits how many
  * guesses a request can make within the code's 10-minute validity. */
 export async function verifyOtp(userId: string, purpose: MfaCodePurpose, code: string): Promise<boolean> {
   const verifyKey = `otp-verify:${userId}:${purpose}`;
   const verifyLimit = await consumeRateLimit(verifyKey, OTP_VERIFY_MAX, OTP_VERIFY_WINDOW_MS);
   if (!verifyLimit.allowed) {
-    // Burn the outstanding code too, not just the attempt budget — otherwise
+    // Burn the outstanding code too, not just the attempt budget - otherwise
     // the same code stays guessable again the instant the window rolls over.
     await prisma.mfaCode.updateMany({
       where: { userId, purpose, consumedAt: null },

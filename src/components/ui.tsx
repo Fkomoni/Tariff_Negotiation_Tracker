@@ -65,7 +65,7 @@ export function StatTile({
   value: ReactNode;
   tone?: "default" | "brand" | "warn" | "good";
   hint?: string;
-  /** Small colored change indicator (e.g. "+12% vs last week") — green when positive, brand red when negative. */
+  /** Small colored change indicator (e.g. "+12% vs last week") - green when positive, brand red when negative. */
   delta?: { text: string; positive: boolean };
 }) {
   const toneClass: Record<string, string> = {

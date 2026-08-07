@@ -64,8 +64,8 @@ export function groupCasesByRequest<T extends { id: string; sessionGroupId: stri
  *
  * The Provider Team prices one service at a time (each is its own case with its
  * own agreed amount), so without this they landed on whichever service they
- * happened to click with no sense of position — "which of these three am I
- * looking at, and what's left?" — and finishing one dropped them back to the
+ * happened to click with no sense of position - "which of these three am I
+ * looking at, and what's left?" - and finishing one dropped them back to the
  * queue to hunt for the next.
  *
  * Ordered by loggedAt with caseNumber as a tiebreak: createCase writes the

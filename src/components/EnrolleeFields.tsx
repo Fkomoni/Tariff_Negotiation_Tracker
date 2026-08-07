@@ -26,7 +26,7 @@ export interface EnrolleeInitial {
 
 export function EnrolleeFields({ initial, required = true }: { initial?: EnrolleeInitial; required?: boolean }) {
   // "N/A" is the "no enrollee present" sentinel (see toggleNoEnrolleePresent
-  // below) — a repeat-from-source case logged that way should reopen with
+  // below) - a repeat-from-source case logged that way should reopen with
   // the toggle already on, not with "N/A" sitting in the search box as if
   // it were a real typed name.
   const initialIsNoEnrollee = initial?.fullName === "N/A";
@@ -136,7 +136,7 @@ export function EnrolleeFields({ initial, required = true }: { initial?: Enrolle
   }
 
   // "N/A" is the same sentinel already used for Provider Management requests
-  // (which never have an enrollee) — the case-detail page and case list
+  // (which never have an enrollee) - the case-detail page and case list
   // already know to hide enrollee mentions for that value, so a "no
   // enrollee present" tariff case reads the same way with no extra display
   // logic needed.
@@ -155,7 +155,7 @@ export function EnrolleeFields({ initial, required = true }: { initial?: Enrolle
             </button>
           </div>
           <p className="mt-1.5 text-[11px] text-ink-400">
-            This request will be logged without an enrollee attached — the provider wants pricing updated directly.
+            This request will be logged without an enrollee attached - the provider wants pricing updated directly.
           </p>
         </div>
         <input type="hidden" name="enrolleeName" value="N/A" />
@@ -169,7 +169,7 @@ export function EnrolleeFields({ initial, required = true }: { initial?: Enrolle
       <Field
         label="Enrollee"
         required={required}
-        hint={required ? "Search by name, phone, email, or enrollee ID" : "Optional — search by name, phone, email, or enrollee ID"}
+        hint={required ? "Search by name, phone, email, or enrollee ID" : "Optional - search by name, phone, email, or enrollee ID"}
         className="sm:col-span-2"
       >
         <div className="mb-2 flex justify-end">
@@ -194,7 +194,7 @@ export function EnrolleeFields({ initial, required = true }: { initial?: Enrolle
           />
           {loading && (
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-ink-400">
-              Searching…
+              Searching...
             </span>
           )}
           {open && results.length > 0 && (
@@ -222,7 +222,7 @@ export function EnrolleeFields({ initial, required = true }: { initial?: Enrolle
           )}
           {!loading && searchedNoMatch && !hasSelection && (
             <p className="mt-1.5 text-[11px] text-ink-400">
-              No match found in Prognosis — you can still log this case with the name typed above.
+              No match found in Prognosis - you can still log this case with the name typed above.
             </p>
           )}
         </div>
@@ -232,7 +232,7 @@ export function EnrolleeFields({ initial, required = true }: { initial?: Enrolle
 
       {hasSelection && (
         <>
-          <Field label="Enrollee Email" hint="From Prognosis — editable">
+          <Field label="Enrollee Email" hint="From Prognosis - editable">
             <input
               name="enrolleeEmail"
               type="email"
@@ -242,11 +242,11 @@ export function EnrolleeFields({ initial, required = true }: { initial?: Enrolle
             />
           </Field>
 
-          <Field label="Enrollee Phone" hint="From Prognosis — editable">
+          <Field label="Enrollee Phone" hint="From Prognosis - editable">
             <input name="enrolleePhone" className={inputClass} value={phone} onChange={(e) => setPhone(e.target.value)} />
           </Field>
 
-          <Field label="Company" hint="From Prognosis — editable">
+          <Field label="Company" hint="From Prognosis - editable">
             <input
               name="enrolleeCompany"
               className={inputClass}
@@ -255,11 +255,11 @@ export function EnrolleeFields({ initial, required = true }: { initial?: Enrolle
             />
           </Field>
 
-          <Field label="Scheme" hint="From Prognosis — editable">
+          <Field label="Scheme" hint="From Prognosis - editable">
             <input name="enrolleeScheme" className={inputClass} value={scheme} onChange={(e) => setScheme(e.target.value)} />
           </Field>
 
-          <Field label="Age" hint="From Prognosis — editable">
+          <Field label="Age" hint="From Prognosis - editable">
             <input
               name="enrolleeAge"
               type="number"

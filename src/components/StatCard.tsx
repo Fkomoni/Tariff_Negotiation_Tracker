@@ -48,7 +48,7 @@ export function StatCard({
   sublabel?: ReactNode;
   /** Keeps this card's SVG gradient id unique in the document. */
   id: string;
-  /** Where this figure comes from. Given one, the whole card is a link — the
+  /** Where this figure comes from. Given one, the whole card is a link - the
    * number is the question and that page is the answer. */
   href?: string;
 }) {

@@ -85,7 +85,7 @@ export function Timeline({ updates, limit }: { updates: TimelineEntry[]; limit?:
 
       {hidden > 0 && (
         <p className="border-t border-line-subtle px-5 py-3 text-center text-[12px] text-navy-500">
-          {hidden} earlier {hidden === 1 ? "entry" : "entries"} — see the Provider Team tab for the full history.
+          {hidden} earlier {hidden === 1 ? "entry" : "entries"} - see the Provider Team tab for the full history.
         </p>
       )}
     </>

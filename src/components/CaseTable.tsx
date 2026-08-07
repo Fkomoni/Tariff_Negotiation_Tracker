@@ -36,7 +36,7 @@ function sumOf(members: CaseRow[], pick: (c: CaseRow) => { toString(): string } 
  * A column header that links to the sort it represents.
  *
  * Only rendered as a link when the page actually supports sorting by that
- * column — an arrow on a header that does nothing is worse than no arrow.
+ * column - an arrow on a header that does nothing is worse than no arrow.
  */
 function Th({
   label,
@@ -166,7 +166,7 @@ export function CaseTable({
               new Set(sorted.map((c) => c.owner?.displayName ?? c.owner?.prognosisUsername).filter(Boolean))
             );
             const itemList = sorted.map((c) => c.requestedItem).join(", ");
-            // Highest urgency in the request — a routine line shouldn't mask an
+            // Highest urgency in the request - a routine line shouldn't mask an
             // emergency one sharing the same submission.
             const urgencyRank: Record<Urgency, number> = { ROUTINE: 0, URGENT: 1, EMERGENCY: 2 };
             const topUrgency = sorted.reduce<Urgency>(
@@ -205,16 +205,16 @@ export function CaseTable({
                 <td className="max-w-[130px] px-3 py-4 text-navy-700">{primary.enrolleeName}</td>
                 <td className="px-3 py-4 text-navy-700">
                   {isPm
-                    ? "—"
+                    ? "-"
                     : serviceTypes.length === 0
-                      ? "—"
+                      ? "-"
                       : serviceTypes.length === 1
                         ? SERVICE_TYPE_LABELS[serviceTypes[0]]
                         : "Multiple"}
                 </td>
 
                 {/* One line per request. A multi-service request leads with the
-                    count rather than every item name — that's what let five
+                    count rather than every item name - that's what let five
                     services swamp the queue. The names are still here, muted
                     and clamped to the row, with the full list on hover and on
                     the case itself. */}
@@ -253,10 +253,10 @@ export function CaseTable({
                   )}
                 </td>
                 <td className="whitespace-nowrap px-3 py-4 text-right text-navy-700">
-                  {isPm ? "—" : formatCurrency(String(currentTotal))}
+                  {isPm ? "-" : formatCurrency(String(currentTotal))}
                 </td>
                 <td className="whitespace-nowrap px-3 py-4 text-right font-semibold text-navy-900">
-                  {isPm ? "—" : formatCurrency(String(requestedTotal))}
+                  {isPm ? "-" : formatCurrency(String(requestedTotal))}
                 </td>
 
                 {/* Its own column rather than a suffix on the requested amount:
@@ -265,7 +265,7 @@ export function CaseTable({
                     read differently from the same ₦17,000 on ₦120,000. */}
                 <td className="whitespace-nowrap px-3 py-4 text-right">
                   {isPm ? (
-                    <span className="text-navy-400">—</span>
+                    <span className="text-navy-400">-</span>
                   ) : (
                     <>
                       <span className={`font-semibold ${diff > 0 ? "text-brand-600" : diff < 0 ? "text-emerald-700" : "text-navy-500"}`}>
@@ -285,7 +285,7 @@ export function CaseTable({
                 {isCompletedView && (
                   <td className="whitespace-nowrap px-3 py-4 text-right font-semibold text-navy-900">
                     {isPm || agreedMembers.length === 0 ? (
-                      "—"
+                      "-"
                     ) : (
                       <>
                         {formatCurrency(String(agreedTotal))}
@@ -326,7 +326,7 @@ export function CaseTable({
 
                 {isCompletedView && (
                   <td className="px-3 py-4 text-navy-600">
-                    {owners.length === 0 ? "—" : owners.length === 1 ? owners[0] : "Multiple"}
+                    {owners.length === 0 ? "-" : owners.length === 1 ? owners[0] : "Multiple"}
                   </td>
                 )}
               </tr>

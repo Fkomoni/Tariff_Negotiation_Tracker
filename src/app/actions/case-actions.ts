@@ -24,7 +24,7 @@ const MAX_ATTACHMENT_BYTES = 2 * 1024 * 1024;
 
 const PM_CATEGORY_VALUES = Object.keys(PM_CATEGORY_LABELS) as [ProviderManagementCategory, ...ProviderManagementCategory[]];
 
-// Derived from the label map rather than repeated as a literal list — the
+// Derived from the label map rather than repeated as a literal list - the
 // two drifted apart the moment new service types were added (the form
 // offered Maternity/Gym and Spa/Immunizations while this schema still only
 // accepted the original six, so picking one failed validation). Deriving
@@ -75,7 +75,7 @@ const createCaseSchema = z
   });
 
 /**
- * One service line from the "Log Negotiation" form — the same provider,
+ * One service line from the "Log Negotiation" form - the same provider,
  * enrollee, urgency, and reason apply to every line in a submission
  * (they're entered once, shared), but each line negotiates its own item
  * at its own price. The client sends every line's fields under the same
@@ -121,11 +121,11 @@ function readServiceLines(formData: FormData): unknown[] {
 
 /**
  * Finds an existing tariff case for the same provider + enrollee + service
- * that isn't Declined, if one exists — nothing in createCase previously
+ * that isn't Declined, if one exists - nothing in createCase previously
  * checked this, so the same request logged twice (a second call about the
  * same delay, two agents picking up related contacts, or one already
  * completed with an agreed tariff) silently created two independent cases
- * with no link between them. Completed cases count as a duplicate too —
+ * with no link between them. Completed cases count as a duplicate too -
  * the tariff was already agreed and pushed to Prognosis, so a fresh
  * request for the identical service is almost always a mistake, not a new
  * negotiation. Declined cases don't block a resubmission, since a
@@ -185,7 +185,7 @@ export interface CreateCaseState {
 /**
  * Server action behind the Log Negotiation form. Returns a
  * CreateCaseState only when it needs the agent to decide something
- * (currently: some services are duplicates) — every other outcome, success
+ * (currently: some services are duplicates) - every other outcome, success
  * or validation failure, redirects with a toast as before, so the returned
  * state stays narrowly about the duplicate decision.
  *
@@ -195,7 +195,7 @@ export interface CreateCaseState {
  */
 export async function createCase(_prevState: CreateCaseState | null, formData: FormData): Promise<CreateCaseState | null> {
   const session = await requireSession();
-  // Server Actions are directly-invocable POST endpoints — the CONTACT_CENTER/
+  // Server Actions are directly-invocable POST endpoints - the CONTACT_CENTER/
   // ADMIN gate on negotiations/new/page.tsx does NOT protect this action, so it
   // must enforce the same allowlist itself. Without it any authenticated role
   // (PROVIDER_TEAM, or a PENDING account replaying the action id) could create
@@ -218,7 +218,7 @@ export async function createCase(_prevState: CreateCaseState | null, formData: F
   const enrolleeName = data.enrolleeName?.trim() || "N/A";
 
   // Provider Management is still a single request (its "service" is really
-  // a set of categories, not a list of priced items) — only Tariff Update
+  // a set of categories, not a list of priced items) - only Tariff Update
   // submits one or more service lines.
   let serviceLines: z.infer<typeof serviceLineSchema>[] = [];
   if (!isProviderManagement) {
@@ -250,7 +250,7 @@ export async function createCase(_prevState: CreateCaseState | null, formData: F
     }
 
     // Checks every line and collects all of them rather than redirecting on
-    // the first hit — one already-negotiated service used to reject the
+    // the first hit - one already-negotiated service used to reject the
     // whole submission, forcing the agent to re-enter every other service
     // by hand. The agent gets the full list back and can drop just those.
     const duplicates: DuplicateServiceFlag[] = [];
@@ -279,7 +279,7 @@ export async function createCase(_prevState: CreateCaseState | null, formData: F
       const remaining = serviceLines.filter((l) => !duplicateKeys.has(lineKey(l)));
 
       // Only drops the flagged lines once the agent has actually seen the
-      // list and asked for it (the "skip these" submit button sets this) —
+      // list and asked for it (the "skip these" submit button sets this) -
       // never silently on the first attempt, since a duplicate is usually a
       // signal the agent picked the wrong service, not something to discard
       // without being told.
@@ -307,11 +307,11 @@ export async function createCase(_prevState: CreateCaseState | null, formData: F
       }
       const typedFile = file as File;
       if (typedFile.size > MAX_ATTACHMENT_BYTES) {
-        redirectWithToast("/negotiations/new", { type: "error", message: "Attachment is too large — the limit is 2MB." });
+        redirectWithToast("/negotiations/new", { type: "error", message: "Attachment is too large - the limit is 2MB." });
       }
 
       const buffer = Buffer.from(await typedFile.arrayBuffer());
-      // The browser-supplied name/MIME type are both attacker-controlled —
+      // The browser-supplied name/MIME type are both attacker-controlled -
       // only the file's actual leading bytes decide what it is, and only a
       // PDF/PNG/JPEG is accepted regardless of what the upload claimed to be.
       const detected = detectAllowedFileType(buffer);
@@ -327,7 +327,7 @@ export async function createCase(_prevState: CreateCaseState | null, formData: F
 
   // One notional "line" for Provider Management (its combined category
   // list stands in for requestedItem), or the real service lines for a
-  // Tariff Update — either way, every entry in this array becomes exactly
+  // Tariff Update - either way, every entry in this array becomes exactly
   // one NegotiationCase row, all sharing one sessionGroupId once there's
   // more than one.
   const linesToCreate = isProviderManagement
@@ -488,7 +488,7 @@ const updateStatusSchema = z.object({
   note: z.string().optional(),
   // Empty input means "no amount yet", not zero. Without the preprocess,
   // z.coerce.number() turns the form's empty string into 0, which then
-  // passed ?? and was stored — cases still being negotiated showed a
+  // passed ?? and was stored - cases still being negotiated showed a
   // "Final Agreed Amount: ₦0.00" nobody entered. An explicit 0 is rejected
   // too: a tariff agreed at ₦0 is never a real outcome.
   finalAgreedAmount: z.preprocess(
@@ -609,7 +609,7 @@ export async function updateCaseStatus(formData: FormData) {
       });
     } else {
       // Bundle in any other completed-but-unpushed services from the same
-      // visit (quick-repeat) and provider into one AddTarrifReviews call —
+      // visit (quick-repeat) and provider into one AddTarrifReviews call -
       // Action "Insert" upserts on Prognosis's side, so this covers both
       // updating an existing provider tariff line and adding a brand new
       // one, for one or several services at once, in a single request.
@@ -629,7 +629,7 @@ export async function updateCaseStatus(formData: FormData) {
       const userEmail = actingUser?.email ?? "";
 
       // Look up which tariff schedule is currently active for this provider
-      // so the push carries a real TariffScheduleName instead of "" — falls
+      // so the push carries a real TariffScheduleName instead of "" - falls
       // back to "" if the lookup fails, so a schedule-lookup hiccup never
       // blocks the actual price push.
       let tariffScheduleName = "";
@@ -640,7 +640,7 @@ export async function updateCaseStatus(formData: FormData) {
         console.error("[case-actions] tariff schedule lookup failed:", err);
       }
 
-      // Sent one at a time rather than as a single batched call — Prognosis
+      // Sent one at a time rather than as a single batched call - Prognosis
       // gives one pass/fail result for the whole TarifList, so a bad line
       // (e.g. a stale procedure code) would otherwise sink every other
       // service in the same visit. Pushing individually lets each service
@@ -665,7 +665,7 @@ export async function updateCaseStatus(formData: FormData) {
               endDate: c.tariffEndDate,
             },
           ]);
-          // "Success" from Prognosis proves nothing — verified 06/08/2026,
+          // "Success" from Prognosis proves nothing - verified 06/08/2026,
           // a push whose code didn't exactly match the provider's line key
           // (whitespace included) answered Success while landing on a
           // DIFFERENT catalog procedure, leaving the negotiated line
@@ -680,7 +680,7 @@ export async function updateCaseStatus(formData: FormData) {
 
           // Whether the end date can be actioned automatically. A brand-new
           // service has no old price to return to (currentTariff is 0), and
-          // pushing ₦0 could zero-rate it — those stay manual by design.
+          // pushing ₦0 could zero-rate it - those stay manual by design.
           const oldPrice = Number(c.currentTariff);
           const canScheduleRevert =
             !!c.tariffEndDate && c.requestType === "EXISTING_TARIFF_UPDATE" && oldPrice > 0;
@@ -691,12 +691,12 @@ export async function updateCaseStatus(formData: FormData) {
               userId: session.user.id,
               type: "NOTE",
               note: baseVerified
-                ? `Tariff review submitted to Prognosis: ${c.serviceCode} → ${c.finalAgreedAmount}. Tariff schedule: ${tariffScheduleName || "none found — sent blank"}. Confirmed: the new price appears on the provider's tariff.${
+                ? `Tariff review submitted to Prognosis: ${c.serviceCode} → ${c.finalAgreedAmount}. Tariff schedule: ${tariffScheduleName || "none found - sent blank"}. Confirmed: the new price appears on the provider's tariff.${
                     c.tariffEndDate && !canScheduleRevert
-                      ? ` Intended end date: ${c.tariffEndDate.toISOString().slice(0, 10)} — no previous price exists to revert to (new service or zero current tariff), so ending this price needs a manual decision when it falls due.`
+                      ? ` Intended end date: ${c.tariffEndDate.toISOString().slice(0, 10)} - no previous price exists to revert to (new service or zero current tariff), so ending this price needs a manual decision when it falls due.`
                       : ""
                   }`
-                : `Tariff review submitted to Prognosis: ${c.serviceCode} → ${c.finalAgreedAmount}. WARNING: Prognosis answered Success but the new price did NOT appear on this provider's tariff in its response — likely the procedure code doesn't exactly match the provider's line key upstream. Treat this price as NOT applied and escalate to the Prognosis team with procedure code "${c.serviceCode}" and provider ID ${c.providerId}.${
+                : `Tariff review submitted to Prognosis: ${c.serviceCode} → ${c.finalAgreedAmount}. WARNING: Prognosis answered Success but the new price did NOT appear on this provider's tariff in its response - likely the procedure code doesn't exactly match the provider's line key upstream. Treat this price as NOT applied and escalate to the Prognosis team with procedure code "${c.serviceCode}" and provider ID ${c.providerId}.${
                     c.tariffEndDate ? " Price reversion was not scheduled because the base price is unconfirmed." : ""
                   }`,
             },
@@ -715,7 +715,7 @@ export async function updateCaseStatus(formData: FormData) {
           // Try to set up the return-to-old-price in the same breath: push the
           // previous price future-dated to the end date. Prognosis silently
           // drops scheduling it doesn't support, so "Success" alone proves
-          // nothing — the row actually appearing in the response echo does.
+          // nothing - the row actually appearing in the response echo does.
           // If it doesn't appear, the case stays flagged for the manual path
           // (the Revert button / the revert-due sweep). Skipped entirely when
           // the base push itself couldn't be confirmed: scheduling a revert
@@ -750,7 +750,7 @@ export async function updateCaseStatus(formData: FormData) {
                     caseId: c.id,
                     userId: session.user.id,
                     type: "NOTE",
-                    note: `Price reversion scheduled in Prognosis: ${c.serviceCode} returns to ${oldPrice} on ${endDateStr} (verified in the push response — no further action needed).`,
+                    note: `Price reversion scheduled in Prognosis: ${c.serviceCode} returns to ${oldPrice} on ${endDateStr} (verified in the push response - no further action needed).`,
                   },
                 });
                 console.error(`[case-actions] scheduled reversion verified for ${c.serviceCode} on ${endDateStr}`);
@@ -763,7 +763,7 @@ export async function updateCaseStatus(formData: FormData) {
                     note: `Price reversion could NOT be scheduled: Prognosis accepted the future-dated push for ${c.serviceCode} but the ${endDateStr} row did not appear in its response, so it was likely discarded. Revert to ${oldPrice} manually when the end date falls due (button on this case, or the daily revert task).`,
                   },
                 });
-                console.error(`[case-actions] future-dated reversion not visible in echo for ${c.serviceCode} — flagged manual`);
+                console.error(`[case-actions] future-dated reversion not visible in echo for ${c.serviceCode} - flagged manual`);
               }
             } catch (revertErr) {
               const rMessage = revertErr instanceof Error ? revertErr.message : "Unknown error";
@@ -851,7 +851,7 @@ export async function updateCaseStatus(formData: FormData) {
  *
  * Refuses to run before the end date: Prognosis auto-closes the current
  * price the day a successor starts, so reverting early wouldn't "queue" the
- * old price — it would cut the agreed price short immediately.
+ * old price - it would cut the agreed price short immediately.
  */
 export async function revertTariffNow(formData: FormData) {
   const session = await requireSession();
@@ -880,7 +880,7 @@ export async function revertTariffNow(formData: FormData) {
   if (c.tariffEndDate.getTime() > Date.now()) {
     redirectWithToast(`/negotiations/${caseId}`, {
       type: "error",
-      message: `Not due yet — the agreed price runs until ${c.tariffEndDate.toISOString().slice(0, 10)}. Reverting now would cut it short.`,
+      message: `Not due yet - the agreed price runs until ${c.tariffEndDate.toISOString().slice(0, 10)}. Reverting now would cut it short.`,
     });
   }
 
@@ -923,7 +923,7 @@ export async function revertTariffNow(formData: FormData) {
     revalidatePath(`/negotiations/${caseId}`);
     redirectWithToast(`/negotiations/${caseId}`, { type: "success", message: `Price reverted to ${oldPrice}.` });
   } catch (err) {
-    // redirectWithToast works by throwing Next's redirect error — let it
+    // redirectWithToast works by throwing Next's redirect error - let it
     // through rather than reporting the success redirect as a failure.
     if (err && typeof err === "object" && "digest" in err) throw err;
     const message = err instanceof Error ? err.message : "Unknown error";
@@ -950,8 +950,8 @@ const cancelCaseSchema = z.object({
 /**
  * Cancels (disregards) a whole negotiation request, with a mandatory reason.
  *
- * This exists because service lines can only be removed down to the last one —
- * a request must always describe at least one service — so there was no way to
+ * This exists because service lines can only be removed down to the last one -
+ * a request must always describe at least one service - so there was no way to
  * dispose of a request that shouldn't proceed at all. Rather than allowing an
  * empty request, the whole thing is cancelled as a single explained act.
  *
@@ -998,7 +998,7 @@ export async function cancelCase(formData: FormData) {
 
   // Cancel every service in the request, not just the one that happened to be
   // open on screen. Each service is its own case row, so cancelling only this
-  // one would leave the siblings sitting in the queue — the exact
+  // one would leave the siblings sitting in the queue - the exact
   // one-at-a-time treadmill this action exists to replace.
   const groupRoot = existing.sessionGroupId ?? existing.id;
   const members = await prisma.negotiationCase.findMany({
@@ -1033,7 +1033,7 @@ export async function cancelCase(formData: FormData) {
               // Written into each service's own timeline as well as the
               // column, because the timeline is what the Contact Centre
               // actually reads on the case.
-              note: `Request cancelled — ${data.cancellationReason}`,
+              note: `Request cancelled - ${data.cancellationReason}`,
             },
           },
         },
@@ -1051,7 +1051,7 @@ export async function cancelCase(formData: FormData) {
     type: "success",
     message: skipped > 0
       ? `Cancelled ${serviceCount}. ${skipped} already-completed service${skipped === 1 ? " was" : "s were"} left as agreed. The Contact Centre can see your reason.`
-      : `Request cancelled — ${serviceCount} closed. The Contact Centre can see your reason on the case.`,
+      : `Request cancelled - ${serviceCount} closed. The Contact Centre can see your reason on the case.`,
   });
 }
 
@@ -1082,7 +1082,7 @@ interface DispatchNotificationsParams {
   providerName: string;
   enrolleeName: string;
   enrolleeId: string | null;
-  /** Every service logged in this submission — the member is told about the
+  /** Every service logged in this submission - the member is told about the
    * whole visit in one message rather than getting one per service. */
   requestedItems: string[];
   serviceType: ServiceType;
@@ -1098,7 +1098,7 @@ interface DispatchNotificationsParams {
 /**
  * Sends the member email/SMS for a submission and records a
  * MemberNotification per channel. Called exactly once per submission from
- * createCase() — member comms only go out at the moment Contact Centre logs
+ * createCase() - member comms only go out at the moment Contact Centre logs
  * the request, never on later status changes or any other action, and never
  * once per service line.
  */
@@ -1108,7 +1108,7 @@ async function dispatchMemberNotifications(params: DispatchNotificationsParams):
   // Strip CR/LF before the free-typed provider name enters an email subject:
   // if Prognosis's mailer composes the SMTP Subject header naively, an embedded
   // newline could inject additional headers (Bcc, etc.). Cheap, closes it
-  // regardless of upstream behaviour. (The body needs no equivalent — HTML-
+  // regardless of upstream behaviour. (The body needs no equivalent - HTML-
   // escaped in the template, and the SMS is a header-less plaintext channel.)
   const safeProviderName = params.providerName.replace(/[\r\n]+/g, " ").trim();
   const subject = `Update on your care at ${safeProviderName}`;

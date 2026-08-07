@@ -19,7 +19,7 @@ import { PrintTrigger } from "./PrintTrigger";
  *
  *  - Every browser and OS already has a well-tested "Save as PDF", so this
  *    needs no extra dependency, no bundled fonts, and no headless browser on
- *    the server — the last of which would be the heaviest thing in this app by
+ *    the server - the last of which would be the heaviest thing in this app by
  *    a wide margin, for one button.
  *  - The output uses the same numbers and the same formatting helpers as the
  *    screen, so the PDF can't drift away from what the page shows.
@@ -65,7 +65,7 @@ export default async function ReportsPrintPage(props: {
       {/* Screen-only bar; print:hidden keeps it out of the PDF. */}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-line bg-surface-muted px-4 py-3 print:hidden">
         <p className="text-[12.5px] text-navy-600">
-          Your browser&apos;s print dialog should be open — choose <strong>Save as PDF</strong> as the destination.
+          Your browser&apos;s print dialog should be open - choose <strong>Save as PDF</strong> as the destination.
         </p>
         <a href="/reports" className="text-[12.5px] font-semibold text-accent hover:underline">
           ← Back to Reports
@@ -97,9 +97,9 @@ export default async function ReportsPrintPage(props: {
       <section className="mb-5 grid grid-cols-4 gap-3">
         {[
           { label: "Total Extra Requested", value: formatCurrency(totalExtra) },
-          { label: "Avg. Log → First Action", value: delay.avgFirstActionMs !== null ? formatDuration(delay.avgFirstActionMs) : "—" },
-          { label: "Avg. First Action → Completion", value: delay.avgNegotiationMs !== null ? formatDuration(delay.avgNegotiationMs) : "—" },
-          { label: "Avg. Log → Completion", value: delay.avgTotalMs !== null ? formatDuration(delay.avgTotalMs) : "—" },
+          { label: "Avg. Log → First Action", value: delay.avgFirstActionMs !== null ? formatDuration(delay.avgFirstActionMs) : "-" },
+          { label: "Avg. First Action → Completion", value: delay.avgNegotiationMs !== null ? formatDuration(delay.avgNegotiationMs) : "-" },
+          { label: "Avg. Log → Completion", value: delay.avgTotalMs !== null ? formatDuration(delay.avgTotalMs) : "-" },
         ].map((s) => (
           <div key={s.label} className="rounded border border-slate-300 px-2.5 py-2">
             <p className="text-[8px] font-bold uppercase tracking-wide text-slate-500">{s.label}</p>
@@ -207,7 +207,7 @@ export default async function ReportsPrintPage(props: {
       )}
 
       <footer className="mt-6 border-t border-slate-300 pt-2 text-[8.5px] text-slate-500">
-        Leadway Health · Provider Tariff Negotiation Tracker · Confidential — authorised personnel only. All access is
+        Leadway Health · Provider Tariff Negotiation Tracker · Confidential - authorised personnel only. All access is
         logged and monitored.
       </footer>
     </div>

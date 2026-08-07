@@ -20,7 +20,7 @@ export interface PmCategoryCount {
   count: number;
 }
 
-/** Counts how many PROVIDER_MANAGEMENT cases include each category — a
+/** Counts how many PROVIDER_MANAGEMENT cases include each category - a
  * case with multiple categories counts once per category, not once
  * overall, so the breakdown reflects volume per issue type. */
 export function pmCategoryCounts(cases: ReportCase[]): PmCategoryCount[] {
@@ -183,7 +183,7 @@ export interface CaseExportColumn {
 }
 
 /** Registry driving the Reports page's column-picker checkboxes and the
- * CSV export route — each column here is one checkbox, in this order, and
+ * CSV export route - each column here is one checkbox, in this order, and
  * `key` is the query-param value the checkbox submits. Add a column here
  * and it shows up in both places automatically. */
 export const CASE_EXPORT_COLUMNS: CaseExportColumn[] = [

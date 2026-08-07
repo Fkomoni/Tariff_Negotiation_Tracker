@@ -23,7 +23,7 @@ const ENVELOPE_KEYS = ["data", "Data", "result", "Result"];
  * Prognosis payloads routinely carry enrollee PII and banking details
  * (Member_EmailAddress_One, Member_Phone_One, Member_BankName,
  * Member_AccountNumber, Client_BankAccountNumber, Member_DateOfBirth,
- * Member_Address, etc.) — logging those verbatim means anyone with
+ * Member_Address, etc.) - logging those verbatim means anyone with
  * dashboard/log access to this service (a much broader audience than the
  * app's own role-based access controls) can read them in plaintext. Matches
  * by key-name pattern rather than an exact field allowlist, since Prognosis
@@ -36,19 +36,19 @@ const SENSITIVE_KEY_PATTERN =
 // Keys whose VALUES are member-facing content or contact details that the
 // field-name pattern above doesn't catch. The notification/SMS payloads carry
 // the login OTP and message bodies inside `MessageBody`/`Message`, the
-// recipient phone inside `To`, and member context inside `Subject` — none of
-// which match a "phone/email/…" key name, so without this the second factor
+// recipient phone inside `To`, and member context inside `Subject` - none of
+// which match a "phone/email/..." key name, so without this the second factor
 // and member PII reach the logs verbatim (the whole point of redaction).
 // `response` is included because the SMS gateway echoes the recipient number
 // and an internal gateway URL inside a stringified `response` field on the
-// SendSms reply — a value the recursive redactor can't reach (it's an opaque
+// SendSms reply - a value the recursive redactor can't reach (it's an opaque
 // string, not a parsed object). Redaction is log-only, so over-covering here
 // costs only log verbosity, never behaviour.
 const SENSITIVE_CONTENT_KEY_PATTERN = /^(messagebody|message|to|subject|body|cc|bcc|response)$/i;
 
 /** Strips the query string before a request path is logged. Enrollee lookups
- * put the member's email/phone/enrolleeID in the query (?email=…&mobileno=…&
- * enrolleeid=…), and every request/response/error log prints the path — so the
+ * put the member's email/phone/enrolleeID in the query (?email=...&mobileno=...&
+ * enrolleeid=...), and every request/response/error log prints the path - so the
  * query is dropped here to keep that PII out of the logs while still recording
  * which endpoint was hit. */
 function logPath(path: string): string {
@@ -72,7 +72,7 @@ function redactSensitive(value: unknown, depth = 0): unknown {
   return value;
 }
 
-/** Best-effort redacted, length-capped stringification for logging — parses
+/** Best-effort redacted, length-capped stringification for logging - parses
  * JSON (whether given as a string or an already-parsed value), redacts
  * sensitive keys, then re-stringifies. Falls back to a safe placeholder if
  * the input isn't parseable JSON, rather than ever logging it raw. */
@@ -244,7 +244,7 @@ export async function prognosisLogin(username: string, password: string): Promis
     console.error(`[prognosis] network error on service-account login after ${elapsed}ms (base ${PROGNOSIS_BASE})`, err);
     // Unreachable, not rejected. This used to raise PrognosisAuthError, which
     // made an upstream outage look like bad service-account credentials in the
-    // logs — and sent serviceRequest into its pointless refresh-and-retry on a
+    // logs - and sent serviceRequest into its pointless refresh-and-retry on a
     // host that simply wasn't answering.
     throw new PrognosisUnavailableError(
       `Could not reach Prognosis at ${PROGNOSIS_BASE} after ${elapsed}ms: ${err instanceof Error ? err.message : String(err)}`
@@ -270,7 +270,7 @@ const TOKEN_TTL_MS = 5 * 60 * 60 * 1000;
 
 /**
  * Every outbound Prognosis call needs a deadline. Without one, `fetch` waits
- * on the OS TCP timeout — minutes — so a Prognosis instance that accepts the
+ * on the OS TCP timeout - minutes - so a Prognosis instance that accepts the
  * connection and then stalls ties up a server worker for the whole time and
  * leaves the user's page spinning with no error. Auth gets the tighter budget
  * because someone is watching a sign-in form; data calls get more room since
@@ -329,7 +329,7 @@ async function serviceRequest(
     } catch (err) {
       // Log the path and how long we actually waited. The old message named
       // only the base URL, which told us a call had timed out but not which
-      // endpoint or whether it died instantly or sat at the full deadline —
+      // endpoint or whether it died instantly or sat at the full deadline -
       // the two point at very different causes.
       const elapsed = Date.now() - startedAt;
       console.error(`[prognosis] network error on ${method} ${path} after ${elapsed}ms`, err);
@@ -384,7 +384,7 @@ async function servicePost(path: string, body: unknown): Promise<void> {
  * AddTarrifReviews) return HTTP 200 even on failure, wrapping the real
  * outcome in the JSON body instead: {"status":500,"Message":"...",
  * "result":null}. serviceRequest only checks the HTTP status, so a body-level
- * failure would otherwise be silently treated as success — this throws so
+ * failure would otherwise be silently treated as success - this throws so
  * the caller's existing error handling (or catch block) takes over instead.
  */
 function throwIfProgosisBodyFailed(payload: Record<string, unknown> | null, path: string): void {
@@ -478,7 +478,7 @@ function readSmsOutcome(payload: Record<string, unknown> | null): { ok: boolean;
         innerError = typeof inner.errorMsg === "string" ? inner.errorMsg.trim() : null;
       }
     } catch {
-      // Unrecognized shape — fall through to the flags we do understand.
+      // Unrecognized shape - fall through to the flags we do understand.
     }
   }
 
@@ -494,7 +494,7 @@ function readSmsOutcome(payload: Record<string, unknown> | null): { ok: boolean;
  * Throws if the gateway reports a failure, so callers record it as failed
  * rather than silently logging it as sent. Note what a successful return does
  * and doesn't mean: the gateway accepted the message and issued a ticket. It
- * is not a delivery receipt — whether the handset actually received it happens
+ * is not a delivery receipt - whether the handset actually received it happens
  * downstream of Prognosis and isn't visible in this response.
  */
 export async function sendSms(params: SendSmsParams): Promise<SendSmsResult> {
@@ -503,7 +503,7 @@ export async function sendSms(params: SendSmsParams): Promise<SendSmsResult> {
   // registered there). Uses the one confirmed-working combination we have (the
   // Drug Delivery OTP flow) until Provider Team registers a dedicated Source
   // for this app. Confirmed in production that TemplateId 5 does not override
-  // the custom Message body — the message goes out as written.
+  // the custom Message body - the message goes out as written.
   const payload = await serviceRequest("POST", "/api/Sms/SendSms", {
     To: params.to,
     Message: params.message,
@@ -538,7 +538,7 @@ export interface TariffReviewItem {
   effectiveDate: Date;
   /** Optional intended lapse date for the price, sent as EndDate. Verified
    * against production (05/08/2026): Prognosis accepts the push but ignores
-   * this field — a price stays active until a successor price starts. Sent
+   * this field - a price stays active until a successor price starts. Sent
    * anyway so the intent reaches Prognosis if they ever start honouring it;
    * the app-side reminder on the case is what actually surfaces the date. */
   endDate?: Date | null;
@@ -546,18 +546,18 @@ export interface TariffReviewItem {
 
 /**
  * Submits one or more tariff line changes to Prognosis in a single call.
- * Action "Insert" upserts on Prognosis's side — updates the price if the
+ * Action "Insert" upserts on Prognosis's side - updates the price if the
  * procedure already exists on this provider's tariff, or adds it if it
- * doesn't — so it covers both "update an existing price" and "add a new
+ * doesn't - so it covers both "update an existing price" and "add a new
  * service to this provider" through the same call.
  *
  * Confirmed against real production traffic: Prognosis returns HTTP 200
  * even when the push is rejected, with the real outcome in the body (e.g.
- * {"status":500,"Message":"Invalid provider id!",...}) — see
+ * {"status":500,"Message":"Invalid provider id!",...}) - see
  * throwIfProgosisBodyFailed. ProcedureCode is echoed back in that error
  * body, confirming that field name is correct.
  */
-/** dd/MM/yyyy from a date's UTC parts — the format tariff rows in the
+/** dd/MM/yyyy from a date's UTC parts - the format tariff rows in the
  * AddTarrifReviews response echo use for startdate/enddate. */
 function formatDmyUtc(date: Date): string {
   const d = String(date.getUTCDate()).padStart(2, "0");
@@ -571,7 +571,7 @@ function formatDmyUtc(date: Date): string {
  * tariff rows after the write, so a future-dated push can be verified
  * immediately: Prognosis silently discards payload fields and scheduling it
  * doesn't support (verified 05/08/2026 with EndDate), so "the response said
- * Success" proves nothing by itself — only the row actually appearing does.
+ * Success" proves nothing by itself - only the row actually appearing does.
  *
  * A false negative here (row accepted but not echoed) is survivable: the
  * case stays flagged as needing manual reversion, and re-pushing the same
@@ -618,7 +618,7 @@ export async function addTariffReviews(items: TariffReviewItem[]): Promise<unkno
 /**
  * Looks up a provider's active tariff schedules and returns their name(s)
  * as a single string, so addTariffReviews can populate TariffScheduleName
- * instead of sending "". Prognosis returns one entry per active schedule —
+ * instead of sending "". Prognosis returns one entry per active schedule -
  * if a provider has more than one, all their names are joined with ", "
  * rather than picking just one, since TariffScheduleName is a single field
  * on the AddTarrifReviews payload.
@@ -626,7 +626,7 @@ export async function addTariffReviews(items: TariffReviewItem[]): Promise<unkno
  * Prognosis's schema for this endpoint reuses the same shape for the
  * request filter and each response record (Action/providerid/UserEmail/
  * Skip/Take on the way in; TariffInUse/DefaultCategory/etc. per schedule on
- * the way out) — field names are a best guess from the documented schema
+ * the way out) - field names are a best guess from the documented schema
  * pending a real example response, so this stays defensive and logs the
  * raw payload unconditionally (via serviceRequest) so the real shape shows
  * up in production logs the first time this runs.
@@ -653,7 +653,7 @@ export async function getActiveTariffScheduleName(providerId: number, userEmail:
 
   const p = (payload && typeof payload === "object" ? payload : {}) as Record<string, unknown>;
   // Confirmed against a real response: "result" holds the schedule array,
-  // while "TariffSchedule" is an unrelated field that's usually "" — an
+  // while "TariffSchedule" is an unrelated field that's usually "" - an
   // empty string, not null/undefined, so a `??` chain checking it first
   // would stop there and never reach "result". Picking the first candidate
   // that's actually an array avoids that trap.
@@ -687,7 +687,7 @@ export interface ProviderRecord {
 }
 
 /**
- * Milliseconds until the next UTC midnight — used so cached lookup lists
+ * Milliseconds until the next UTC midnight - used so cached lookup lists
  * (providers, treatments, per-provider tariffs) refresh once a day instead
  * of on a rolling multi-hour timer, cutting down repeat full-list fetches
  * from Prognosis during the day.
@@ -787,13 +787,13 @@ function firstString(raw: Record<string, unknown>, keys: string[]): string | nul
 }
 
 /**
- * Like firstString but preserves the value byte-for-byte — no trim.
+ * Like firstString but preserves the value byte-for-byte - no trim.
  *
  * Tariff line codes are join keys on Prognosis's side, and real production
  * lines carry leading whitespace that distinguishes them from identical-
  * looking codes belonging to OTHER procedures in the master catalog.
  * Verified 06/08/2026 on provider 8935: its PROSTATE DEFENCE line is keyed
- * "\t60600067A" (tab prefix), while clean "60600067A" is PSA QUANTITATIVE —
+ * "\t60600067A" (tab prefix), while clean "60600067A" is PSA QUANTITATIVE -
  * trimming the code rewired a PROSTATE DEFENCE price push onto PSA
  * QUANTITATIVE, with Prognosis answering Success throughout.
  */
@@ -930,7 +930,7 @@ async function fetchEnrolleeEndpoint(path: string): Promise<EnrolleeRecord[]> {
 }
 
 /** Encodes each side of the enrollee ID's literal "/" separately, then rejoins
- * with a real slash — Prognosis needs the slash unencoded (e.g. 21000645/0),
+ * with a real slash - Prognosis needs the slash unencoded (e.g. 21000645/0),
  * but the digit groups around it are still percent-encoded so a caller that one
  * day passes an un-validated id can't inject extra query params. (Callers today
  * only reach here via classifyEnrolleeQuery's digits-and-one-slash regex, so
@@ -980,7 +980,7 @@ async function searchByPhone(compact: string): Promise<EnrolleeRecord[]> {
 const MEMBERSHIP_ROOT_FANOUT_CONCURRENCY = 5;
 
 /** A bare 6-10 digit number with no "/" is a membership root, not a full
- * enrollee ID — the principal is {root}/0 and dependents are {root}/1..20.
+ * enrollee ID - the principal is {root}/0 and dependents are {root}/1..20.
  * Fetched in small concurrent batches (not all 21 at once) so one search
  * request doesn't disproportionately amplify load against Prognosis. */
 async function searchByMembershipRoot(root: string): Promise<EnrolleeRecord[]> {
@@ -995,13 +995,13 @@ async function searchByMembershipRoot(root: string): Promise<EnrolleeRecord[]> {
 
 /**
  * Searches Prognosis for an enrollee by whichever identifier the query looks
- * like — email, enrollee ID, phone, a bare membership number (fans out to
- * principal + dependents), or name — dispatching to the matching
+ * like - email, enrollee ID, phone, a bare membership number (fans out to
+ * principal + dependents), or name - dispatching to the matching
  * GetEnrolleeBioDataBy* endpoint(s).
  */
 export async function searchEnrollees(query: string): Promise<EnrolleeRecord[]> {
   const classified = classifyEnrolleeQuery(query);
-  // Deliberately not logging the raw query or classified.value here — it's
+  // Deliberately not logging the raw query or classified.value here - it's
   // routinely an enrollee's actual email or phone number as typed by staff.
   // The type alone is enough to debug which lookup branch a search took.
   console.error("[prognosis] enrollee search classified as", classified?.type ?? "unrecognized", `(query length ${query.length})`);
@@ -1043,7 +1043,7 @@ function toNumberOrNull(v: unknown): number | null {
 }
 
 /** Prognosis dates on this endpoint are "DD/MM/YYYY" (confirmed against
- * real production traffic — e.g. a Startdate of "13/07/2026" logged the
+ * real production traffic - e.g. a Startdate of "13/07/2026" logged the
  * week of 19 July 2026), not the "MM/DD/YYYY" that JS's own Date parsing
  * would otherwise guess for a slash-separated string. */
 function parseDmyDate(value: string | null): Date | null {
@@ -1060,7 +1060,7 @@ const TARIFF_ENVELOPE_KEYS = ["tariff", "Tariff", "items", "Items", "data", "Dat
 function extractTariffItems(payload: unknown): TariffItem[] {
   if (!payload) return [];
 
-  // Unwrap nested envelopes — Prognosis wraps this one two levels deep:
+  // Unwrap nested envelopes - Prognosis wraps this one two levels deep:
   // { data: { provider_code, provider_name, tariff: [...] } }.
   let raw: unknown = payload;
   for (let depth = 0; depth < 4 && !Array.isArray(raw); depth++) {
@@ -1075,12 +1075,12 @@ function extractTariffItems(payload: unknown): TariffItem[] {
   const todayUtc = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()));
 
   // Prognosis keeps every historical price for a procedure on this
-  // provider, not just the current one — the same ProcedureCode shows up
+  // provider, not just the current one - the same ProcedureCode shows up
   // more than once with different Startdate/EndDate ranges. A blank EndDate
   // means "still in effect"; a populated one that's already passed means
   // that price lapsed. Among whatever's still in effect for a given
   // procedure, only the one with the latest Startdate is the actual
-  // current price — Prognosis doesn't delete a line the day a newer one
+  // current price - Prognosis doesn't delete a line the day a newer one
   // starts, so both can briefly coexist as "no end date yet".
   const latestByCode = new Map<string, { item: TariffItem; startDate: Date | null }>();
 
@@ -1104,7 +1104,7 @@ function extractTariffItems(payload: unknown): TariffItem[] {
     const startDate = parseDmyDate(firstString(r, ["Startdate", "StartDate"]));
     // A row that hasn't started yet isn't the current price. These exist now
     // that completing a case with an end date schedules the return-to-old-
-    // price as a future-dated row — without this check, "latest start date
+    // price as a future-dated row - without this check, "latest start date
     // wins" below would show that future reversion price as today's tariff
     // for the whole window between completion and the end date.
     if (startDate && startDate.getTime() > todayUtc.getTime()) continue;
@@ -1132,7 +1132,7 @@ function extractTariffItems(payload: unknown): TariffItem[] {
 
 /**
  * Returns the untouched GetProviderTariff response for one provider, bypassing
- * both the cache and extractTariffItems's field mapping — for inspecting the
+ * both the cache and extractTariffItems's field mapping - for inspecting the
  * real shape of a tariff line (e.g. confirming the actual end-date field
  * name) rather than only whatever fields extractTariffItems already knows to
  * pull out.
@@ -1152,7 +1152,7 @@ async function fetchProviderTariffFromPrognosis(providerCode: string): Promise<T
     );
     const items = extractTariffItems(payload);
     // Surfaces whether this endpoint is silently paginating like GetProviders
-    // was — if totalRecord/totalPages show up here and total exceeds
+    // was - if totalRecord/totalPages show up here and total exceeds
     // items.length, this needs the same "ask for everything" fix.
     const p = (payload && typeof payload === "object" ? payload : {}) as Record<string, unknown>;
     const meta = { pageSize: p.pageSize, totalRecord: p.totalRecord, totalPages: p.totalPages, currentPage: p.currentPage };
@@ -1222,7 +1222,7 @@ function extractTreatmentRecords(payload: unknown): TreatmentRecord[] {
 
   // Confirmed against a real production response: top-level shape is
   // {"status":200,"result":[{"tariff_id":155334.0,"tariff_code":" J0110259C",
-  // "tariff_desc":"CO AMOXICLAV 500MG",...}]} — tariff_code/tariff_desc/
+  // "tariff_desc":"CO AMOXICLAV 500MG",...}]} - tariff_code/tariff_desc/
   // tariff_id are the real fields (already first in each list below), the
   // rest are fallbacks kept in case a different Prognosis deployment/version
   // ever uses different naming.
@@ -1235,7 +1235,7 @@ function extractTreatmentRecords(payload: unknown): TreatmentRecord[] {
     const name = firstString(r, ["tariff_desc", "ProcedureName", "ProcedureDescr", "TreatmentName", "TreatmentDescr", "Name", "Description"]);
     if (!procedureId && !name) continue;
 
-    // tariff_id arrives as a float (e.g. 166572.0) in Prognosis's JSON —
+    // tariff_id arrives as a float (e.g. 166572.0) in Prognosis's JSON -
     // Number() naturally normalizes that to a clean integer (166572) since
     // JS doesn't preserve the trailing ".0" the way the source JSON does.
     const tariffId = toNumberOrNull(r.tariff_id ?? r.TariffId ?? r.tariffId);
@@ -1246,14 +1246,14 @@ function extractTreatmentRecords(payload: unknown): TreatmentRecord[] {
 }
 
 /**
- * Raw fetch of Prognosis's full master treatment/procedure catalog — no
+ * Raw fetch of Prognosis's full master treatment/procedure catalog - no
  * caching here. src/lib/procedure-catalog.ts builds the actual cached,
  * database-backed search on top of this; this file stays free of any
  * database import on purpose, since it's reachable from middleware.ts (via
  * auth.ts) which runs in the Edge runtime, where Prisma cannot execute.
  */
 export async function fetchTreatmentsFromPrognosis(): Promise<TreatmentRecord[]> {
-  // GET, per Prognosis's documented contract for this endpoint — a prior
+  // GET, per Prognosis's documented contract for this endpoint - a prior
   // revision switched this to POST off a single 405 in production ("doesn't
   // support method 'GET'"), but that was wrong: the endpoint was confirmed
   // working on GET before that change, and switching it to POST is what
@@ -1262,7 +1262,7 @@ export async function fetchTreatmentsFromPrognosis(): Promise<TreatmentRecord[]>
   const payload = await serviceRequest("GET", "/api/ListValues/GetAllProcedures");
   const records = extractTreatmentRecords(payload);
   // Surfaces whether this endpoint silently paginates like GetProviders
-  // did — if totalRecord/totalPages show up and total exceeds the raw
+  // did - if totalRecord/totalPages show up and total exceeds the raw
   // entry count logged in extractTreatmentRecords, this needs the same
   // "ask for everything" fix GetProviders got.
   const p = (payload && typeof payload === "object" ? payload : {}) as Record<string, unknown>;
@@ -1271,7 +1271,7 @@ export async function fetchTreatmentsFromPrognosis(): Promise<TreatmentRecord[]>
   return records;
 }
 
-/** Clears the in-memory provider cache and re-fetches, for "Sync Now" —
+/** Clears the in-memory provider cache and re-fetches, for "Sync Now" -
  * see src/lib/procedure-catalog.ts's resyncLookupCaches(). */
 export async function refreshProviders(): Promise<number> {
   cachedProviders = null;

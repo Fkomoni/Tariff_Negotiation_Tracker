@@ -73,7 +73,7 @@ export function ProviderManagementCategoryFields({
             className="block w-full text-[12.5px] text-ink-700 file:mr-3 file:rounded-md file:border-0 file:bg-ink-900 file:px-3 file:py-1.5 file:text-[12px] file:font-semibold file:text-white"
           />
           <span className="mt-1 block text-[11px] text-ink-400">
-            Required for a bank information update — PDF or image of the provider's bank letterhead.
+            Required for a bank information update - PDF or image of the provider's bank letterhead.
           </span>
         </div>
       )}
@@ -87,7 +87,7 @@ export function ProviderManagementCategoryFields({
           required
           rows={4}
           className={inputClass}
-          placeholder="Paste or type everything Provider Management needs to action this — dates, reference numbers, who to contact, etc."
+          placeholder="Paste or type everything Provider Management needs to action this - dates, reference numbers, who to contact, etc."
         />
       </label>
     </div>

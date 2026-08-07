@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { fetchTreatmentsFromPrognosis, refreshProviders, msUntilNextUtcMidnight, type TreatmentRecord } from "@/lib/prognosis";
 
 // This module is the only place that combines Prisma with Prognosis lookup
-// data — kept separate from prognosis.ts on purpose, since prognosis.ts is
+// data - kept separate from prognosis.ts on purpose, since prognosis.ts is
 // reachable from middleware.ts (via auth.ts) which runs in the Edge
 // runtime, where Prisma cannot execute. Nothing here should be imported
 // from auth.ts or middleware.ts.
@@ -17,7 +17,7 @@ function todayUtcMidnight(): Date {
 /** Wholesale-replaces the persisted procedure catalog and records the sync
  * time, so the full list survives app restarts/redeploys instead of living
  * only in memory. Prognosis's raw catalog has been observed to contain
- * duplicate procedure codes (same tariff_code appearing more than once) —
+ * duplicate procedure codes (same tariff_code appearing more than once) -
  * skipDuplicates keeps one of each instead of the whole persist (and every
  * search behind it) failing on the unique constraint. */
 async function persistTreatments(records: TreatmentRecord[]): Promise<void> {
@@ -39,7 +39,7 @@ async function persistTreatments(records: TreatmentRecord[]): Promise<void> {
   }
 }
 
-/** Returns the persisted catalog if it was synced today (UTC), else null —
+/** Returns the persisted catalog if it was synced today (UTC), else null -
  * meaning the caller should fetch fresh from Prognosis and persist. */
 async function loadTreatmentsFromDbIfFresh(): Promise<TreatmentRecord[] | null> {
   const sync = await prisma.lookupSync.findUnique({ where: { key: TREATMENTS_SYNC_KEY } });
@@ -62,7 +62,7 @@ let inFlightTreatmentsFetch: Promise<TreatmentRecord[]> | null = null;
 /**
  * Returns Prognosis's full master treatment/procedure catalog. Backed by a
  * database table (ProcedureCatalogEntry), not just an in-memory cache, so
- * the full list survives app restarts/redeploys — Render can wipe an
+ * the full list survives app restarts/redeploys - Render can wipe an
  * in-memory-only cache on every deploy, forcing a slow full re-fetch on
  * the first search after each one. Refreshes once a day (UTC midnight), or
  * immediately via resyncLookupCaches() ("Sync Now").
@@ -92,7 +92,7 @@ export interface TreatmentSearchResult {
 
 /**
  * A generic word like "consultation" can match hundreds of catalog
- * entries — silently hard-capping at a small limit meant real matches
+ * entries - silently hard-capping at a small limit meant real matches
  * (e.g. "Cardiothoracic Surgeon Consultation") could be cut off depending
  * on the catalog's arbitrary original ordering. Matches are now sorted
  * alphabetically before slicing (so the same subset shows consistently
@@ -115,7 +115,7 @@ export async function searchTreatments(query: string, limit = 100): Promise<Trea
  * treatment catalog instead of waiting for the next midnight refresh, for
  * when Prognosis's underlying data changes mid-day. Re-fetches eagerly
  * (not just clears) so the cache is already warm by the time anyone
- * actually searches — the sync itself pays the full-list fetch cost, not
+ * actually searches - the sync itself pays the full-list fetch cost, not
  * the next Contact Centre search.
  */
 export async function resyncLookupCaches(): Promise<{ providers: number; treatments: number }> {

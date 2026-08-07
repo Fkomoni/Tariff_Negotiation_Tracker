@@ -4,7 +4,7 @@ export type ToastType = "success" | "error";
 
 /**
  * The one mechanism every mutating Server Action in this app uses to report
- * an outcome back to the user — appends a standardized `toast`/`toastMsg`
+ * an outcome back to the user - appends a standardized `toast`/`toastMsg`
  * query param and redirects, read and displayed by <ToastHost/> (mounted
  * once in the (app) layout). Replaces the previous copy-pasted
  * `?error=`/`?synced=`-style params that every page hand-rolled its own

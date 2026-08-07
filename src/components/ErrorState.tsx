@@ -5,7 +5,7 @@ import { AlertIcon } from "@/components/icons";
 /**
  * Shared visual for every error.tsx boundary in this app. Next.js requires
  * one per segment that wants to catch its own errors, but there's no
- * reason to hand-roll the markup twice — see (app)/error.tsx and the root
+ * reason to hand-roll the markup twice - see (app)/error.tsx and the root
  * app/error.tsx, which both just render this with a different homeHref.
  */
 export function ErrorState({ reset, homeHref }: { reset: () => void; homeHref: string }) {
@@ -17,7 +17,7 @@ export function ErrorState({ reset, homeHref }: { reset: () => void; homeHref: s
         </div>
         <h1 className="mt-4 text-[17px] font-bold text-ink-900">Something went wrong</h1>
         <p className="mt-2 text-[13px] leading-relaxed text-ink-500">
-          An unexpected error occurred. Anything you already saved is unaffected — try again, or head back.
+          An unexpected error occurred. Anything you already saved is unaffected - try again, or head back.
         </p>
         <div className="mt-6 flex items-center justify-center gap-3">
           <button

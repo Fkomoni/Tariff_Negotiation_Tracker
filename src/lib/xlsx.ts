@@ -31,7 +31,7 @@ export async function buildWorkbook(sheets: Sheet[], meta: { title: string; desc
     // Excel rejects / \ ? * [ ] : in sheet names and caps them at 31 chars.
     const ws = wb.addWorksheet(sheet.name.replace(/[/\\?*[\]:]/g, "-").slice(0, 31));
 
-    // A downloaded file should say what it covers — without this, a filtered
+    // A downloaded file should say what it covers - without this, a filtered
     // export is indistinguishable from a full one once it's off the screen.
     const titleRow = ws.addRow([meta.title]);
     titleRow.font = { bold: true, size: 13 };

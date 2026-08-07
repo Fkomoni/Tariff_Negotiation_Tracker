@@ -30,7 +30,7 @@ export default async function ConfigurationPage() {
       <div className="flex-1 space-y-4 px-8 py-8">
         <Card className="border-brand-100 bg-brand-50/40 px-5 py-3">
           <p className="text-[12.5px] text-brand-800">
-            Role changes take effect the next time that person signs in — ask them to sign out and back
+            Role changes take effect the next time that person signs in - ask them to sign out and back
             in after you update their role.
           </p>
         </Card>
@@ -44,7 +44,7 @@ export default async function ConfigurationPage() {
             </p>
           </div>
           <form action={syncPrognosisLookups}>
-            <SubmitButton variant="secondary" className="whitespace-nowrap px-4 py-2" pendingLabel="Syncing…">
+            <SubmitButton variant="secondary" className="whitespace-nowrap px-4 py-2" pendingLabel="Syncing...">
               Sync Now
             </SubmitButton>
           </form>
@@ -70,7 +70,7 @@ export default async function ConfigurationPage() {
                 ))}
               </select>
             </Field>
-            <SubmitButton pendingLabel="Adding…">Add</SubmitButton>
+            <SubmitButton pendingLabel="Adding...">Add</SubmitButton>
           </form>
         </Card>
 
@@ -91,7 +91,7 @@ export default async function ConfigurationPage() {
                 {users.map((u) => (
                   <tr key={u.id}>
                     <td className="px-5 py-3 font-semibold text-ink-900">{u.prognosisUsername}</td>
-                    <td className="px-5 py-3 text-ink-500">{u.lastLoginAt ? formatDateTime(u.createdAt) : "Not yet — pre-provisioned"}</td>
+                    <td className="px-5 py-3 text-ink-500">{u.lastLoginAt ? formatDateTime(u.createdAt) : "Not yet - pre-provisioned"}</td>
                     <td className="px-5 py-3 text-ink-500">{u.lastLoginAt ? formatDateTime(u.lastLoginAt) : "Never signed in"}</td>
                     <td className="px-5 py-3">
                       <form action={assignRole} className="flex items-center gap-2">
@@ -103,7 +103,7 @@ export default async function ConfigurationPage() {
                             </option>
                           ))}
                         </select>
-                        <SubmitButton variant="secondary" className="px-3 py-1.5" pendingLabel="Saving…">
+                        <SubmitButton variant="secondary" className="px-3 py-1.5" pendingLabel="Saving...">
                           Save
                         </SubmitButton>
                       </form>
@@ -115,7 +115,7 @@ export default async function ConfigurationPage() {
                           <SubmitButton
                             variant="ghost"
                             className="px-2 py-1.5 text-brand-600 hover:bg-brand-50"
-                            pendingLabel="Removing…"
+                            pendingLabel="Removing..."
                             confirmMessage={`Remove ${u.prognosisUsername}'s account? This can't be undone. It will fail if they have existing cases, updates, or notifications on record.`}
                           >
                             Delete

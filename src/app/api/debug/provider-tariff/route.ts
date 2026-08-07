@@ -6,12 +6,12 @@ import { debugFetchProviderTariff } from "@/lib/prognosis";
  * Admin-only inspection route: returns the untouched GetProviderTariff
  * response from Prognosis for one provider, optionally narrowed to entries
  * matching `q` (checked against the raw JSON of each entry). Exists to see
- * exactly what fields a real tariff line carries — e.g. confirming the
- * actual end-date field name — before deciding what to filter on in
+ * exactly what fields a real tariff line carries - e.g. confirming the
+ * actual end-date field name - before deciding what to filter on in
  * searchProviderTariff. Not linked from any page; hit it directly.
  */
 export async function GET(req: NextRequest) {
-  // Operator inspection tool — gated off in production (returns raw upstream
+  // Operator inspection tool - gated off in production (returns raw upstream
   // tariff data). Set ENABLE_DEBUG_ROUTES=true in a non-prod environment to use it.
   if (process.env.NODE_ENV === "production" && process.env.ENABLE_DEBUG_ROUTES !== "true") {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
       entries = p[envelopeKey];
     }
     if (!Array.isArray(entries)) {
-      return NextResponse.json({ note: "Response wasn't a list after unwrapping — returning as-is", raw: payload });
+      return NextResponse.json({ note: "Response wasn't a list after unwrapping - returning as-is", raw: payload });
     }
 
     const filtered = q ? entries.filter((e) => JSON.stringify(e).toLowerCase().includes(q)) : entries;

@@ -56,7 +56,7 @@ function HospitalArt({ className = "" }: { className?: string }) {
 
 export default async function LoginPage() {
   // Real check against the database, not just the middleware's cookie-
-  // presence check — a stale cookie from an already-expired session must
+  // presence check - a stale cookie from an already-expired session must
   // still land here, not bounce to /dashboard and back.
   const session = await auth();
   if (session?.user) redirect("/dashboard");
@@ -75,7 +75,7 @@ export default async function LoginPage() {
             <path d="M-30 240C90 150 300 66 730 40" stroke="#E87722" strokeWidth="1.4" opacity="0.7" />
             {/* Sits on the curve: the cubic evaluated at t≈0.45. Kept in the
                 same stretched viewBox as the path so it tracks it at any
-                panel size — the slight oval from the non-uniform scale is
+                panel size - the slight oval from the non-uniform scale is
                 imperceptible at this radius. */}
             <circle cx="198" cy="127" r="4.5" fill="#E87722" />
           </svg>
@@ -101,7 +101,7 @@ export default async function LoginPage() {
             </h1>
             <span className="mt-6 block h-[3px] w-16 rounded-full bg-accent" />
             <p className="mt-6 max-w-[27rem] text-[14px] leading-relaxed text-navy-200">
-              Logging every provider negotiation request end-to-end — from contact centre intake through provider review,
+              Logging every provider negotiation request end-to-end - from contact centre intake through provider review,
               agreed tariff, and member notification.
             </p>
           </div>

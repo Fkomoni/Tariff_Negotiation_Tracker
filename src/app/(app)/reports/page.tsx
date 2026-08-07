@@ -72,7 +72,7 @@ export default async function ReportsPage(
         <Card>
           <CardHeader
             title="Choose export columns"
-            subtitle="Which cases are included is set by the filters above — this picks the columns"
+            subtitle="Which cases are included is set by the filters above - this picks the columns"
           />
           <form action="/api/reports/export" method="GET" className="space-y-4 px-5 py-4">
             {/* The applied filters ride along as hidden fields so this download
@@ -118,9 +118,9 @@ export default async function ReportsPage(
 
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <StatTile label="Total Extra Cost Requested" value={formatCurrency(totalExtraRequested)} tone="brand" />
-          <StatTile label="Avg. Log → First Action" value={delay.avgFirstActionMs !== null ? formatDuration(delay.avgFirstActionMs) : "—"} hint="Internal response time" />
-          <StatTile label="Avg. First Action → Completion" value={delay.avgNegotiationMs !== null ? formatDuration(delay.avgNegotiationMs) : "—"} hint="Provider negotiation time" />
-          <StatTile label="Avg. Log → Completion" value={delay.avgTotalMs !== null ? formatDuration(delay.avgTotalMs) : "—"} hint="Total resolution time" />
+          <StatTile label="Avg. Log → First Action" value={delay.avgFirstActionMs !== null ? formatDuration(delay.avgFirstActionMs) : "-"} hint="Internal response time" />
+          <StatTile label="Avg. First Action → Completion" value={delay.avgNegotiationMs !== null ? formatDuration(delay.avgNegotiationMs) : "-"} hint="Provider negotiation time" />
+          <StatTile label="Avg. Log → Completion" value={delay.avgTotalMs !== null ? formatDuration(delay.avgTotalMs) : "-"} hint="Total resolution time" />
         </div>
 
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
@@ -172,7 +172,7 @@ export default async function ReportsPage(
           </Card>
 
           <Card>
-            <CardHeader title="Urgent Cases — Delay Analysis" subtitle="Urgent & emergency, longest pending first" />
+            <CardHeader title="Urgent Cases - Delay Analysis" subtitle="Urgent & emergency, longest pending first" />
             <Table
               head={["Case", "Provider", "Urgency", "Status", "Time Pending"]}
               rows={urgentTable.map((r) => [

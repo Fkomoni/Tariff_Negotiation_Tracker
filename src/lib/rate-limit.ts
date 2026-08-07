@@ -1,12 +1,12 @@
 import { headers } from "next/headers";
 
 /**
- * Best-effort caller IP from proxy headers — Render sits in front of this
+ * Best-effort caller IP from proxy headers - Render sits in front of this
  * app, so the real client IP arrives via X-Forwarded-For, not the socket.
  *
  * Takes the LAST entry, not the first: each hop in a proxy chain appends its
  * observed peer address to the right of the list, so the leftmost entry is
- * whatever the originating client sent — fully attacker-controlled — and
+ * whatever the originating client sent - fully attacker-controlled - and
  * the rightmost is the address Render's own edge actually observed, which a
  * client can't forge. Taking the first entry would let an attacker rotate a
  * fake X-Forwarded-For on every request to reset their own rate-limit
@@ -16,7 +16,7 @@ import { headers } from "next/headers";
  */
 /**
  * Returns null when no real client IP can be determined, rather than a
- * placeholder like "unknown" — a placeholder would put every request that
+ * placeholder like "unknown" - a placeholder would put every request that
  * hits this gap into the *same* rate-limit bucket, so unrelated users could
  * lock each other out of a shared bucket instead of each getting their own.
  * Callers should skip IP-based limiting entirely when this returns null.
@@ -37,7 +37,7 @@ export async function getClientIp(): Promise<string | null> {
  * brute-force budget isn't wiped on every deploy) and is shared across
  * instances (so horizontal scaling doesn't multiply the effective limit).
  *
- * The counter is incremented with a single atomic INSERT … ON CONFLICT so
+ * The counter is incremented with a single atomic INSERT ... ON CONFLICT so
  * concurrent requests can't lose an increment; the row is reused and reset
  * once its window (`expiresAt`) has passed.
  */
@@ -72,14 +72,14 @@ async function bump(key: string, windowMs: number): Promise<number> {
 }
 
 /** Consumes one unit against the window (increment-and-check). Use where every
- * call should count — OTP send/verify, enrollee search. */
+ * call should count - OTP send/verify, enrollee search. */
 export async function consumeRateLimit(key: string, max: number, windowMs: number): Promise<RateLimitResult> {
   const count = await bump(key, windowMs);
   return count > max ? { allowed: false, retryAfterMs: windowMs } : { allowed: true, retryAfterMs: 0 };
 }
 
 /** Read-only check without incrementing. Used at login entry so a *successful*
- * login never spends budget — only actual failures do (see recordRateLimitFailure). */
+ * login never spends budget - only actual failures do (see recordRateLimitFailure). */
 export async function peekRateLimit(key: string, max: number): Promise<RateLimitResult> {
   const now = new Date();
   const row = await prisma.rateLimit.findUnique({ where: { key } });
@@ -94,7 +94,7 @@ export async function recordRateLimitFailure(key: string, windowMs: number): Pro
   await bump(key, windowMs);
 }
 
-/** Clears a key's window early — used to reset the OTP-verify counter once a code is consumed. */
+/** Clears a key's window early - used to reset the OTP-verify counter once a code is consumed. */
 export async function resetRateLimit(key: string): Promise<void> {
   await prisma.rateLimit.deleteMany({ where: { key } });
 }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 /**
- * This app has no legitimate cross-origin browser consumer — its own
+ * This app has no legitimate cross-origin browser consumer - its own
  * frontend and its API routes share one origin. The allow-list is
  * therefore just this app's own configured origin(s), not a general
  * multi-tenant CORS policy.
@@ -17,12 +17,12 @@ function getAllowedOrigins(): string[] {
 
 /**
  * Sets Access-Control-Allow-Origin only when the request's Origin exactly
- * matches an allow-listed origin — never reflects an arbitrary Origin back.
+ * matches an allow-listed origin - never reflects an arbitrary Origin back.
  * An origin that isn't on the list gets no CORS headers at all, which is
  * what tells the browser to withhold the response from that page's script.
  */
 function applyCors(response: NextResponse, requestOrigin: string | null): NextResponse {
-  // Set unconditionally, not just on the allowed branch — the response
+  // Set unconditionally, not just on the allowed branch - the response
   // genuinely varies by Origin either way (this app's origin gets the
   // header, everyone else doesn't), so a cache sitting in front of this
   // needs Origin in its cache key regardless of which branch was taken.
@@ -45,7 +45,7 @@ export function withCors<Args extends unknown[]>(handler: RouteHandler<Args>): R
   };
 }
 
-/** Explicit preflight response for the API routes' single allowed method —
+/** Explicit preflight response for the API routes' single allowed method -
  * same allow-list, no method/headers granted to an origin that isn't on it. */
 export function corsPreflight(allowedMethods: string) {
   return async (req: NextRequest): Promise<NextResponse> => {

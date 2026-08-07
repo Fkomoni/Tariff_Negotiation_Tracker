@@ -111,7 +111,7 @@ export function DownloadIcon({ className = base }: IconProps) {
   );
 }
 
-/** Bare checkmark, no outline — for use inside an already-colored circle (toasts, status dots). */
+/** Bare checkmark, no outline - for use inside an already-colored circle (toasts, status dots). */
 export function CheckMarkIcon({ className = base }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className}>
@@ -120,7 +120,7 @@ export function CheckMarkIcon({ className = base }: IconProps) {
   );
 }
 
-/** Bare exclamation mark, no outline — for use inside an already-colored circle (toasts, alert badges). */
+/** Bare exclamation mark, no outline - for use inside an already-colored circle (toasts, alert badges). */
 export function AlertIcon({ className = base }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className}>
@@ -346,7 +346,7 @@ export function PhoneIcon({ className = base }: IconProps) {
   );
 }
 
-/** Naira sign in a circle — marks the money fields on a case. */
+/** Naira sign in a circle - marks the money fields on a case. */
 export function NairaIcon({ className = base }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill="none" className={className}>

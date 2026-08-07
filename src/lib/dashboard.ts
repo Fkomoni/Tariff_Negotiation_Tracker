@@ -11,7 +11,7 @@ export const TREND_DAYS = 14;
  * Every "today" figure on the dashboard has to agree with the timestamps shown
  * beside it, and those render in Africa/Lagos (DISPLAY_TIME_ZONE). Bucketing on
  * the server's own midnight would put a case logged at 00:30 Lagos into
- * yesterday's column whenever the server runs on UTC — which it does on Render.
+ * yesterday's column whenever the server runs on UTC - which it does on Render.
  */
 function startOfDayLagos(dayOffset = 0): Date {
   const now = new Date();
@@ -116,7 +116,7 @@ export async function getDashboardData() {
   /** Cases settled within a day. */
   const settledIn = (start: Date, end: Date) =>
     cases.filter((c) => c.completedAt && c.completedAt >= start && c.completedAt < end);
-  /** Cases still open at a moment in time — logged by then, not yet settled. */
+  /** Cases still open at a moment in time - logged by then, not yet settled. */
   const openAt = (at: Date) =>
     cases.filter((c) => c.loggedAt < at && (!c.completedAt || c.completedAt >= at));
 

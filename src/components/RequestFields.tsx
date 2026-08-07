@@ -12,7 +12,7 @@ type CaseType = "TARIFF_UPDATE" | "PROVIDER_MANAGEMENT";
 
 /** One "Service N" box wrapping a ServiceTariffFields instance, with its own
  * remove control. Every service line submits the same field names
- * (requestedItem, serviceCode, currentTariff, etc.) — createCase zips them
+ * (requestedItem, serviceCode, currentTariff, etc.) - createCase zips them
  * across lines by position via formData.getAll(), so this component only
  * needs to control how many instances render, not how they're named. */
 function ServiceLine({
@@ -52,7 +52,7 @@ export function RequestFields({
   initialEnrollee?: EnrolleeInitial;
   /** Changes identity each time the parent form's action returns. React
    * resets the form at that point, which wipes a <select>'s DOM value
-   * without touching React state — see the matching note in
+   * without touching React state - see the matching note in
    * LogNegotiationForm. Used only to trigger the repair below. */
   resyncSignal?: unknown;
 }) {
@@ -64,7 +64,7 @@ export function RequestFields({
   // form's uncontrolled fields once its action finishes, so when the action
   // comes back asking about duplicate services these would silently blank
   // out (or snap back to their default) and the agent would have to retype
-  // them — the reason textarea reverting also tripped the browser's own
+  // them - the reason textarea reverting also tripped the browser's own
   // "required" check and blocked resubmitting entirely.
   const [serviceType, setServiceType] = useState("CONSULTATION");
   const [reason, setReason] = useState("");
@@ -73,7 +73,7 @@ export function RequestFields({
   const isTariffUpdate = caseType === "TARIFF_UPDATE";
 
   // Repairs the select's DOM value after React resets the form on each action
-  // response — without this, a chosen service type silently reverted to the
+  // response - without this, a chosen service type silently reverted to the
   // first option on resubmit. See resyncSignal above.
   useEffect(() => {
     if (serviceTypeRef.current) serviceTypeRef.current.value = serviceType;
@@ -87,7 +87,7 @@ export function RequestFields({
     setServiceLineIds((ids) => ids.filter((x) => x !== id));
   }
   // A brand-new facility won't exist in Prognosis yet, so searching for it
-  // there would never find anything — this is the one category where we
+  // there would never find anything - this is the one category where we
   // need a plain text facility name instead of the Prognosis provider
   // search, and we only know that once a category is picked, which is why
   // category selection comes before the provider field for this case type.
@@ -161,15 +161,15 @@ export function RequestFields({
               <Field
                 label="New Facility Name"
                 required
-                hint="Not yet in Prognosis — type the facility name as given by the enrollee"
+                hint="Not yet in Prognosis - type the facility name as given by the enrollee"
                 className="sm:col-span-2"
               >
                 <input name="providerName" required className={inputClass} placeholder="e.g. Sunrise Diagnostic Centre" />
               </Field>
-              <Field label="Facility Email" hint="Optional — if provided">
+              <Field label="Facility Email" hint="Optional - if provided">
                 <input name="providerEmail" type="email" className={inputClass} />
               </Field>
-              <Field label="Facility Phone" hint="Optional — if provided">
+              <Field label="Facility Phone" hint="Optional - if provided">
                 <input name="providerPhone" className={inputClass} />
               </Field>
             </>

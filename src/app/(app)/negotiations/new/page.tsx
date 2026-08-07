@@ -77,7 +77,7 @@ export default async function LogNegotiationPage(
           <div className="px-6 pb-6">
             {initialProvider && (
               <p className="mt-5 rounded-lg border border-emerald-100 bg-emerald-50 px-3.5 py-2.5 text-[12.5px] font-medium text-emerald-700">
-                Logging another service for {initialProvider.name} — {initialEnrollee?.fullName}. Provider and enrollee details
+                Logging another service for {initialProvider.name} - {initialEnrollee?.fullName}. Provider and enrollee details
                 are carried over; just fill in the new service.
               </p>
             )}

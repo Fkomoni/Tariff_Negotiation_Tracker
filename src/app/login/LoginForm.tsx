@@ -7,7 +7,7 @@ import { checkCredentialsAndMaybeSendOtp, completeLoginAction } from "@/app/acti
 
 type Step = "credentials" | "otp";
 
-/** Only ever follow a same-origin, relative callbackUrl — anything else (an
+/** Only ever follow a same-origin, relative callbackUrl - anything else (an
  * absolute URL or a protocol-relative "//host" one) gets dropped in favor of
  * the default. Prevents an attacker-crafted /login?callbackUrl=https://evil
  * link from hard-navigating a just-authenticated user off-site. */
@@ -96,7 +96,7 @@ export function LoginForm() {
       return;
     }
     if (result.status === "upstream_unavailable") {
-      setError("Can't reach Prognosis right now, so we can't verify your sign-in. Your password is fine — wait a moment and try again, or contact the IT Help Desk if it persists.");
+      setError("Can't reach Prognosis right now, so we can't verify your sign-in. Your password is fine - wait a moment and try again, or contact the IT Help Desk if it persists.");
       return;
     }
     if (result.status === "invalid_credentials") {
@@ -127,7 +127,7 @@ export function LoginForm() {
       const check = await checkCredentialsAndMaybeSendOtp(username.trim(), password);
       if (check.status === "upstream_unavailable") {
         setError(
-          "Can't reach Prognosis right now, so we can't verify your sign-in. Your password is fine — wait a moment and try again, or contact the IT Help Desk if it persists."
+          "Can't reach Prognosis right now, so we can't verify your sign-in. Your password is fine - wait a moment and try again, or contact the IT Help Desk if it persists."
         );
         return;
       }
@@ -148,12 +148,12 @@ export function LoginForm() {
         setNotice("We emailed you a 6-digit code. It expires in 10 minutes.");
         return;
       }
-      // no_mfa_needed — this device already completed MFA and is trusted
+      // no_mfa_needed - this device already completed MFA and is trusted
       await completeSignIn();
     } catch {
       // An unexpected server-side error (as opposed to a normal typed
       // CredentialsCheckResult) previously left the button silently
-      // reverting to "Sign In" with no feedback at all — the finally below
+      // reverting to "Sign In" with no feedback at all - the finally below
       // always ran, but nothing here ever called setError for a throw.
       setError("Something went wrong signing in. Please try again.");
     } finally {
@@ -236,7 +236,7 @@ export function LoginForm() {
         {error && <div className="mt-4">{<ErrorNote>{error}</ErrorNote>}</div>}
 
         <div className="mt-6">
-          <SubmitButton loading={loading} label="Verifying…">
+          <SubmitButton loading={loading} label="Verifying...">
             Verify &amp; Sign In <ArrowRightIcon className="h-[17px] w-[17px]" />
           </SubmitButton>
         </div>
@@ -307,7 +307,7 @@ export function LoginForm() {
       {error && <div className="mt-4">{<ErrorNote>{error}</ErrorNote>}</div>}
 
       <div className="mt-6">
-        <SubmitButton loading={loading} label="Signing in…">
+        <SubmitButton loading={loading} label="Signing in...">
           Sign In <ArrowRightIcon className="h-[17px] w-[17px]" />
         </SubmitButton>
       </div>

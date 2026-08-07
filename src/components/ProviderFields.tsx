@@ -42,7 +42,7 @@ export function ProviderFields({
   const [loading, setLoading] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   // Tracks the query value that's already "confirmed" (from a selection or
-  // initial prefill) so the search effect can skip it — comparing values is
+  // initial prefill) so the search effect can skip it - comparing values is
   // robust to React re-running this effect more than once (e.g. Strict Mode
   // double-invocation in dev), unlike a one-shot "skip once" flag.
   const confirmedNameRef = useRef(initial?.name ?? "");
@@ -119,13 +119,13 @@ export function ProviderFields({
             value={query}
             onChange={(e) => handleNameChange(e.target.value)}
             onFocus={() => results.length > 0 && setOpen(true)}
-            placeholder="Start typing to search providers…"
+            placeholder="Start typing to search providers..."
           />
           <input type="hidden" name="providerCode" value={providerCode} />
           <input type="hidden" name="providerId" value={providerId} />
           {loading && (
             <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-ink-400">
-              Searching…
+              Searching...
             </span>
           )}
           {open && results.length > 0 && (
@@ -153,7 +153,7 @@ export function ProviderFields({
 
       {hasSelection && (
         <>
-          <Field label="Provider Email" hint="From Prognosis — editable">
+          <Field label="Provider Email" hint="From Prognosis - editable">
             <input
               name="providerEmail"
               type="email"
@@ -163,7 +163,7 @@ export function ProviderFields({
             />
           </Field>
 
-          <Field label="Provider Phone" hint="From Prognosis — editable">
+          <Field label="Provider Phone" hint="From Prognosis - editable">
             <input
               name="providerPhone"
               className={inputClass}

@@ -183,14 +183,14 @@ export default async function AuditLogPage(
                           {ACTION_LABELS[e.action] ?? e.action}
                         </Link>
                       </td>
-                      <td className="px-5 py-2.5 text-ink-700">{e.detail || "—"}</td>
+                      <td className="px-5 py-2.5 text-ink-700">{e.detail || "-"}</td>
                       <td className="px-5 py-2.5">
                         {e.caseId ? (
                           <Link href={`/negotiations/${e.caseId}`} className="font-semibold text-brand-600 hover:underline">
                             {e.caseNumber}
                           </Link>
                         ) : (
-                          "—"
+                          "-"
                         )}
                       </td>
                     </tr>

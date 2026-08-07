@@ -3,7 +3,7 @@ import type { DailyPoint } from "@/lib/dashboard";
 /**
  * A small trend line with a soft gradient fill under it.
  *
- * Inline SVG on purpose — no chart library, so it costs nothing at runtime and
+ * Inline SVG on purpose - no chart library, so it costs nothing at runtime and
  * inherits the card's colour. Every line on the dashboard plots a real daily
  * series; none is decorative.
  */
@@ -14,7 +14,7 @@ export function Sparkline({
   className = "",
 }: {
   points: DailyPoint[];
-  /** Any CSS colour — matched to the card's accent. */
+  /** Any CSS colour - matched to the card's accent. */
   stroke: string;
   /** Must be unique per instance; SVG gradient ids are document-global. */
   gradientId: string;

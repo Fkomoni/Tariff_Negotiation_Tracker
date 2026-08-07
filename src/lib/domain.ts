@@ -5,7 +5,7 @@ export const CASE_TYPE_LABELS: Record<CaseType, string> = {
   PROVIDER_MANAGEMENT: "Other Provider Management Request",
 };
 
-/// Shorter wording for compact badges (table cells, "at a glance" rows) —
+/// Shorter wording for compact badges (table cells, "at a glance" rows) -
 /// the full CASE_TYPE_LABELS text is fine for a big clickable button but
 /// wraps awkwardly in a small pill.
 export const CASE_TYPE_BADGE_LABEL: Record<CaseType, string> = {
@@ -34,7 +34,7 @@ export const PM_CATEGORY_LABELS: Record<ProviderManagementCategory, string> = {
   OTHER: "Other (Specify in Details Below)",
 };
 
-/// Short wording for compact contexts (queue table badges) — the full
+/// Short wording for compact contexts (queue table badges) - the full
 /// PM_CATEGORY_LABELS sentences are fine on the case detail page but too
 /// long for a repeated table-cell pill.
 export const PM_CATEGORY_SHORT_LABELS: Record<ProviderManagementCategory, string> = {
@@ -54,7 +54,7 @@ export const PM_CATEGORY_SHORT_LABELS: Record<ProviderManagementCategory, string
 };
 
 /// Categories are grouped into mini-categories purely for the picker UI and
-/// for reporting breakdowns — the underlying enum stays flat.
+/// for reporting breakdowns - the underlying enum stays flat.
 export const PM_CATEGORY_GROUPS: { group: string; categories: ProviderManagementCategory[] }[] = [
   {
     group: "Access & Onboarding",
@@ -78,7 +78,7 @@ export const PM_CATEGORY_GROUPS: { group: string; categories: ProviderManagement
   },
 ];
 
-/// Only this category needs a supporting document today — used to
+/// Only this category needs a supporting document today - used to
 /// conditionally show the attachment upload in the logging form.
 export const PM_CATEGORIES_REQUIRING_ATTACHMENT: ProviderManagementCategory[] = ["BANK_INFO_UPDATE"];
 
@@ -137,7 +137,7 @@ export const CASE_STATUS_BADGE: Record<CaseStatus, string> = {
   COMPLETED: "bg-emerald-100 text-emerald-800",
   DECLINED: "bg-ink-200 text-ink-700",
   ESCALATED: "bg-brand-100 text-brand-700",
-  // Intentionally the most muted badge in the set — a cancelled request is
+  // Intentionally the most muted badge in the set - a cancelled request is
   // void, not an outcome, and shouldn't draw the eye like Declined does.
   CANCELLED: "bg-surface-muted text-navy-500",
 };
@@ -162,7 +162,7 @@ export const STATUS_TRANSITIONS: Record<CaseStatus, CaseStatus[]> = {
   ESCALATED: ["UNDER_REVIEW", "NEGOTIATING", "AWAITING_PROVIDER_FEEDBACK", "AWAITING_INTERNAL_APPROVAL", "COMPLETED", "DECLINED", "CANCELLED"],
   COMPLETED: [],
   DECLINED: ["UNDER_REVIEW", "NEGOTIATING", "AWAITING_PROVIDER_FEEDBACK", "AWAITING_INTERNAL_APPROVAL", "ESCALATED"],
-  // Reopenable, like DECLINED — a request cancelled by mistake shouldn't have
+  // Reopenable, like DECLINED - a request cancelled by mistake shouldn't have
   // to be re-logged from scratch, losing its original timestamp and timeline.
   CANCELLED: ["UNDER_REVIEW", "NEGOTIATING", "AWAITING_PROVIDER_FEEDBACK", "AWAITING_INTERNAL_APPROVAL", "ESCALATED"],
 };
@@ -184,12 +184,12 @@ export function formatCurrency(value: number | string | null | undefined): strin
 }
 
 /** Everyone using this app is in Nigeria, but the server it runs on is UTC
- * — without pinning the zone, every timestamp rendered server-side came out
+ * - without pinning the zone, every timestamp rendered server-side came out
  * an hour behind the wall-clock time the user actually submitted at. */
 export const DISPLAY_TIME_ZONE = "Africa/Lagos";
 
 export function formatDateTime(date: Date | string | null | undefined): string {
-  if (!date) return "—";
+  if (!date) return "-";
   const d = new Date(date);
   return new Intl.DateTimeFormat("en-GB", {
     day: "2-digit",
@@ -202,7 +202,7 @@ export function formatDateTime(date: Date | string | null | undefined): string {
 }
 
 export function formatDuration(ms: number | null | undefined): string {
-  if (ms === null || ms === undefined || Number.isNaN(ms) || ms < 0) return "—";
+  if (ms === null || ms === undefined || Number.isNaN(ms) || ms < 0) return "-";
   const minutes = Math.floor(ms / 60000);
   const days = Math.floor(minutes / 1440);
   const hours = Math.floor((minutes % 1440) / 60);
@@ -231,7 +231,7 @@ export function amountDifference(current: number | string, requested: number | s
  * "04 Aug 2026, 17:22" pushed Urgency and Status off the right edge.
  */
 export function formatDateParts(date: Date | string | null | undefined): { date: string; time: string } {
-  if (!date) return { date: "—", time: "" };
+  if (!date) return { date: "-", time: "" };
   const d = new Date(date);
   const opts = { timeZone: DISPLAY_TIME_ZONE } as const;
   return {

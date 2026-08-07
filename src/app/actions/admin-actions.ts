@@ -103,8 +103,8 @@ export async function provisionUser(formData: FormData) {
       );
     } catch (err) {
       // A concurrent provisionUser call for the same (case-variant)
-      // username — e.g. a double-click, or two Admins adding the same
-      // person at once — can race between the findFirst above and this
+      // username - e.g. a double-click, or two Admins adding the same
+      // person at once - can race between the findFirst above and this
       // create. The database's case-insensitive unique index (see
       // prisma/schema.prisma) rejects the second insert rather than
       // creating a duplicate account; fall back to updating whichever row

@@ -6,8 +6,8 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
   // Deliberately no `directUrl` here. Migrations do need a non-pooled
-  // connection — they hold a session and take advisory locks, which a pooler
-  // breaks — but naming an env var here makes it mandatory for every Prisma
+  // connection - they hold a session and take advisory locks, which a pooler
+  // breaks - but naming an env var here makes it mandatory for every Prisma
   // command, and a missing one is a hard P1012 failure. scripts/migrate-deploy.mjs
   // picks the right connection and passes it as DATABASE_URL instead, so nothing
   // is required and the plain CLI keeps working.
@@ -47,7 +47,7 @@ enum CaseStatus {
   COMPLETED
   DECLINED
   ESCALATED
-  // Request withdrawn without a negotiation outcome — logged in error, a
+  // Request withdrawn without a negotiation outcome - logged in error, a
   // duplicate, provider pulled the request, enrollee no longer at the
   // facility. Deliberately separate from DECLINED: declining is a real
   // negotiation result that belongs in outcome metrics, whereas a cancelled
@@ -114,7 +114,7 @@ enum AuditAction {
   LOGIN
   ROLE_CHANGE
   /// Unused now that MFA is mandatory for everyone (no per-user
-  /// enable/disable event exists anymore) — kept rather than doing a
+  /// enable/disable event exists anymore) - kept rather than doing a
   /// disruptive enum-value removal for no benefit.
   MFA_ENABLED
   MFA_DISABLED
@@ -127,7 +127,7 @@ enum MfaCodePurpose {
 
 model User {
   id                String   @id @default(cuid())
-  /// Exact-string uniqueness only — a case-insensitive uniqueness guarantee
+  /// Exact-string uniqueness only - a case-insensitive uniqueness guarantee
   /// also exists in the database via a raw-SQL migration
   /// (User_prognosisUsername_ci_key, on LOWER(prognosisUsername)), since
   /// Prisma has no declarative way to express a functional/expression
@@ -137,7 +137,7 @@ model User {
   email               String?
   role                Role     @default(PENDING)
   lastLoginAt         DateTime?
-  /// Set to now() on logout — any JWT session cookie whose iat predates
+  /// Set to now() on logout - any JWT session cookie whose iat predates
   /// this is rejected on its next use (see the jwt callback in
   /// src/lib/auth.ts). Without this, a JWT session is purely stateless and
   /// a copy of the cookie captured before logout would otherwise remain
@@ -158,7 +158,7 @@ model User {
 
 /// A signed-in session: the cookie holds only tokenHash's raw pre-image (see
 /// src/lib/session.ts), never anything that encodes state itself. Idle
-/// expiry slides forward by updating expiresAt in place on activity — the
+/// expiry slides forward by updating expiresAt in place on activity - the
 /// cookie is written once at login and never rewritten again for the life
 /// of the session, unlike the previous JWT-cookie approach where every
 /// refresh re-signed (and therefore changed) the cookie value.
@@ -191,7 +191,7 @@ model MfaCode {
 }
 
 /// A browser that completed an MFA challenge and was marked "trusted" by the
-/// user — the token (hashed) lives in an httpOnly cookie and lets that
+/// user - the token (hashed) lives in an httpOnly cookie and lets that
 /// browser skip the OTP challenge until expiresAt (90 days out).
 model TrustedDevice {
   id         String   @id @default(cuid())
@@ -237,7 +237,7 @@ model NegotiationCase {
   enrolleeScheme         String?
   enrolleeAge            Int?
 
-  /// Top-level split from the logging form — TARIFF_UPDATE is everything
+  /// Top-level split from the logging form - TARIFF_UPDATE is everything
   /// that existed before this field (pushes to Prognosis); PROVIDER_MANAGEMENT
   /// is a general provider-management issue with no API call, sharing the
   /// same queue/workflow/reporting.
@@ -254,10 +254,10 @@ model NegotiationCase {
   urgency                Urgency     @default(ROUTINE)
   notes                  String?
 
-  /// Multi-select categories for a PROVIDER_MANAGEMENT case — empty for
+  /// Multi-select categories for a PROVIDER_MANAGEMENT case - empty for
   /// TARIFF_UPDATE cases.
   pmCategories           ProviderManagementCategory[] @default([])
-  /// Letterhead/document attachment for categories like Bank Info Update —
+  /// Letterhead/document attachment for categories like Bank Info Update -
   /// stored directly in Postgres (low volume, small files, no object
   /// storage set up for this app).
   pmAttachmentName       String?
@@ -272,19 +272,19 @@ model NegotiationCase {
   // rather than a request that silently vanishes from their queue.
   cancellationReason     String?
   tariffPushedAt         DateTime?
-  /// When the new/updated price should take effect on Prognosis's side —
+  /// When the new/updated price should take effect on Prognosis's side -
   /// set by Provider Team when marking a case Completed, sent as
   /// EffectiveDate on the AddTarrifReviews push.
   tariffEffectiveDate    DateTime?
   /// Optional date the negotiated price is intended to lapse. Recorded on
-  /// the case and sent as EndDate on the AddTarrifReviews push — but note:
+  /// the case and sent as EndDate on the AddTarrifReviews push - but note:
   /// verified against production (05/08/2026), Prognosis currently ignores
   /// that field and keeps a price active until a successor price is pushed.
   /// This date is therefore surfaced in the UI as the team's cue to action
   /// the change when it falls due, not an automatic cut-off.
   tariffEndDate          DateTime?
   /// Set when the return-to-old-price push for tariffEndDate has actually
-  /// landed in Prognosis — either scheduled in advance at completion (a
+  /// landed in Prognosis - either scheduled in advance at completion (a
   /// future-dated push verified from the response echo), pushed via the
   /// case page's "Revert now" button, or swept by /api/tasks/revert-due-tariffs.
   /// Null with a due tariffEndDate means the reversion still needs doing.
@@ -350,7 +350,7 @@ model MemberNotification {
   recipientPhone String?
   status        NotificationStatus
   errorMessage  String?
-  /// The downstream gateway's ticket for this message (SMS only — Prognosis's
+  /// The downstream gateway's ticket for this message (SMS only - Prognosis's
   /// email endpoint returns no equivalent). A SENT row means the gateway
   /// accepted the message and issued this ticket; it is not a delivery
   /// receipt, so when a member reports never receiving an SMS this is the
@@ -362,7 +362,7 @@ model MemberNotification {
   @@index([caseId])
 }
 
-/// One row per Prognosis service/treatment master catalog entry — persisted
+/// One row per Prognosis service/treatment master catalog entry - persisted
 /// so the full list survives app restarts/redeploys and doesn't need
 /// refetching from Prognosis every time the in-memory cache is cold. Synced
 /// wholesale (replace-all) once a day via LookupSync, or on demand via the

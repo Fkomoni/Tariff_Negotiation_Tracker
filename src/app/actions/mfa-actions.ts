@@ -24,11 +24,11 @@ export type CredentialsCheckResult =
  * OTP, or let the client reach the code-entry step, without that) and
  * decides whether an MFA challenge is actually needed for this device.
  *
- * MFA applies to every account — the only way this returns "no_mfa_needed"
+ * MFA applies to every account - the only way this returns "no_mfa_needed"
  * is a previously-trusted device.
  *
  * Shares its rate-limit budget with authorize() in auth.ts (same username/IP
- * keys) — this function also drives a full Prognosis credential check, so it
+ * keys) - this function also drives a full Prognosis credential check, so it
  * must count against the same attempt limit, not double it.
  */
 export async function checkCredentialsAndMaybeSendOtp(username: string, password: string): Promise<CredentialsCheckResult> {
@@ -72,7 +72,7 @@ export async function checkCredentialsAndMaybeSendOtp(username: string, password
 
 /**
  * Step 2 of login: called once credentials are verified (and an OTP sent,
- * if needed) — re-verifies everything and, on success, mints the session.
+ * if needed) - re-verifies everything and, on success, mints the session.
  * A thin Server Action wrapper around completeLogin() in auth.ts, which is
  * a plain module the (app) layout and pages also import for unrelated
  * reasons; keeping the "use server" boundary here instead of on that whole

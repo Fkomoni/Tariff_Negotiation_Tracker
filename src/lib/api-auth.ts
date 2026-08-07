@@ -5,13 +5,13 @@ import type { SessionUser } from "@/lib/session";
 
 /**
  * API routes sit outside middleware.ts's matcher (it excludes "/api"
- * entirely), so page-level role gating there does nothing here — a PENDING
+ * entirely), so page-level role gating there does nothing here - a PENDING
  * (unapproved) account can otherwise call these directly, bypassing the
  * gating the UI enforces. Every data-returning API route must call this
  * instead of just checking `session?.user`.
  *
  * Returns the session on success, or a NextResponse to return as-is on
- * failure — callers check `instanceof NextResponse` (a discriminated-union
+ * failure - callers check `instanceof NextResponse` (a discriminated-union
  * return here doesn't narrow cleanly through destructuring).
  */
 export async function requireApiSession(allowedRoles: Role[]): Promise<{ user: SessionUser } | NextResponse> {

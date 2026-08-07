@@ -238,7 +238,7 @@ export function ServiceTariffFields({ providerCode }: { providerCode: string }) 
               <input type="hidden" name="providerTariffCode" value={selected?.providerTariffCode ?? ""} />
               {loading && (
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-ink-400">
-                  Searching…
+                  Searching...
                 </span>
               )}
               {open && results.length > 0 && (
@@ -259,7 +259,7 @@ export function ServiceTariffFields({ providerCode }: { providerCode: string }) 
                           ? " "
                           : t.minCost === t.maxCost || t.minCost === null || t.maxCost === null
                             ? formatCurrency((t.maxCost ?? t.minCost) as number)
-                            : `${formatCurrency(t.minCost)} – ${formatCurrency(t.maxCost)}`}
+                            : `${formatCurrency(t.minCost)} - ${formatCurrency(t.maxCost)}`}
                       </p>
                     </button>
                   ))}
@@ -267,14 +267,14 @@ export function ServiceTariffFields({ providerCode }: { providerCode: string }) 
               )}
               {!loading && searchedNoMatch && !selected && providerCode && (
                 <p className="mt-1.5 text-[11px] text-ink-400">
-                  No matching item on this provider&apos;s tariff — switch to &quot;Add New Service&quot; if it
+                  No matching item on this provider&apos;s tariff - switch to &quot;Add New Service&quot; if it
                   genuinely isn&apos;t priced yet.
                 </p>
               )}
             </div>
           </Field>
 
-          <Field label="Current Tariff Amount (₦)" required hint="From Prognosis — editable">
+          <Field label="Current Tariff Amount (₦)" required hint="From Prognosis - editable">
             <input
               name="currentTariff"
               type="number"
@@ -305,7 +305,7 @@ export function ServiceTariffFields({ providerCode }: { providerCode: string }) 
           <Field
             label="Requested Service / Item"
             required
-            hint="Search Prognosis's full treatment catalog — this service exists there, just not yet priced on this provider"
+            hint="Search Prognosis's full treatment catalog - this service exists there, just not yet priced on this provider"
             className="sm:col-span-2"
           >
             <div ref={treatmentContainerRef} className="relative">
@@ -321,14 +321,14 @@ export function ServiceTariffFields({ providerCode }: { providerCode: string }) 
               />
               <input type="hidden" name="serviceCode" value={selectedTreatment?.procedureId ?? ""} />
               {/* Kept in lock-step with "existing" mode's hidden field of the same
-                  name, even though it's always empty here — when several service
+                  name, even though it's always empty here - when several service
                   lines are submitted together, the server zips same-named fields
                   across lines by position, so every line must emit the exact same
                   set of field names regardless of which mode it's in. */}
               <input type="hidden" name="providerTariffCode" value="" />
               {treatmentLoading && (
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] text-ink-400">
-                  Searching…
+                  Searching...
                 </span>
               )}
               {treatmentOpen && treatmentResults.length > 0 && (
@@ -353,7 +353,7 @@ export function ServiceTariffFields({ providerCode }: { providerCode: string }) 
               )}
               {!treatmentLoading && treatmentTotalMatches > treatmentResults.length && (
                 <p className="mt-1.5 text-[11px] text-ink-400">
-                  Showing {treatmentResults.length} of {treatmentTotalMatches} matches — keep typing to narrow it
+                  Showing {treatmentResults.length} of {treatmentTotalMatches} matches - keep typing to narrow it
                   down.
                 </p>
               )}
@@ -361,7 +361,7 @@ export function ServiceTariffFields({ providerCode }: { providerCode: string }) 
           </Field>
 
           <input type="hidden" name="currentTariff" value="0" />
-          <Field label="Proposed Amount (₦)" required hint="No existing price on this provider — enter what's being proposed">
+          <Field label="Proposed Amount (₦)" required hint="No existing price on this provider - enter what's being proposed">
             <input
               name="providerRequestedAmount"
               type="number"

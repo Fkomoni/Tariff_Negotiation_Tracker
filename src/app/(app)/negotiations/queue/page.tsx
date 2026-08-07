@@ -84,7 +84,7 @@ export default async function OpenNegotiationsPage(props: {
   // Paged by request, not by case row: the table renders one row per request,
   // so slicing cases would split a multi-service request across two pages.
   // Grouping in memory (rather than a DISTINCT-ON query) keeps this simple and
-  // is fine at the volumes here — the page already loaded every matching case
+  // is fine at the volumes here - the page already loaded every matching case
   // before pagination existed.
   const groups = groupCasesByRequest(cases);
   const totalRequests = groups.length;

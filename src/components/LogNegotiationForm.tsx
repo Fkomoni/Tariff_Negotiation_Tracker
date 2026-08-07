@@ -37,14 +37,14 @@ export function LogNegotiationForm({
 
   /**
    * React calls form.reset() once a form action settles. For <select> that
-   * reverts the DOM to the first option while React's state stays put —
+   * reverts the DOM to the first option while React's state stays put -
    * nothing re-renders, so the two silently disagree and the *stale DOM*
    * value is what the next submit sends. Since this form is built to be
    * resubmitted (the action comes back asking about duplicate services), a
    * case entered as Medications/Urgent was getting logged as
    * Consultation/Routine. Writing state back into the select after each
    * response keeps them in sync. Text inputs and textareas don't need this
-   * — React restores those itself; only <select> loses its value.
+   * - React restores those itself; only <select> loses its value.
    */
   useEffect(() => {
     if (urgencyRef.current) urgencyRef.current.value = urgency;
@@ -93,8 +93,8 @@ export function LogNegotiationForm({
                   {/* A submit button whose name/value the browser includes in
                       the submission, so this resubmits the identical form data
                       plus skipDuplicates=1 and the server drops just the
-                      flagged lines — nothing to reconcile client-side. */}
-                  <SubmitButton name="skipDuplicates" value="1" pendingLabel="Logging…">
+                      flagged lines - nothing to reconcile client-side. */}
+                  <SubmitButton name="skipDuplicates" value="1" pendingLabel="Logging...">
                     Remove {duplicates.length === 1 ? "it" : "them"} and log the other {remainingCount}
                   </SubmitButton>
                   <p className="text-[11.5px] text-ink-500">
@@ -103,7 +103,7 @@ export function LogNegotiationForm({
                 </div>
               ) : (
                 <p className="mt-3 text-[12px] font-semibold text-ink-700">
-                  Every service in this submission is already logged — there is nothing left to submit. Continue on the
+                  Every service in this submission is already logged - there is nothing left to submit. Continue on the
                   existing {duplicates.length === 1 ? "case" : "cases"} above instead.
                 </p>
               )}
@@ -143,7 +143,7 @@ export function LogNegotiationForm({
           <CloseIcon className="h-4 w-4" />
           Cancel
         </Link>
-        <SubmitButton pendingLabel="Logging…">
+        <SubmitButton pendingLabel="Logging...">
           <SendIcon className="h-4 w-4" />
           Submit Request
         </SubmitButton>

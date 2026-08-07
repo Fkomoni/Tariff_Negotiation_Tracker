@@ -8,7 +8,7 @@ delay time, updating negotiation outcomes, and notifying members when care may b
 - **Auth:** Staff sign in with their real Prognosis (`prognosis-api.leadwayhealth.com`) username/password.
   A dedicated service account is used in the background to send member notifications.
 - **Notifications:** Sent through Prognosis's own `EnrolleeProfile/SendEmailAlert` (email) and
-  `Sms/SendSms` (SMS) endpoints — no separate SMTP/Twilio account needed.
+  `Sms/SendSms` (SMS) endpoints - no separate SMTP/Twilio account needed.
 
 ## Roles
 
@@ -20,7 +20,7 @@ delay time, updating negotiation outcomes, and notifying members when care may b
 | **Pending** | Nothing until an Admin assigns a role (shown a waiting screen) |
 
 The **first** person(s) who should become Admin are listed by Prognosis username in the
-`ADMIN_USERNAMES` environment variable (comma-separated) — they're auto-promoted to Admin
+`ADMIN_USERNAMES` environment variable (comma-separated) - they're auto-promoted to Admin
 the first time they sign in. Everyone else starts as *Pending* until an Admin assigns them
 a role from the **Configuration** page. Role changes take effect the next time that person
 signs in.
@@ -38,7 +38,7 @@ signs in.
    and connect this repository.
 3. Configure:
    - **Environment:** Node
-   - **Node version:** 20.9 or later — required by Next.js 16 (`package.json`'s `engines.node`
+   - **Node version:** 20.9 or later - required by Next.js 16 (`package.json`'s `engines.node`
      documents this; if Render's default image is older, set `NODE_VERSION` under Environment
      variables, or add a `.node-version` file pinning it).
    - **Build Command:** `npm install && npm run build:deploy`
@@ -56,7 +56,7 @@ signs in.
    fails, the deploy fails and Render keeps the previous version serving. Put
    the same command in `start` and a transient database blip stops the app
    booting at all, even when the schema is already correct.
-   - **Health Check Path:** `/api/health` — returns 503 when the database schema
+   - **Health Check Path:** `/api/health` - returns 503 when the database schema
      is behind the deployed code, so a bad deploy is caught instead of silently
      500ing every page that reads a case.
    - **Instance Type:** Starter is fine to begin with.
@@ -69,8 +69,8 @@ signs in.
 | Variable | Value |
 |---|---|
 | `DATABASE_URL` | Pooled connection, used by the running app. On Supabase use the pooler in **transaction** mode (port `6543`) with `?pgbouncer=true&connection_limit=5` |
-| `DIRECT_URL` | *Optional.* **Direct, non-pooled** connection, used only by `prisma migrate`. If unset, the migrate script derives it from `DATABASE_URL` for Supabase, and otherwise falls back to `DATABASE_URL`. Supabase: Project Settings → Database → Connection string → "Direct connection". Migrations hold a session and take advisory locks, which a pooler breaks — run them through Supabase's session-mode pooler (port `5432`) and they fail with `FATAL: (EMAXCONNSESSION) max clients reached in session mode`. If your Supabase project has no IPv4 direct endpoint, point this at the session-mode pooler and lower `DATABASE_URL`'s `connection_limit` so the app leaves clients free for the migration |
-| `NEXTAUTH_URL` | Your Render service URL, e.g. `https://tariff-negotiation-tracker.onrender.com` — used to build links in emails and to validate the CORS allow-list, not for session auth (sessions are a database-backed opaque token now, not a signed/encrypted cookie, so there's no secret to configure for them) |
+| `DIRECT_URL` | *Optional.* **Direct, non-pooled** connection, used only by `prisma migrate`. If unset, the migrate script derives it from `DATABASE_URL` for Supabase, and otherwise falls back to `DATABASE_URL`. Supabase: Project Settings → Database → Connection string → "Direct connection". Migrations hold a session and take advisory locks, which a pooler breaks - run them through Supabase's session-mode pooler (port `5432`) and they fail with `FATAL: (EMAXCONNSESSION) max clients reached in session mode`. If your Supabase project has no IPv4 direct endpoint, point this at the session-mode pooler and lower `DATABASE_URL`'s `connection_limit` so the app leaves clients free for the migration |
+| `NEXTAUTH_URL` | Your Render service URL, e.g. `https://tariff-negotiation-tracker.onrender.com` - used to build links in emails and to validate the CORS allow-list, not for session auth (sessions are a database-backed opaque token now, not a signed/encrypted cookie, so there's no secret to configure for them) |
 | `PROGNOSIS_BASE` | `https://prognosis-api.leadwayhealth.com` (default, only override if it changes) |
 | `PROGNOSIS_SERVICE_USERNAME` | A Prognosis username dedicated to sending member notifications |
 | `PROGNOSIS_SERVICE_PASSWORD` | That account's password |
@@ -80,16 +80,16 @@ signs in.
 ### Optional: daily price-reversion sweep
 
 Prognosis has no scheduled end-dating (verified 05/08/2026: an `EndDate` on
-`AddTarrifReviews` is silently discarded — a price only ends when a successor
+`AddTarrifReviews` is silently discarded - a price only ends when a successor
 price starts). When a case is completed with a **Tariff End Date**, the app
 tries to schedule the reversion immediately (a future-dated push of the old
 price, verified from the response); when Prognosis doesn't keep it, the case
 stays flagged and needs the reversion pushed on the due date. Two ways that
 happens:
 
-1. **Manually** — a "Revert to ₦X now" button appears on the case once the end
+1. **Manually** - a "Revert to ₦X now" button appears on the case once the end
    date arrives (Provider Team / Admin).
-2. **Automatically** — schedule a daily job that calls the sweep endpoint:
+2. **Automatically** - schedule a daily job that calls the sweep endpoint:
    in Render, create a **Cron Job** service (schedule e.g. `5 23 * * *`, which
    is 00:05 Lagos) with the command:
 
@@ -101,7 +101,7 @@ happens:
    and set `REVERT_TASK_TOKEN` on both the cron job and the web service.
 
 The `PROGNOSIS_SERVICE_USERNAME`/`PASSWORD` account can be the same one you personally sign in
-with, or a separate shared account created for this app — either works, since it's only used
+with, or a separate shared account created for this app - either works, since it's only used
 server-side to call `SendEmailAlert`/`SendSms`, never for signing in through the login page.
 
 ## 3. First login
@@ -115,7 +115,7 @@ server-side to call `SendEmailAlert`/`SendSms`, never for signing in through the
 ## Local development
 
 ```bash
-cp .env.example .env   # fill in DATABASE_URL etc. — a local Postgres works fine for dev
+cp .env.example .env   # fill in DATABASE_URL etc. - a local Postgres works fine for dev
 npm install
 npm run db:migrate:deploy   # or: npx prisma migrate dev
 npm run dev
@@ -124,30 +124,30 @@ npm run dev
 ## Notes / known follow-ups
 
 - Upgraded to Next.js 16.2.10 + React 19 (from 14.2.35 / React 18) specifically to clear
-  a High-severity `npm audit` advisory on `next` that had no fix on the 14.x line — several
+  a High-severity `npm audit` advisory on `next` that had no fix on the 14.x line - several
   of the underlying CVEs (RSC DoS/cache-poisoning, middleware-redirect cache-poisoning) were
   architecturally applicable to this app (App Router + middleware redirects), not just
   theoretical. Also bumped `next-auth` to `5.0.0-beta.31`, clearing a separate low-severity
   `cookie` advisory. The `middleware.ts` file was renamed to `proxy.ts` (Next 16 deprecated
   the old convention). `npm audit` now reports one remaining moderate advisory: a `postcss`
   version bundled *inside* `next`'s own `node_modules` (not this project's own Tailwind
-  pipeline, which is already on a patched postcss) — it's Next.js's own internal build
+  pipeline, which is already on a patched postcss) - it's Next.js's own internal build
   tooling dependency, not reachable by any runtime request this app handles, and not
   something `npm overrides` can reach past Next's own nested resolution. Re-check on the
   next `next` patch release.
   Verified: clean `tsc --noEmit` and `next build` (all 19 routes). Not independently
-  smoke-tested end-to-end against live Prognosis/a real database from this environment —
+  smoke-tested end-to-end against live Prognosis/a real database from this environment -
   do a full manual pass through login, case logging, and the provider-team queue after
   deploying this before treating it as fully verified in production.
 - Role changes made in Configuration apply on the affected user's *next* sign-in, not
-  instantly — this keeps the middleware edge-runtime-safe (Prisma can't run there); the
+  instantly - this keeps the middleware edge-runtime-safe (Prisma can't run there); the
   same constraint is why `configuration/page.tsx` and `negotiations/new/page.tsx` enforce
   their own role checks directly rather than relying on the middleware for it.
 - Sessions are database-backed: the cookie holds only an opaque, unchanging token (see
   `src/lib/session.ts`), hashed and looked up against a `Session` row. Idle timeout is 15
-  minutes, as a rolling window entirely server-side — active use extends `expiresAt` in
+  minutes, as a rolling window entirely server-side - active use extends `expiresAt` in
   place (throttled to at most once every 5 minutes), so the cookie itself is written once
   at login and never rewritten again for the life of the session. The middleware
-  (`src/proxy.ts`) only checks for the cookie's presence, not its validity — that's the
+  (`src/proxy.ts`) only checks for the cookie's presence, not its validity - that's the
   real authorization boundary, enforced by every page/Server Action/API route calling
   `auth()` in the Node.js runtime.

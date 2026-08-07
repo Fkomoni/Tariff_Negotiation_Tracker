@@ -11,7 +11,7 @@ export async function logoutAction() {
 
 /** Signs the current user out of every device by deleting all of their session
  * rows (including this one), then clears this browser's cookie and returns to
- * login. Any other live session — or a copied token — stops working at once. */
+ * login. Any other live session - or a copied token - stops working at once. */
 export async function signOutEverywhereAction() {
   const session = await auth();
   if (session?.user) await revokeAllSessionsForUser(session.user.id);

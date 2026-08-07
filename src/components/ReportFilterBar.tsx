@@ -8,7 +8,7 @@ import type { CaseStatus, CaseType, Urgency } from "@prisma/client";
 /**
  * The filter bar for the Reports page.
  *
- * A plain GET form, so filters live in the URL — which means a filtered report
+ * A plain GET form, so filters live in the URL - which means a filtered report
  * can be bookmarked, shared with a colleague, or linked to from the dashboard,
  * and the export buttons can carry the identical query string. That's the whole
  * reason this isn't client state.
@@ -19,7 +19,7 @@ export function ReportFilterBar({
   matchCount,
 }: {
   filters: ReportFilters;
-  /** The active filters, already serialised — appended to each export link so a
+  /** The active filters, already serialised - appended to each export link so a
    * download matches exactly what's on screen. */
   exportQuery: string;
   matchCount: number;

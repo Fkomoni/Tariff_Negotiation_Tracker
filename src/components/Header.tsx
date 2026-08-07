@@ -13,11 +13,11 @@ interface HeaderProps {
   icon?: React.ReactNode;
   user: { name: string; role: Role };
   actions?: React.ReactNode;
-  /** Shown as a count badge on the bell — omitted when there's nothing to flag. */
+  /** Shown as a count badge on the bell - omitted when there's nothing to flag. */
   alertCount?: number;
   /** Renders a back arrow to the left of the title. */
   backHref?: string;
-  /** Rendered beside the title — used for a case's current status. */
+  /** Rendered beside the title - used for a case's current status. */
   badge?: React.ReactNode;
 }
 

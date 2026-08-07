@@ -6,20 +6,20 @@ import { addTariffReviews, getActiveTariffScheduleName } from "@/lib/prognosis";
 /**
  * Sweeps cases whose tariff end date has fallen due without their
  * return-to-old-price landing in Prognosis, and pushes the reversion now.
- * The automated safety net behind the per-case "Revert now" button — meant
+ * The automated safety net behind the per-case "Revert now" button - meant
  * to be hit once a day by a scheduler (e.g. a Render Cron Job):
  *
  *   curl -X POST -H "Authorization: Bearer $REVERT_TASK_TOKEN" \
  *     https://<app>/api/tasks/revert-due-tariffs
  *
  * Exists because Prognosis has no scheduled end-dating of its own (verified
- * 05/08/2026: EndDate on AddTarrifReviews is silently discarded) — a price
+ * 05/08/2026: EndDate on AddTarrifReviews is silently discarded) - a price
  * only ends when a successor price starts, so someone has to push that
  * successor. Cases whose reversion was already verified-scheduled at
  * completion have tariffRevertPushedAt set and are never touched here.
  *
  * Pushes as the case's owner (falling back to whoever logged it) because
- * Prognosis validates UserEmail against a real staff account — there is no
+ * Prognosis validates UserEmail against a real staff account - there is no
  * system identity to push as.
  */
 
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
       requestType: "EXISTING_TARIFF_UPDATE",
       tariffEndDate: { lte: new Date() },
       tariffRevertPushedAt: null,
-      // Only cases whose negotiated price actually reached Prognosis — if the
+      // Only cases whose negotiated price actually reached Prognosis - if the
       // original push never landed there's nothing live to revert.
       tariffPushedAt: { not: null },
       providerId: { not: null },
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
     const oldPrice = Number(c.currentTariff);
     const userEmail = c.owner?.email ?? c.loggedBy.email ?? "";
     if (!userEmail) {
-      results.push({ case: c.caseNumber, outcome: "skipped — no staff email on the owner or logger to push as" });
+      results.push({ case: c.caseNumber, outcome: "skipped - no staff email on the owner or logger to push as" });
       continue;
     }
 
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
       console.error(`[revert-due] reverted ${c.caseNumber} (${c.serviceCode}) to ${oldPrice}`);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
-      results.push({ case: c.caseNumber, outcome: `failed — ${message}` });
+      results.push({ case: c.caseNumber, outcome: `failed - ${message}` });
       console.error(`[revert-due] failed for ${c.caseNumber}:`, err);
     }
   }

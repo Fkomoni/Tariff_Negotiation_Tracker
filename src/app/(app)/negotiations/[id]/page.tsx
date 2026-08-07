@@ -85,7 +85,7 @@ export default async function CaseDetailsPage(
   const activeTab = searchParams.tab === "provider-team" && isProviderTeam ? "provider-team" : "overview";
 
   if (activeTab === "provider-team" && !negotiationCase.ownerUserId) {
-    // Atomic claim guarded on ownerUserId: null in the WHERE clause — if two
+    // Atomic claim guarded on ownerUserId: null in the WHERE clause - if two
     // requests race (e.g. a double-click on "Treat"), only one updateMany
     // matches and only one "Claimed by Provider Team" entry gets created.
     const claim = await prisma.negotiationCase.updateMany({
@@ -117,8 +117,8 @@ export default async function CaseDetailsPage(
     : Date.now() - negotiationCase.loggedAt.getTime();
 
   // CANCELLED is excluded on purpose: it's reachable only through the Cancel
-  // Request form below, which requires a reason. Offering it here — where the
-  // note is optional — is exactly the silent disappearance that form prevents.
+  // Request form below, which requires a reason. Offering it here - where the
+  // note is optional - is exactly the silent disappearance that form prevents.
   const allowedNext = STATUS_TRANSITIONS[negotiationCase.status as CaseStatus].filter((s) => s !== "CANCELLED");
   const canCancel = STATUS_TRANSITIONS[negotiationCase.status as CaseStatus].includes("CANCELLED");
   // Cancelling closes the whole request, so say how many services that is.
@@ -202,13 +202,13 @@ export default async function CaseDetailsPage(
             <CardHeader title="At a Glance" />
             <dl className="grid grid-cols-2 gap-4 px-5 py-4">
               <Detail label="Provider" value={negotiationCase.providerName} />
-              <Detail label="Provider Code" value={negotiationCase.providerCode ?? "—"} />
-              <Detail label="Provider ID" value={negotiationCase.providerId ?? "—"} />
-              <Detail label="Provider Email" icon={<MailIcon className="h-4 w-4" />} value={negotiationCase.providerEmail ?? "—"} />
-              <Detail label="Provider Phone" icon={<PhoneIcon className="h-4 w-4" />} value={negotiationCase.providerPhone ?? "—"} />
+              <Detail label="Provider Code" value={negotiationCase.providerCode ?? "-"} />
+              <Detail label="Provider ID" value={negotiationCase.providerId ?? "-"} />
+              <Detail label="Provider Email" icon={<MailIcon className="h-4 w-4" />} value={negotiationCase.providerEmail ?? "-"} />
+              <Detail label="Provider Phone" icon={<PhoneIcon className="h-4 w-4" />} value={negotiationCase.providerPhone ?? "-"} />
               {negotiationCase.enrolleeName !== "N/A" && <Detail label="Member Full Name" value={negotiationCase.enrolleeName} />}
-              <Detail label="Company" value={negotiationCase.enrolleeCompany ?? "—"} />
-              <Detail label="Scheme / Plan" value={negotiationCase.enrolleeScheme ?? "—"} />
+              <Detail label="Company" value={negotiationCase.enrolleeCompany ?? "-"} />
+              <Detail label="Scheme / Plan" value={negotiationCase.enrolleeScheme ?? "-"} />
               {negotiationCase.caseType === "PROVIDER_MANAGEMENT" ? (
                 <>
                   <Detail
@@ -279,13 +279,13 @@ export default async function CaseDetailsPage(
 
           {/* The Provider Team treats one service at a time (each is its own
               case with its own price and status), but they need to see the
-              rest of the visit to review it as a whole — without this, only
+              rest of the visit to review it as a whole - without this, only
               the service they happened to open was visible here. */}
           {sequence?.isMulti && (
             <Card>
               <CardHeader
                 title="Services in This Request"
-                subtitle={`Step ${sequence.step} of ${sequence.total} — ${sequence.resolvedCount} settled, each priced separately`}
+                subtitle={`Step ${sequence.step} of ${sequence.total} - ${sequence.resolvedCount} settled, each priced separately`}
                 icon={<QueueIcon className="h-[18px] w-[18px]" />}
               />
               <ol className="divide-y divide-line-subtle">
@@ -298,7 +298,7 @@ export default async function CaseDetailsPage(
                       className={`flex items-start gap-3 px-5 py-3.5 ${isCurrent ? "bg-accent-50/60" : ""}`}
                     >
                       {/* Numbered so "which of these am I on" is answerable at a
-                          glance — the old flat list of siblings gave no order and
+                          glance - the old flat list of siblings gave no order and
                           hid the current service entirely. */}
                       <span
                         className={`mt-0.5 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
@@ -398,7 +398,7 @@ export default async function CaseDetailsPage(
                         className={inputClass}
                       />
                     </Field>
-                    <Field label="Tariff Effective Date" hint="Required to mark Completed — when this price takes effect on Prognosis">
+                    <Field label="Tariff Effective Date" hint="Required to mark Completed - when this price takes effect on Prognosis">
                       <input
                         name="effectiveDate"
                         type="date"
@@ -410,7 +410,7 @@ export default async function CaseDetailsPage(
                     </Field>
                     <Field
                       label="Tariff End Date"
-                      hint="Optional — leave blank for no end date. Prognosis keeps a price active until a new price is pushed, so a date here is recorded on the case as the team's cue to action it when due."
+                      hint="Optional - leave blank for no end date. Prognosis keeps a price active until a new price is pushed, so a date here is recorded on the case as the team's cue to action it when due."
                     >
                       <input
                         name="endDate"
@@ -432,7 +432,7 @@ export default async function CaseDetailsPage(
                 <Field label="Update Note">
                   <textarea name="note" rows={2} className={inputClass} placeholder="What changed and why" />
                 </Field>
-                <SubmitButton className="w-full" pendingLabel="Saving…">
+                <SubmitButton className="w-full" pendingLabel="Saving...">
                   Save Update
                 </SubmitButton>
               </form>
@@ -460,13 +460,13 @@ export default async function CaseDetailsPage(
                   {negotiationCase.tariffEndDate.getTime() <= Date.now() ? (
                     <form action={revertTariffNow}>
                       <input type="hidden" name="caseId" value={negotiationCase.id} />
-                      <SubmitButton className="w-full" pendingLabel="Reverting…">
+                      <SubmitButton className="w-full" pendingLabel="Reverting...">
                         Revert to {formatCurrency(negotiationCase.currentTariff.toString())} now
                       </SubmitButton>
                     </form>
                   ) : (
                     <p className="rounded-lg bg-surface-muted px-3 py-2.5 text-[12px] font-semibold text-navy-700">
-                      Not due yet — the revert button appears here on the end date, and the daily revert task (if
+                      Not due yet - the revert button appears here on the end date, and the daily revert task (if
                       configured) handles it automatically.
                     </p>
                   )}
@@ -484,7 +484,7 @@ export default async function CaseDetailsPage(
               <form action={cancelCase} className="space-y-4 px-5 py-4">
                 <input type="hidden" name="caseId" value={negotiationCase.id} />
                 <p className="text-[12px] leading-relaxed text-navy-600">
-                  Use this when the request shouldn&apos;t proceed at all — logged in error, a duplicate, the provider
+                  Use this when the request shouldn&apos;t proceed at all - logged in error, a duplicate, the provider
                   withdrew it, or the enrollee is no longer at the facility. Your reason is shown to the Contact Centre
                   on the case.
                 </p>
@@ -495,7 +495,7 @@ export default async function CaseDetailsPage(
                   {relatedCases.some((c) => c.status === "COMPLETED") &&
                     " Services already completed keep their agreed tariff."}
                 </p>
-                <Field label="Reason for cancelling" required hint="At least 10 characters — the Contact Centre sees this">
+                <Field label="Reason for cancelling" required hint="At least 10 characters - the Contact Centre sees this">
                   <textarea
                     name="cancellationReason"
                     rows={3}
@@ -506,7 +506,7 @@ export default async function CaseDetailsPage(
                     placeholder="e.g. Duplicate of TN-2026-0117 logged earlier the same day"
                   />
                 </Field>
-                <SubmitButton className="w-full" variant="danger" pendingLabel="Cancelling…">
+                <SubmitButton className="w-full" variant="danger" pendingLabel="Cancelling...">
                   Cancel This Request
                 </SubmitButton>
               </form>
@@ -556,10 +556,10 @@ export default async function CaseDetailsPage(
                 {negotiationCase.enrolleeName !== "N/A" && (
                   <Detail label="Enrollee" icon={<UserIcon className="h-4 w-4" />} value={`${negotiationCase.enrolleeName}${negotiationCase.enrolleeId ? ` (${negotiationCase.enrolleeId})` : ""}`} />
                 )}
-                <Detail label="Provider Email" icon={<MailIcon className="h-4 w-4" />} value={negotiationCase.providerEmail ?? "—"} />
-                <Detail label="Provider Phone" icon={<PhoneIcon className="h-4 w-4" />} value={negotiationCase.providerPhone ?? "—"} />
-                <Detail label="Company / Scheme" icon={<BuildingIcon className="h-4 w-4" />} value={[negotiationCase.enrolleeCompany, negotiationCase.enrolleeScheme].filter(Boolean).join(" · ") || "—"} />
-                <Detail label="Age" icon={<UserIcon className="h-4 w-4" />} value={negotiationCase.enrolleeAge ?? "—"} />
+                <Detail label="Provider Email" icon={<MailIcon className="h-4 w-4" />} value={negotiationCase.providerEmail ?? "-"} />
+                <Detail label="Provider Phone" icon={<PhoneIcon className="h-4 w-4" />} value={negotiationCase.providerPhone ?? "-"} />
+                <Detail label="Company / Scheme" icon={<BuildingIcon className="h-4 w-4" />} value={[negotiationCase.enrolleeCompany, negotiationCase.enrolleeScheme].filter(Boolean).join(" · ") || "-"} />
+                <Detail label="Age" icon={<UserIcon className="h-4 w-4" />} value={negotiationCase.enrolleeAge ?? "-"} />
                 {negotiationCase.caseType === "PROVIDER_MANAGEMENT" ? (
                   <>
                     <Detail
@@ -601,7 +601,7 @@ export default async function CaseDetailsPage(
                     <Detail
                       icon={<NairaIcon className="h-4 w-4" />}
                       label={negotiationCase.requestType === "NEW_SERVICE" ? "Current Tariff (not priced on this provider)" : "Current Tariff"}
-                      value={negotiationCase.requestType === "NEW_SERVICE" ? "—" : formatCurrency(negotiationCase.currentTariff.toString())}
+                      value={negotiationCase.requestType === "NEW_SERVICE" ? "-" : formatCurrency(negotiationCase.currentTariff.toString())}
                     />
                     <Detail
                       icon={<NairaIcon className="h-4 w-4" />}
@@ -618,8 +618,8 @@ export default async function CaseDetailsPage(
                     />
                   </>
                 )}
-                <Detail label="Enrollee Email" icon={<MailIcon className="h-4 w-4" />} value={negotiationCase.enrolleeEmail ?? "—"} />
-                <Detail label="Enrollee Phone" icon={<PhoneIcon className="h-4 w-4" />} value={negotiationCase.enrolleePhone ?? "—"} />
+                <Detail label="Enrollee Email" icon={<MailIcon className="h-4 w-4" />} value={negotiationCase.enrolleeEmail ?? "-"} />
+                <Detail label="Enrollee Phone" icon={<PhoneIcon className="h-4 w-4" />} value={negotiationCase.enrolleePhone ?? "-"} />
                 <Detail label="Logged By" icon={<UserIcon className="h-4 w-4" />} value={negotiationCase.loggedBy.displayName ?? negotiationCase.loggedBy.prognosisUsername} />
                 <Detail label="Handled By" icon={<UsersIcon className="h-4 w-4" />} value={negotiationCase.owner?.displayName ?? negotiationCase.owner?.prognosisUsername ?? "Unclaimed"} />
                 <Detail
@@ -644,8 +644,8 @@ export default async function CaseDetailsPage(
                     icon={<ClockIcon className="h-4 w-4" />}
                     value={
                       negotiationCase.tariffRevertPushedAt
-                        ? `${negotiationCase.tariffEndDate.toISOString().slice(0, 10)} — price reversion already pushed to Prognosis`
-                        : `${negotiationCase.tariffEndDate.toISOString().slice(0, 10)} — price must be reverted or updated on this date (Prognosis won't end it automatically)`
+                        ? `${negotiationCase.tariffEndDate.toISOString().slice(0, 10)} - price reversion already pushed to Prognosis`
+                        : `${negotiationCase.tariffEndDate.toISOString().slice(0, 10)} - price must be reverted or updated on this date (Prognosis won't end it automatically)`
                     }
                   />
                 )}
@@ -662,8 +662,8 @@ export default async function CaseDetailsPage(
               <CardHeader title="Add Note" />
               <form action={addNote} className="flex gap-3 px-5 py-4">
                 <input type="hidden" name="caseId" value={negotiationCase.id} />
-                <input name="note" placeholder="Add an internal note…" className={inputClass} />
-                <SubmitButton variant="secondary" pendingLabel="Adding…">
+                <input name="note" placeholder="Add an internal note..." className={inputClass} />
+                <SubmitButton variant="secondary" pendingLabel="Adding...">
                   Add
                 </SubmitButton>
               </form>
@@ -753,12 +753,12 @@ export default async function CaseDetailsPage(
                         </p>
                         {n.errorMessage && <p className="mt-1 text-[11px] text-brand-600">{n.errorMessage}</p>}
                         {/* Only meaningful for SMS. "Sent" means the gateway
-                            accepted it, not that the handset received it — if
+                            accepted it, not that the handset received it - if
                             the member says it never arrived, this is the
                             reference Prognosis needs to trace it. */}
                         {n.providerReference && (
                           <p className="mt-1 text-[11px] text-ink-400">
-                            Gateway ticket <span className="font-semibold text-ink-600">{n.providerReference}</span> — accepted by the
+                            Gateway ticket <span className="font-semibold text-ink-600">{n.providerReference}</span> - accepted by the
                             SMS gateway; not a delivery confirmation
                           </p>
                         )}
@@ -789,7 +789,7 @@ function Detail({
 }) {
   return (
     <div className={`flex gap-2.5 ${full ? "sm:col-span-2" : ""}`}>
-      {/* Icons are a scanning aid only — the label always carries the meaning,
+      {/* Icons are a scanning aid only - the label always carries the meaning,
        * so a field without a natural icon simply indents to align with the rest. */}
       <span className="mt-0.5 w-4 flex-shrink-0 text-navy-400">{icon}</span>
       <div className="min-w-0">

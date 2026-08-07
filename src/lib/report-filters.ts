@@ -16,8 +16,8 @@ const STATUS_VALUES = new Set<string>(Object.values(CaseStatus));
 const CASE_TYPE_VALUES = new Set<string>(Object.values(CaseType));
 
 /** Only the exact shape a date input produces. These reach a
- * Content-Disposition filename in the export routes, so anything else — an
- * attempt at header splitting, or just a stray quote — is dropped rather than
+ * Content-Disposition filename in the export routes, so anything else - an
+ * attempt at header splitting, or just a stray quote - is dropped rather than
  * interpolated. */
 const DATE_PARAM = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -35,7 +35,7 @@ export interface ReportFilters {
   urgency: Urgency[];
   status: CaseStatus[];
   where: Prisma.NegotiationCaseWhereInput | undefined;
-  /** True when nothing is narrowing the report — used to label totals. */
+  /** True when nothing is narrowing the report - used to label totals. */
   isUnfiltered: boolean;
 }
 
@@ -49,7 +49,7 @@ export function parseReportFilters(params: URLSearchParams): ReportFilters {
   if (from) loggedAt.gte = new Date(new Date(`${from}T00:00:00.000Z`).getTime() - LAGOS_OFFSET_MS);
   if (to) loggedAt.lte = new Date(new Date(`${to}T23:59:59.999Z`).getTime() - LAGOS_OFFSET_MS);
 
-  // Validated against the actual enum members rather than trusted as-is — an
+  // Validated against the actual enum members rather than trusted as-is - an
   // unrecognised value is dropped instead of reaching Prisma.
   const urgency = params.getAll("urgency").filter((v): v is Urgency => URGENCY_VALUES.has(v));
   const status = params.getAll("status").filter((v): v is CaseStatus => STATUS_VALUES.has(v));
@@ -90,7 +90,7 @@ export function filtersToQuery(f: ReportFilters, extra: Record<string, string> =
 }
 
 /** Human-readable description of the active filters, for an export's header
- * row and the PDF title block — a downloaded file should say what it covers. */
+ * row and the PDF title block - a downloaded file should say what it covers. */
 export function describeFilters(f: ReportFilters): string {
   const parts: string[] = [];
   if (f.from || f.to) {
