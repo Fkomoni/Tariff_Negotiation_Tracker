@@ -33,6 +33,8 @@ export function ServiceTariffFields({ providerCode }: { providerCode: string }) 
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [searchedNoMatch, setSearchedNoMatch] = useState(false);
+  // A failed tariff lookup must read as an error, not as "no such item".
+  const [searchError, setSearchError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   // Compares values rather than consuming a one-shot flag, so this stays
   // correct even if React re-runs the effect more than once (e.g. Strict
@@ -47,6 +49,7 @@ export function ServiceTariffFields({ providerCode }: { providerCode: string }) 
   const [treatmentOpen, setTreatmentOpen] = useState(false);
   const [treatmentLoading, setTreatmentLoading] = useState(false);
   const [treatmentSearchedNoMatch, setTreatmentSearchedNoMatch] = useState(false);
+  const [treatmentSearchError, setTreatmentSearchError] = useState<string | null>(null);
   const treatmentContainerRef = useRef<HTMLDivElement>(null);
   const confirmedTreatmentNameRef = useRef("");
 
@@ -71,12 +74,20 @@ export function ServiceTariffFields({ providerCode }: { providerCode: string }) 
     if (query.trim().length < 2) {
       setResults([]);
       setSearchedNoMatch(false);
+      setSearchError(null);
       return;
     }
     const handle = setTimeout(async () => {
       setLoading(true);
+      setSearchError(null);
       try {
         const res = await fetch(`/api/tariffs?providerCode=${encodeURIComponent(providerCode)}&q=${encodeURIComponent(query)}`);
+        if (!res.ok) {
+          setResults([]);
+          setSearchedNoMatch(false);
+          setSearchError("Couldn't load this provider's tariff just now. Check your connection and try again in a moment.");
+          return;
+        }
         const data = await res.json();
         const found = data.results ?? [];
         setResults(found);
@@ -84,6 +95,8 @@ export function ServiceTariffFields({ providerCode }: { providerCode: string }) 
         setOpen(true);
       } catch {
         setResults([]);
+        setSearchedNoMatch(false);
+        setSearchError("Couldn't load this provider's tariff just now. Check your connection and try again in a moment.");
       } finally {
         setLoading(false);
       }
@@ -102,12 +115,21 @@ export function ServiceTariffFields({ providerCode }: { providerCode: string }) 
     if (treatmentQuery.trim().length < 2) {
       setTreatmentResults([]);
       setTreatmentSearchedNoMatch(false);
+      setTreatmentSearchError(null);
       return;
     }
     const handle = setTimeout(async () => {
       setTreatmentLoading(true);
+      setTreatmentSearchError(null);
       try {
         const res = await fetch(`/api/treatments?q=${encodeURIComponent(treatmentQuery)}`);
+        if (!res.ok) {
+          setTreatmentResults([]);
+          setTreatmentTotalMatches(0);
+          setTreatmentSearchedNoMatch(false);
+          setTreatmentSearchError("Couldn't search the treatment catalog just now. Check your connection and try again in a moment.");
+          return;
+        }
         const data = await res.json();
         const found = data.results ?? [];
         setTreatmentResults(found);
@@ -117,6 +139,8 @@ export function ServiceTariffFields({ providerCode }: { providerCode: string }) 
       } catch {
         setTreatmentResults([]);
         setTreatmentTotalMatches(0);
+        setTreatmentSearchedNoMatch(false);
+        setTreatmentSearchError("Couldn't search the treatment catalog just now. Check your connection and try again in a moment.");
       } finally {
         setTreatmentLoading(false);
       }
@@ -271,6 +295,7 @@ export function ServiceTariffFields({ providerCode }: { providerCode: string }) 
                   genuinely isn&apos;t priced yet.
                 </p>
               )}
+              {searchError && <p className="mt-1.5 text-[11px] font-medium text-brand-600">{searchError}</p>}
             </div>
           </Field>
 
@@ -350,6 +375,9 @@ export function ServiceTariffFields({ providerCode }: { providerCode: string }) 
                 <p className="mt-1.5 text-[11px] text-ink-400">
                   No matching procedure found in Prognosis's treatment catalog.
                 </p>
+              )}
+              {treatmentSearchError && (
+                <p className="mt-1.5 text-[11px] font-medium text-brand-600">{treatmentSearchError}</p>
               )}
               {!treatmentLoading && treatmentTotalMatches > treatmentResults.length && (
                 <p className="mt-1.5 text-[11px] text-ink-400">

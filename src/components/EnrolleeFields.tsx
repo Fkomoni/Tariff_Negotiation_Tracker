@@ -43,6 +43,9 @@ export function EnrolleeFields({ initial, required = true }: { initial?: Enrolle
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [searchedNoMatch, setSearchedNoMatch] = useState(false);
+  // Distinguishes a failed lookup from a genuine no-match, so a Prognosis or
+  // network outage doesn't silently read as "this enrollee doesn't exist".
+  const [searchError, setSearchError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   // Compares values rather than consuming a one-shot flag, so this stays
   // correct even if React re-runs the effect more than once (e.g. Strict
@@ -56,12 +59,24 @@ export function EnrolleeFields({ initial, required = true }: { initial?: Enrolle
     if (query.trim().length < 3) {
       setResults([]);
       setSearchedNoMatch(false);
+      setSearchError(null);
       return;
     }
     const handle = setTimeout(async () => {
       setLoading(true);
+      setSearchError(null);
       try {
         const res = await fetch(`/api/enrollees?q=${encodeURIComponent(query)}`);
+        if (!res.ok) {
+          setResults([]);
+          setSearchedNoMatch(false);
+          setSearchError(
+            res.status === 429
+              ? "Too many searches in a row. Wait a moment and try again."
+              : "Couldn't search Prognosis just now. Check your connection and try again in a moment."
+          );
+          return;
+        }
         const data = await res.json();
         const found = data.results ?? [];
         setResults(found);
@@ -69,6 +84,8 @@ export function EnrolleeFields({ initial, required = true }: { initial?: Enrolle
         setOpen(true);
       } catch {
         setResults([]);
+        setSearchedNoMatch(false);
+        setSearchError("Couldn't search Prognosis just now. Check your connection and try again in a moment.");
       } finally {
         setLoading(false);
       }
@@ -225,6 +242,7 @@ export function EnrolleeFields({ initial, required = true }: { initial?: Enrolle
               No match found in Prognosis - you can still log this case with the name typed above.
             </p>
           )}
+          {searchError && <p className="mt-1.5 text-[11px] font-medium text-brand-600">{searchError}</p>}
         </div>
       </Field>
 

@@ -40,6 +40,10 @@ export function ProviderFields({
   const [results, setResults] = useState<ProviderResult[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  // A failed search must read as an error, not as an empty result set that
+  // looks like "no such provider" - otherwise a Prognosis/network outage
+  // silently looks like the provider doesn't exist.
+  const [searchError, setSearchError] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   // Tracks the query value that's already "confirmed" (from a selection or
   // initial prefill) so the search effect can skip it - comparing values is
@@ -53,17 +57,25 @@ export function ProviderFields({
     }
     if (query.trim().length < 2) {
       setResults([]);
+      setSearchError(null);
       return;
     }
     const handle = setTimeout(async () => {
       setLoading(true);
+      setSearchError(null);
       try {
         const res = await fetch(`/api/providers?q=${encodeURIComponent(query)}`);
+        if (!res.ok) {
+          setResults([]);
+          setSearchError("Couldn't search providers just now. Check your connection and try again in a moment.");
+          return;
+        }
         const data = await res.json();
         setResults(data.results ?? []);
         setOpen(true);
       } catch {
         setResults([]);
+        setSearchError("Couldn't search providers just now. Check your connection and try again in a moment.");
       } finally {
         setLoading(false);
       }
@@ -148,6 +160,7 @@ export function ProviderFields({
               ))}
             </div>
           )}
+          {searchError && <p className="mt-1.5 text-[11px] font-medium text-brand-600">{searchError}</p>}
         </div>
       </Field>
 
