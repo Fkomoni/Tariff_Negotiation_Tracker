@@ -403,13 +403,16 @@ export async function createCase(_prevState: CreateCaseState | null, formData: F
   // and texted the same person twice about the same visit.
   const first = createdCases[0];
 
+  // Surfaced in the toast so an unsent member notification isn't silent behind
+  // a "logged successfully".
+  let notifyProblem = "";
   if (isProviderManagement) {
     await prisma.caseUpdate.create({
       data: {
         caseId: first.id,
         userId: session.user.id,
         type: "NOTE",
-        note: "Provider Management request — no member notification applicable.",
+        note: "Provider Management request: no member notification applicable.",
       },
     });
   } else {
@@ -437,6 +440,10 @@ export async function createCase(_prevState: CreateCaseState | null, formData: F
         sentByUserId: session.user.id,
       });
       note = `Member auto-notified once for all ${serviceCount} in this submission (${autoTemplate.toLowerCase()} template): ${results.join(", ")}`;
+      const failed = results.filter((r) => /fail/i.test(r));
+      if (failed.length > 0) {
+        notifyProblem = ` The member could not be notified automatically. ${failed.join(". ")}. Please contact the member directly.`;
+      }
     } else {
       note = "Member not auto-notified: no email or phone number on file.";
     }
@@ -460,7 +467,10 @@ export async function createCase(_prevState: CreateCaseState | null, formData: F
     createdCases.length > 1
       ? `${createdCases.length} cases logged successfully (${createdCases.map((c) => c.caseNumber).join(", ")}).`
       : `Case ${first.caseNumber} logged successfully.`;
-  redirectWithToast(`/negotiations/${first.id}`, { type: "success", message });
+  redirectWithToast(`/negotiations/${first.id}`, {
+    type: notifyProblem ? "error" : "success",
+    message: message + notifyProblem,
+  });
 }
 
 const updateStatusSchema = z.object({
@@ -567,8 +577,18 @@ export async function updateCaseStatus(formData: FormData) {
     },
   });
 
+  // Collected so the outcome of the Prognosis push is surfaced in the toast
+  // the Provider Team sees at submit time, not left only on the timeline. A
+  // completing tariff push that fails or lands unverified must NOT show as a
+  // plain green "Completed".
+  const pushProblems: string[] = [];
+  let pushedVerified = 0;
+  let attemptedTariffPush = false;
+
   if (isTariffCase && data.status === "COMPLETED" && data.finalAgreedAmount) {
+    attemptedTariffPush = true;
     if (!existing.providerId) {
+      pushProblems.push("no provider ID on record, so the price was not sent to Prognosis");
       await prisma.caseUpdate.create({
         data: {
           caseId: data.caseId,
@@ -578,6 +598,7 @@ export async function updateCaseStatus(formData: FormData) {
         },
       });
     } else if (!existing.serviceCode) {
+      pushProblems.push("no procedure code on record, so the price was not sent to Prognosis");
       await prisma.caseUpdate.create({
         data: {
           caseId: data.caseId,
@@ -681,8 +702,15 @@ export async function updateCaseStatus(formData: FormData) {
             },
           });
           console.error(
-            `[case-actions] tariff review push for provider ${existing.providerId}: ${c.serviceCode} — ${baseVerified ? "verified on tariff" : "NOT visible on tariff (Success without effect)"}`
+            `[case-actions] tariff review push for provider ${existing.providerId}: ${c.serviceCode}: ${baseVerified ? "verified on tariff" : "NOT visible on tariff (Success without effect)"}`
           );
+          if (baseVerified) {
+            pushedVerified++;
+          } else {
+            pushProblems.push(
+              `${c.serviceCode}: Prognosis reported success but the new price did not appear on its tariff, so treat it as not applied`
+            );
+          }
 
           // Try to set up the return-to-old-price in the same breath: push the
           // previous price future-dated to the end date. Prognosis silently
@@ -752,6 +780,7 @@ export async function updateCaseStatus(formData: FormData) {
           }
         } catch (err) {
           const message = err instanceof Error ? err.message : "Unknown error";
+          pushProblems.push(`${c.serviceCode}: push failed (${message})`);
           await prisma.caseUpdate.create({
             data: {
               caseId: c.id,
@@ -771,9 +800,23 @@ export async function updateCaseStatus(formData: FormData) {
   revalidatePath("/negotiations/completed");
   revalidatePath("/dashboard");
 
+  // Turn the push outcome into the tone and tail of the toast. Any problem
+  // makes the whole toast an error (red, and it stays until dismissed) so a
+  // failed or unverified price push can't hide behind a green "Completed".
+  let statusTone: "success" | "error" = "success";
+  let pushNote = "";
+  if (attemptedTariffPush) {
+    if (pushProblems.length > 0) {
+      statusTone = "error";
+      pushNote = ` Price update needs attention. ${pushProblems.join(". ")}. Full details are on the case timeline.`;
+    } else if (pushedVerified > 0) {
+      pushNote = ` Price sent to Prognosis and confirmed on the tariff.`;
+    }
+  }
+
   // Multi-service requests are priced one service at a time, so once this one
   // is settled hand the team straight to the next unpriced service instead of
-  // making them go back to the queue and find it. Only on a settling status —
+  // making them go back to the queue and find it. Only on a settling status;
   // an intermediate change (say Negotiating) means they're still on this one.
   const settled = CLOSED_STATUSES.includes(data.status);
   const sequence = settled ? await getRequestSequence(data.caseId) : null;
@@ -782,19 +825,22 @@ export async function updateCaseStatus(formData: FormData) {
     revalidatePath(`/negotiations/${sequence.services[0].id}`);
     if (sequence.nextService) {
       redirectWithToast(`/negotiations/${sequence.nextService.id}?tab=provider-team`, {
-        type: "success",
+        type: statusTone,
         message: `${CASE_STATUS_LABELS[data.status]}. Next: ${sequence.nextService.requestedItem} (${
           sequence.resolvedCount + 1
-        } of ${sequence.total}).`,
+        } of ${sequence.total}).${pushNote}`,
       });
     }
     redirectWithToast(`/negotiations/${data.caseId}`, {
-      type: "success",
-      message: `${CASE_STATUS_LABELS[data.status]}. All ${sequence.total} services in this request are now settled.`,
+      type: statusTone,
+      message: `${CASE_STATUS_LABELS[data.status]}. All ${sequence.total} services in this request are now settled.${pushNote}`,
     });
   }
 
-  redirectWithToast(`/negotiations/${data.caseId}`, { type: "success", message: `Status updated to ${CASE_STATUS_LABELS[data.status]}.` });
+  redirectWithToast(`/negotiations/${data.caseId}`, {
+    type: statusTone,
+    message: `Status updated to ${CASE_STATUS_LABELS[data.status]}.${pushNote}`,
+  });
 }
 
 /**

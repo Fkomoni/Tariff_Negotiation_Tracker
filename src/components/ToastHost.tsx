@@ -33,7 +33,10 @@ function ToastHostInner() {
   }, [searchParams]);
 
   useEffect(() => {
-    if (!toast) return;
+    // Success messages auto-dismiss; error messages stay until the user
+    // dismisses them, so a failure (a tariff push that didn't land, an
+    // unsent member notification) can't scroll past in 5 seconds unseen.
+    if (!toast || toast.type !== "success") return;
     const timer = setTimeout(() => setToast(null), AUTO_DISMISS_MS);
     return () => clearTimeout(timer);
   }, [toast]);
