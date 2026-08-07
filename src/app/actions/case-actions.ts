@@ -690,12 +690,14 @@ export async function updateCaseStatus(formData: FormData) {
             data: { tariffPushedAt: new Date() },
           });
 
-          // Whether the end date can be actioned automatically. A brand-new
-          // service has no old price to return to (currentTariff is 0), and
-          // pushing ₦0 could zero-rate it - those stay manual by design.
+          // Whether the end date can be actioned automatically. For an
+          // existing-tariff update we schedule the return to the captured
+          // former price whatever it is, INCLUDING ₦0 - on this provider much
+          // of the catalog is legitimately priced 0, so "revert to 0" is the
+          // real former state, not a mistake. Only a brand-new service (which
+          // never had a former price) is excluded and left as a manual note.
           const oldPrice = Number(c.currentTariff);
-          const canScheduleRevert =
-            !!c.tariffEndDate && c.requestType === "EXISTING_TARIFF_UPDATE" && oldPrice > 0;
+          const canScheduleRevert = !!c.tariffEndDate && c.requestType === "EXISTING_TARIFF_UPDATE";
 
           await prisma.caseUpdate.create({
             data: {
@@ -705,7 +707,7 @@ export async function updateCaseStatus(formData: FormData) {
               note: baseVerified
                 ? `Tariff review submitted to Prognosis: ${c.serviceCode} → ${c.finalAgreedAmount}. Tariff schedule: ${tariffScheduleName || "none found - sent blank"}. Confirmed: the new price appears on the provider's tariff.${
                     c.tariffEndDate && !canScheduleRevert
-                      ? ` Intended end date: ${c.tariffEndDate.toISOString().slice(0, 10)} - no previous price exists to revert to (new service or zero current tariff), so ending this price needs a manual decision when it falls due.`
+                      ? ` Intended end date: ${c.tariffEndDate.toISOString().slice(0, 10)} - this is a new service with no former price to revert to, so ending it needs a manual decision when the date falls due.`
                       : ""
                   }`
                 : `Tariff review submitted to Prognosis: ${c.serviceCode} → ${c.finalAgreedAmount}. WARNING: Prognosis answered Success but the new price did NOT appear on this provider's tariff in its response - likely the procedure code doesn't exactly match the provider's line key upstream. Treat this price as NOT applied and escalate to the Prognosis team with procedure code "${c.serviceCode}" and provider ID ${c.providerId}.${
@@ -879,11 +881,13 @@ export async function revertTariffNow(formData: FormData) {
   }
 
   const oldPrice = Number(c.currentTariff);
+  // Note: a former price of 0 is allowed - on this provider 0 is a real
+  // "covered" default, so reverting to it is valid. Only a new service (no
+  // former price at all) is excluded.
   if (
     !c.tariffEndDate ||
     c.tariffRevertPushedAt ||
     c.requestType !== "EXISTING_TARIFF_UPDATE" ||
-    oldPrice <= 0 ||
     !c.providerId ||
     !c.serviceCode
   ) {

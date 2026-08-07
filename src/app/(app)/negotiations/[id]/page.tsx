@@ -442,8 +442,7 @@ export default async function CaseDetailsPage(
           {negotiationCase.status === "COMPLETED" &&
             negotiationCase.tariffEndDate &&
             !negotiationCase.tariffRevertPushedAt &&
-            negotiationCase.requestType === "EXISTING_TARIFF_UPDATE" &&
-            Number(negotiationCase.currentTariff) > 0 && (
+            negotiationCase.requestType === "EXISTING_TARIFF_UPDATE" && (
               <Card className="border-accent-100">
                 <CardHeader
                   title="Price Reversion"

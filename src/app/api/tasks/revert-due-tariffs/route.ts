@@ -51,7 +51,8 @@ export async function POST(req: NextRequest) {
       tariffPushedAt: { not: null },
       providerId: { not: null },
       serviceCode: { not: null },
-      currentTariff: { gt: 0 },
+      // A former price of 0 is included on purpose: on this provider 0 is a
+      // legitimate default, so "revert to 0" is a real reversion, not a no-op.
     },
     include: { owner: true, loggedBy: true },
     orderBy: { tariffEndDate: "asc" },
