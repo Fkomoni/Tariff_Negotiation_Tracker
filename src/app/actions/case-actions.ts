@@ -528,6 +528,18 @@ export async function updateCaseStatus(formData: FormData) {
     });
   }
 
+  // Provider Management requests must be actively progressed: the Provider Team
+  // has to move the status forward before saving or moving on, not save with it
+  // left unchanged. (Tariff cases may save an intermediate update without a
+  // status change; a note-only update on a PM case goes through Add Note.)
+  const isProviderManagement = existing.caseType === "PROVIDER_MANAGEMENT";
+  if (isProviderManagement && data.status === existing.status) {
+    redirectWithToast(`/negotiations/${data.caseId}`, {
+      type: "error",
+      message: "Choose a new status for this provider management request before saving.",
+    });
+  }
+
   const isTariffCase = existing.caseType === "TARIFF_UPDATE";
   if (isTariffCase && data.status === "COMPLETED" && !data.finalAgreedAmount) {
     redirectWithToast(`/negotiations/${data.caseId}`, { type: "error", message: "Final agreed amount is required to mark as Completed" });

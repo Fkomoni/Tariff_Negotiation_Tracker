@@ -277,15 +277,15 @@ export function EnrolleeFields({ initial, required = true }: { initial?: Enrolle
             <input name="enrolleeScheme" className={inputClass} value={scheme} onChange={(e) => setScheme(e.target.value)} />
           </Field>
 
-          <Field label="Age" hint="From Prognosis - editable">
-            <input
-              name="enrolleeAge"
-              type="number"
-              min="0"
-              className={inputClass}
-              value={age}
-              onChange={(e) => setAge(e.target.value)}
-            />
+          {/* Age is read-only: it comes straight from Prognosis and there's no
+              operational reason for staff to change it (unlike phone/email,
+              which must be correctable so a member notification reaches them).
+              The value still submits via the hidden input below. */}
+          <Field label="Age" hint="From Prognosis">
+            <div className={`${inputClass} flex items-center bg-surface-muted text-navy-500`} aria-readonly="true">
+              {age !== "" ? age : "Not on file"}
+            </div>
+            <input type="hidden" name="enrolleeAge" value={age} />
           </Field>
         </>
       )}
