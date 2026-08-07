@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Emit a self-contained server bundle (.next/standalone) so the app can ship
+  // as a small container image that boots with `node server.js` and no full
+  // node_modules. Used by the Dockerfile; `next start` still works locally.
+  output: "standalone",
   experimental: {
     serverActions: {
       bodySizeLimit: "2mb",
