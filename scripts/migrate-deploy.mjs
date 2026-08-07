@@ -4,7 +4,7 @@
  *
  * 1. DIRECT_URL is optional. The schema declares `directUrl = env("DIRECT_URL")`
  *    so migrations can bypass a connection pooler, but Prisma treats a missing
- *    env var referenced in the schema as a hard validation failure (P1012) —
+ *    env var referenced in the schema as a hard validation failure (P1012) -
  *    which meant a deploy could fail outright just because the variable hadn't
  *    been added yet. If it's absent we fall back to DATABASE_URL and say so.
  *
@@ -26,7 +26,7 @@ import { spawn } from "node:child_process";
  *   postgresql://postgres:<pw>@db.<ref>.supabase.co:5432/postgres
  *
  * Deriving it means migrations bypass the pooler without anyone having to set
- * DIRECT_URL by hand — which matters because the pooler's session mode caps at
+ * DIRECT_URL by hand - which matters because the pooler's session mode caps at
  * 15 clients, and the running app holds most of them, so a migration through
  * the pooler can fail no matter how many times it retries.
  *
@@ -86,7 +86,7 @@ if (databaseUrl) {
 }
 
 if (candidates.length === 0) {
-  console.error("[migrate] Neither DIRECT_URL nor DATABASE_URL is set — cannot run migrations.");
+  console.error("[migrate] Neither DIRECT_URL nor DATABASE_URL is set - cannot run migrations.");
   process.exit(1);
 }
 
@@ -95,7 +95,7 @@ function attempt(url) {
     const child = spawn("npx", ["prisma", "migrate", "deploy"], {
       shell: false,
       // Overrides DATABASE_URL rather than setting DIRECT_URL, so the schema
-      // needn't declare a directUrl at all — see prisma/schema.prisma.
+      // needn't declare a directUrl at all - see prisma/schema.prisma.
       env: { ...process.env, DATABASE_URL: url },
     });
     let output = "";
@@ -142,7 +142,7 @@ for (const [index, candidate] of candidates.entries()) {
     }
 
     const waitMs = i * 5000;
-    console.warn(`[migrate] Connection limit hit (attempt ${i}/${MAX_ATTEMPTS}); retrying in ${waitMs / 1000}s…`);
+    console.warn(`[migrate] Connection limit hit (attempt ${i}/${MAX_ATTEMPTS}); retrying in ${waitMs / 1000}s...`);
     await new Promise((r) => setTimeout(r, waitMs));
   }
 }

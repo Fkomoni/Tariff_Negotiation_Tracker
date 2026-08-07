@@ -6,7 +6,7 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // SPARK design system's primary (Crimson) — adopted as this app's
+        // SPARK design system's primary (Crimson) - adopted as this app's
         // brand scale, same shape as before, new hue.
         brand: {
           DEFAULT: "#C8102E",
@@ -21,7 +21,7 @@ const config: Config = {
           800: "#600816",
           900: "#3c050e",
         },
-        // SPARK's accent orange — used for pending/warning emphasis
+        // SPARK's accent orange - used for pending/warning emphasis
         // (stat-card accents, etc.) where Tailwind's built-in amber isn't
         // specific enough to the brand.
         accent: {
@@ -43,7 +43,7 @@ const config: Config = {
           200: "#cbc2cb",
           100: "#e6e0e6",
         },
-        // Structural navy from the design reference — sidebar, login panel,
+        // Structural navy from the design reference - sidebar, login panel,
         // headings. Distinct from the `ink` scale above (a purple-black tuned
         // to the crimson brand); this is the blue-black the new screens use.
         navy: {

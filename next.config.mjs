@@ -8,12 +8,12 @@ const nextConfig = {
   async headers() {
     return [
       {
-        // Applies to every response, including static assets — harmless
+        // Applies to every response, including static assets - harmless
         // there since these headers only constrain how a *page* can be
         // framed/rendered, not how a script/image tag can load it.
         source: "/:path*",
         headers: [
-          // Clickjacking protection for an authenticated staff portal — no
+          // Clickjacking protection for an authenticated staff portal - no
           // legitimate case for this app being embedded in another site's
           // iframe. CSP frame-ancestors is the modern mechanism; X-Frame-
           // Options covers older browsers that don't honor it.
